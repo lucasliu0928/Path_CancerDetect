@@ -1,0 +1,14 @@
+# Ignore Mac system files
+.DS_store
+
+# Ignore __pycache__ folder
+__pycache__/
+
+#Ignore .ipynb_checkpoints/ folder
+.ipynb_checkpoints/
+
+#Ignore sbatch
+*.sh
+
+#Ignore sbatch logs
+*.out
