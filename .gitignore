@@ -5,7 +5,7 @@
 __pycache__/
 
 #Ignore .ipynb_checkpoints/ folder
-.ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
 #Ignore sbatch
 *.sh
