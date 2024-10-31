@@ -52,7 +52,7 @@ save_location2 = cur_wd + 'intermediate_data/cancer_prediction_results102824/til
 save_location3 = cur_wd + 'intermediate_data/cancer_prediction_results102824/cancer_pred_out/'  
 mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
-pixel_overlap = 100  # specify the level of pixel overlap in your saved images
+pixel_overlap = 150  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
 tiff_lvl =2 # low res pyramid level to grab
 save_location4 = save_location3 + str(pixel_overlap) + 'and' + str(tiff_lvl)  # args.save_location
@@ -66,16 +66,20 @@ create_dir_if_not_exists(save_location4)
 create_dir_if_not_exists(save_location6)
 
 
-# cur_id = 'OPX_020'
-# _file = cur_wd + "data/OPX/" + cur_id + ".tif"
-
-# cur_id = '(2017-0133) 15-B_A1-2' 
-# _file = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/' + cur_id + '.svs'
-
-selected_ids = ['OPX_007','OPX_010','OPX_033','OPX_049','OPX_077','OPX_090','OPX_182','OPX_185','OPX_186','OPX_194']
-
+#cohort = "OPX"
+#selected_ids = ['OPX_007','OPX_010','OPX_033','OPX_049','OPX_077','OPX_090','OPX_182','OPX_185','OPX_186','OPX_194']
+cohort = "CCOLA"
+selected_ids = ['(2017-0133) 4-2-B_B1-1.svs', '(2017-0133) 15-B_A1-2.svs', '(2017-0133) 23-B_A1-8.svs' , 
+                '(2017-0133) 25-B_A1-2.svs', '(2017-0133) 28-B_A1-8.svs', '(2017-0133) 32-R_A1-2.svs', 
+                '(2017-0133) 95-3-P_A1-8.svs','(2017-0133) 99-B_A1-8.svs']
+                
 for cur_id in selected_ids:
-    _file = cur_wd + "data/OPX/" + cur_id + ".tif"
+
+    if cohort == "OPX":
+        _file = cur_wd + "data/OPX/" + cur_id + ".tif"
+    elif cohort == "CCOLA":
+        _file = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/' + cur_id + '.svs'
+
     #Load slides
     oslide = openslide.OpenSlide(_file)
     save_name = str(Path(os.path.basename(_file)).with_suffix(''))
