@@ -31,6 +31,8 @@ import warnings
 from scipy import ndimage
 import h5py
 from Utils import *
+from Utils import create_dir_if_not_exists
+from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords
 warnings.filterwarnings("ignore")
 
 
@@ -42,64 +44,6 @@ print("fastai: " + fastai.__version__)
 print("torch: " + torch.__version__)
 print("torchvision: " + torchvision.__version__)
 
-
-def create_dir_if_not_exists(dir_path):
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-        print(f"Directory '{dir_path}' created.")
-    else:
-        print(f"Directory '{dir_path}' already exists.")
-
-
-def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds):
-    # this is physical microns per pixel
-    acq_mag = 10.0/float(slide.properties[openslide.PROPERTY_NAME_MPP_X])
-
-    # this is nearest multiple of 20 for base layer
-    base_mag = int(20 * round(float(acq_mag) / 20))
-
-    # this is how much we need to resample our physical patches for uniformity across studies
-    physSize = round(save_image_size*acq_mag/base_mag)
-
-    # grab tiles accounting for the physical size we need to pull for standardized tile size across studies
-    tiles = DeepZoomGenerator(slide, tile_size=physSize-round(pixel_overlap*acq_mag/base_mag), overlap=round(pixel_overlap*acq_mag/base_mag/2), 
-                              limit_bounds=limit_bounds)
-
-    # calculate the effective magnification at each level of tiles, determined from base magnification
-    tile_lvls = tuple(base_mag/(tiles._l_z_downsamples[i]*tiles._l0_l_downsamples[tiles._slide_from_dz_level[i]]) for i in range(0,tiles.level_count))
-
-    return tiles, tile_lvls, physSize
-
-
-def extract_tile_start_end_coords(all_tile, deepzoom_lvl, x_loc, y_loc):
-    r'''
-    #This func returns the coordiates in the reference level 0 pixels
-    '''
-    #Get coords
-    tile_coords = all_tile.get_tile_coordinates(deepzoom_lvl, (x_loc, y_loc))
-
-    #Get top left pixel coordinates
-    topleft_x = tile_coords[0][0]
-    topleft_y = tile_coords[0][1]
-
-    #Get level (original)
-    o_lvl = tile_coords[1]
-
-    #Get downsample factor
-    ds_factor = all_tile._l0_l_downsamples[o_lvl] #downsample factor
-
-    #Get region size in current level 
-    rsize_x = tile_coords[2][0] 
-    rsize_y = tile_coords[2][1] 
-
-    #Get tile starts and end   
-    start_loc = tile_coords[0] #start
-    end_loc = (int(topleft_x + ds_factor * rsize_x), int(topleft_y + ds_factor* rsize_y)) #end
-
-    #Get save coord name (first two is the starting loc, and the last two are the x and y size considering dsfactor)
-    coord_name = str(topleft_x) + "-" + str(topleft_y) + "_" + '%.0f' % (ds_factor * rsize_x) + "-" + '%.0f' % (ds_factor * rsize_y)
-    
-    return start_loc, end_loc, coord_name, tile_coords
 
 
 cur_wd = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
