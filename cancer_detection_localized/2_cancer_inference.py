@@ -52,15 +52,15 @@ mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
 pixel_overlap = 100  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
-tiff_lvl =2 # low res pyramid level to grab
-ft_model = True
+tiff_lvl = 2 # low res pyramid level to grab
+ft_model = False
 model_path_m = cur_wd + 'models/cancer_detection_models/mets/ft_models/dlv3_2ep_2e4_update-07182023_RT_fine_tuned..pkl'
 model_path_m_prior = cur_wd + 'models/cancer_detection_models/mets/dlv3_2ep_2e4_update-07182023_RT.pkl'
     
 #model_path_l = cur_wd + 'models/cancer_detection_models/local/binary_mblntv3_25ep_lr1e5_wAug_MixUpLS_sz500_bs12_10x.pkl'
 data_mut_path = cur_wd + 'data/MutationCalls/'
-save_location4 = save_location3 + str(pixel_overlap) + 'and' + str(tiff_lvl)  
-save_location6 = save_location2 + str(pixel_overlap) + 'and' + str(tiff_lvl) 
+save_location4 = save_location3 + str(pixel_overlap) + 'and' + str(tiff_lvl) + '/' 
+save_location6 = save_location2 + str(pixel_overlap) + 'and' + str(tiff_lvl) + '/' 
 
 
 create_dir_if_not_exists(save_location)
@@ -77,13 +77,18 @@ create_dir_if_not_exists(save_location4)
 # len(mets_ids)
 # len(local_ids)
 
+selected_ids = ['OPX_002','OPX_011','OPX_014','OPX_016','OPX_042','(2017-0133) 23-B_A1-8' , 
+                '(2017-0133) 25-B_A1-2', '(2017-0133) 28-B_A1-8', '(2017-0133) 32-R_A1-2', 
+                '(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8']
 
-selected_ids = ['OPX_010', 'OPX_015', 'OPX_020',  'OPX_033',  'OPX_049', 'OPX_077', 'OPX_090', 'OPX_182', 'OPX_185', 'OPX_186', 'OPX_194']
 for cur_id in selected_ids:
     print(cur_id)
-    _file = cur_wd + "data/OPX/" + cur_id + ".tif"
-    # cur_id = '(2017-0133) 15-B_A1-2'
-    # _file = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/' + cur_id + '.svs'
+
+    if 'OPX' in cur_id:
+        _file = cur_wd + "data/OPX/" + cur_id + ".tif"
+    elif '(2017-0133)' in cur_id:
+        _file = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/' + cur_id + '.svs'
+
     oslide = openslide.OpenSlide(_file)
     save_name = str(Path(os.path.basename(_file)).with_suffix(''))
     
@@ -113,7 +118,7 @@ for cur_id in selected_ids:
     
     
     #Load tile info 
-    tile_info_df = pd.read_csv(save_location6 + "/" + save_name + ".csv")
+    tile_info_df = pd.read_csv(save_location6 + save_name + ".csv")
     tile_mag_extract = list(set(tile_info_df['MAG_EXTRACT']))[0]
     tile_save_image_size = list(set(tile_info_df['SAVE_IMAGE_SIZE']))[0]
     tile_pixel_overlap = list(set(tile_info_df['PIXEL_OVERLAP']))[0]
@@ -193,7 +198,7 @@ for cur_id in selected_ids:
         tissue, he_mask = do_mask_original(lvl_img,lvl_resize)
 
         #for diff threshold
-        binary_pred_thres_list = [0.7,0.6,0.5,0.4,0.3,0.2,0.1]
+        binary_pred_thres_list = [0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1]
         for binary_pred_thres in binary_pred_thres_list:
             save_location7 = save_location5 + 'TH' + str(binary_pred_thres) + '/' 
             create_dir_if_not_exists(save_location7)
