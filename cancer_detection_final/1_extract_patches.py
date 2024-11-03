@@ -30,9 +30,10 @@ import shapely
 import warnings
 from scipy import ndimage
 import h5py
-from Utils import *
+sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
 from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords
+from Utils import do_mask_original,check_tissue,whitespace_check
 warnings.filterwarnings("ignore")
 
 
@@ -46,54 +47,57 @@ print("torchvision: " + torchvision.__version__)
 
 
 
-cur_wd = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
-save_location = cur_wd + 'intermediate_data/cancer_prediction_results102824/'  
-save_location2 = cur_wd + 'intermediate_data/cancer_prediction_results102824/tiles/'  
-save_location3 = cur_wd + 'intermediate_data/cancer_prediction_results102824/cancer_pred_out/'  
+#USER INPUT 
 mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
 pixel_overlap = 100  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
 tiff_lvl =2 # low res pyramid level to grab
-save_location4 = save_location3 + str(pixel_overlap) + 'and' + str(tiff_lvl) + '/' # args.save_location
-save_location6 = save_location2 + str(pixel_overlap) + 'and' + str(tiff_lvl) + '/' # args.save_location
+
+proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
+wsi_location = proj_dir + "data/OPX/"
+#wsi_location = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/'
+out_location = proj_dir + 'intermediate_data/cancer_prediction_results102824/'
+
+#Create output dir
+create_dir_if_not_exists(out_location)
+save_location_tiles = out_location + 'tiles/'  
+create_dir_if_not_exists(save_location_tiles)
+save_location_pred = out_location + 'cancer_pred_out/'  
+create_dir_if_not_exists(save_location_pred)
+save_location_pred = save_location_pred + str(pixel_overlap) + 'and' + str(tiff_lvl) + "/"
+create_dir_if_not_exists(save_location_pred)
+save_location_tiles = save_location_tiles + str(pixel_overlap) + 'and' + str(tiff_lvl) + "/"
+create_dir_if_not_exists(save_location_tiles)
 
 
-create_dir_if_not_exists(save_location)
-create_dir_if_not_exists(save_location2)
-create_dir_if_not_exists(save_location3)
-create_dir_if_not_exists(save_location4)
-create_dir_if_not_exists(save_location6)
-
-
-#selected_ids = ['OPX_007','OPX_010','OPX_033','OPX_049','OPX_077','OPX_090','OPX_182','OPX_185','OPX_186','OPX_194']
 selected_ids = ['(2017-0133) 23-B_A1-8' , 
                 '(2017-0133) 25-B_A1-2', '(2017-0133) 28-B_A1-8', '(2017-0133) 32-R_A1-2', 
                 '(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8','OPX_002','OPX_011','OPX_014','OPX_016','OPX_042']
-                
+selected_ids = ['OPX_001']
 for cur_id in selected_ids:
 
     if 'OPX' in cur_id:
-        _file = cur_wd + "data/OPX/" + cur_id + ".tif"
+        _file = wsi_location + cur_id + ".tif"
     elif '(2017-0133)' in cur_id:
-        _file = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/' + cur_id + '.svs'
+        _file = wsi_location + cur_id + '.svs'
 
     #Load slides
     oslide = openslide.OpenSlide(_file)
     save_name = str(Path(os.path.basename(_file)).with_suffix(''))
     
-    save_location5 = save_location4  + cur_id + "/" 
-    create_dir_if_not_exists(save_location5)
+    save_location = save_location_pred + "/" + cur_id + "/" 
+    create_dir_if_not_exists(save_location)
     
     #Generate tiles
-    tiles, tile_lvls, physSize = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
+    tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
     
     
     #Get low res image,  intermeadiate level for probability map
     slide_dim = oslide.level_dimensions[tiff_lvl] #slide dim at tiff_lvl
     lvl_resize = oslide.level_downsamples[tiff_lvl] #downsample factor
     lvl_img = oslide.read_region((0, 0), tiff_lvl, slide_dim)
-    lvl_img.save(os.path.join(save_location5 + save_name + '_low-res.png'))
+    lvl_img.save(os.path.join(save_location + save_name + '_low-res.png'))
     
     
     # send to get tissue polygons
@@ -140,5 +144,5 @@ for cur_id in selected_ids:
                                                        'TISSUE_COVERAGE': tile_tiss}, index = [0]))
     
     tile_info_df = pd.concat(tile_info)
-    tile_info_df.to_csv(save_location6 + save_name + ".csv", index = False)
+    tile_info_df.to_csv(save_location_tiles + save_name + ".csv", index = False)
 

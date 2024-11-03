@@ -269,7 +269,7 @@ def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds)
     # calculate the effective magnification at each level of tiles, determined from base magnification
     tile_lvls = tuple(base_mag/(tiles._l_z_downsamples[i]*tiles._l0_l_downsamples[tiles._slide_from_dz_level[i]]) for i in range(0,tiles.level_count))
 
-    return tiles, tile_lvls, physSize
+    return tiles, tile_lvls, physSize, base_mag
 
 
 def extract_tile_start_end_coords(all_tile, deepzoom_lvl, x_loc, y_loc):

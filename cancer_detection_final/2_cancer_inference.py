@@ -28,10 +28,11 @@ import shapely
 import warnings
 from scipy import ndimage
 import h5py
-from Utils import *
+sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
 from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords
 from Utils import get_map_startend
+from Utils import do_mask_original,cancer_mask2,tile_ROIS,slide_ROIS
 warnings.filterwarnings("ignore")
 
 
@@ -44,29 +45,34 @@ print("torch: " + torch.__version__)
 print("torchvision: " + torchvision.__version__)
 
 
-cur_wd = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
-save_location = cur_wd + 'intermediate_data/cancer_prediction_results102824/'  
-save_location2 = cur_wd + 'intermediate_data/cancer_prediction_results102824/tiles/'  
-save_location3 = cur_wd + 'intermediate_data/cancer_prediction_results102824/cancer_pred_out/'  
+#USER INPUT 
 mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
 pixel_overlap = 100  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
-tiff_lvl = 2 # low res pyramid level to grab
-ft_model = False
-model_path_m = cur_wd + 'models/cancer_detection_models/mets/ft_models/dlv3_2ep_2e4_update-07182023_RT_fine_tuned..pkl'
-model_path_m_prior = cur_wd + 'models/cancer_detection_models/mets/dlv3_2ep_2e4_update-07182023_RT.pkl'
-    
-#model_path_l = cur_wd + 'models/cancer_detection_models/local/binary_mblntv3_25ep_lr1e5_wAug_MixUpLS_sz500_bs12_10x.pkl'
-data_mut_path = cur_wd + 'data/MutationCalls/'
-save_location4 = save_location3 + str(pixel_overlap) + 'and' + str(tiff_lvl) + '/' 
-save_location6 = save_location2 + str(pixel_overlap) + 'and' + str(tiff_lvl) + '/' 
+tiff_lvl =2 # low res pyramid level to grab
+ft_model = True
+
+proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
+wsi_location = proj_dir + "data/OPX/"
+#wsi_location = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/'
+out_location = proj_dir + 'intermediate_data/cancer_prediction_results102824/'
+model_path_m = proj_dir + 'models/cancer_detection_models/mets/ft_models/dlv3_2ep_2e4_update-07182023_RT_fine_tuned..pkl' #METS
+model_path_m_prior = proj_dir + 'models/cancer_detection_models/mets/dlv3_2ep_2e4_update-07182023_RT.pkl' #METS before fine-tune
+#model_path_l = proj_dir + 'models/cancer_detection_models/local/binary_mblntv3_25ep_lr1e5_wAug_MixUpLS_sz500_bs12_10x.pkl' #LOCAL
+data_mut_path = proj_dir + 'data/MutationCalls/'
 
 
-create_dir_if_not_exists(save_location)
-create_dir_if_not_exists(save_location2)
-create_dir_if_not_exists(save_location3)
-create_dir_if_not_exists(save_location4)
+#Create output dir
+create_dir_if_not_exists(out_location)
+save_location_tiles = out_location + 'tiles/'  
+create_dir_if_not_exists(save_location_tiles)
+save_location_pred = out_location + 'cancer_pred_out/'  
+create_dir_if_not_exists(save_location_pred)
+save_location_pred = save_location_pred + str(pixel_overlap) + 'and' + str(tiff_lvl) + "/"
+create_dir_if_not_exists(save_location_pred)
+save_location_tiles = save_location_tiles + str(pixel_overlap) + 'and' + str(tiff_lvl) + "/"
+create_dir_if_not_exists(save_location_tiles)
 
 
 # #load mutation site
@@ -77,7 +83,7 @@ create_dir_if_not_exists(save_location4)
 # len(mets_ids)
 # len(local_ids)
 
-selected_ids = ['OPX_002','OPX_011','OPX_014','OPX_016','OPX_042','(2017-0133) 23-B_A1-8' , 
+selected_ids = ['OPX_001','OPX_002','OPX_011','OPX_014','OPX_016','OPX_042','(2017-0133) 23-B_A1-8' , 
                 '(2017-0133) 25-B_A1-2', '(2017-0133) 28-B_A1-8', '(2017-0133) 32-R_A1-2', 
                 '(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8']
 
@@ -85,19 +91,19 @@ for cur_id in selected_ids:
     print(cur_id)
 
     if 'OPX' in cur_id:
-        _file = cur_wd + "data/OPX/" + cur_id + ".tif"
+        _file = wsi_location + cur_id + ".tif"
     elif '(2017-0133)' in cur_id:
-        _file = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/' + cur_id + '.svs'
+        _file = wsi_location + cur_id + '.svs'
 
     oslide = openslide.OpenSlide(_file)
     save_name = str(Path(os.path.basename(_file)).with_suffix(''))
     
-    save_location5 = save_location4 + "/" + cur_id + "/" 
-    create_dir_if_not_exists(save_location5)
+    save_location = save_location_pred + "/" + cur_id + "/" 
+    create_dir_if_not_exists(save_location)
     
     if ft_model == False:
-        save_location5 = save_location5 + "/" + "prior_model" + "/"
-        create_dir_if_not_exists(save_location5)
+        save_location = save_location + "/" + "prior_model" + "/"
+        create_dir_if_not_exists(save_location)
     
     
     #get local or mets
@@ -118,7 +124,7 @@ for cur_id in selected_ids:
     
     
     #Load tile info 
-    tile_info_df = pd.read_csv(save_location6 + save_name + ".csv")
+    tile_info_df = pd.read_csv(save_location_tiles + save_name + ".csv")
     tile_mag_extract = list(set(tile_info_df['MAG_EXTRACT']))[0]
     tile_save_image_size = list(set(tile_info_df['SAVE_IMAGE_SIZE']))[0]
     tile_pixel_overlap = list(set(tile_info_df['PIXEL_OVERLAP']))[0]
@@ -138,7 +144,7 @@ for cur_id in selected_ids:
     print(tile_info_df.shape)
     if can_proceed == True:
         #Generate tiles
-        tiles, tile_lvls, physSize = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
+        tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
         
         #Get low res image,  intermeadiate level for probability map
         slide_dim = oslide.level_dimensions[tiff_lvl] #slide dim at tiff_lvl
@@ -190,7 +196,7 @@ for cur_id in selected_ids:
         rgba_img = cmap(x_map)
         rgb_img = np.delete(rgba_img, 3, 2)
         colimg = PIL.Image.fromarray(np.uint8(rgb_img * 255))
-        colimg.save(os.path.join(save_location5, save_name + '_cancer_prob.jpeg'))
+        colimg.save(os.path.join(save_location, save_name + '_cancer_prob.jpeg'))
         
         # send to get tissue polygons
         print('detecting tissue')
@@ -200,8 +206,8 @@ for cur_id in selected_ids:
         #for diff threshold
         binary_pred_thres_list = [0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1]
         for binary_pred_thres in binary_pred_thres_list:
-            save_location7 = save_location5 + 'TH' + str(binary_pred_thres) + '/' 
-            create_dir_if_not_exists(save_location7)
+            save_location_th = save_location + 'TH' + str(binary_pred_thres) + '/' 
+            create_dir_if_not_exists(save_location_th)
             
             #Binary classification
             binary_preds = cancer_mask2(slideimg,he_mask, binary_pred_thres) 
@@ -209,9 +215,9 @@ for cur_id in selected_ids:
             #Output annotation
             polygons = tile_ROIS(mask_arr=binary_preds, lvl_resize=lvl_resize)
             slide_ROIS(polygons=polygons, mpp=float(oslide.properties[openslide.PROPERTY_NAME_MPP_X]),
-                            savename=os.path.join(save_location7,save_name+'_cancer.json'), labels='AI_tumor', ref=[0,0], roi_color=-16711936)
+                            savename=os.path.join(save_location_th,save_name+'_cancer.json'), labels='AI_tumor', ref=[0,0], roi_color=-16711936)
             slide_ROIS(polygons=tissue, mpp=float(oslide.properties[openslide.PROPERTY_NAME_MPP_X]),
-                            savename=os.path.join(save_location7,save_name+'_tissue.json'), labels='tissue', ref=[0,0], roi_color=-16770432)
+                            savename=os.path.join(save_location_th,save_name+'_tissue.json'), labels='tissue', ref=[0,0], roi_color=-16770432)
             
             
             #Get binary prediction for each tile
@@ -227,7 +233,7 @@ for cur_id in selected_ids:
                 cur_perc1  = (cur_count1 / cur_pred.size)
                 tile_info_df.loc[index,'TUMOR_PIXEL_PERC'] = cur_perc1
             
-            tile_info_df.to_csv(save_location7 + save_name + "_TILE_TUMOR_PERC.csv", index = False)
+            tile_info_df.to_csv(save_location_th + save_name + "_TILE_TUMOR_PERC.csv", index = False)
             
             
             #Grab tiles and plot
@@ -238,5 +244,5 @@ for cur_id in selected_ids:
                 x ,y = int(cur_xy[0]) , int(cur_xy[1])
                 tile_pull_ex = tiles.get_tile(tile_lvls.index(mag_extract), (x, y))
                 tile_pull_ex = tile_pull_ex.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
-                tile_pull_ex.save(os.path.join(save_location7, "EX_TILE"  + str(i) + ".png"))
+                tile_pull_ex.save(os.path.join(save_location_th, "EX_TILE"  + str(i) + ".png"))
 
