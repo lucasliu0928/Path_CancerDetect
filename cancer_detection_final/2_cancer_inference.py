@@ -105,10 +105,6 @@ for cur_id in selected_ids:
         save_location = save_location + "/" + "prior_model" + "/"
         create_dir_if_not_exists(save_location)
     
-    
-    #get local or mets
-    # site = mut_site_df.loc[mut_site_df['OPX_Number'] == cur_id,'Anatomic site'].item()
-    # print(site)
     #load pytorch model
     learn = load_learner(model_path_m,cpu=False) #all use mets model
     
@@ -117,12 +113,7 @@ for cur_id in selected_ids:
     else: 
         learn = load_learner(model_path_m_prior,cpu=False) #all use prior mets model
     
-    # if site == "Prostate":
-    #     learn = load_learner(model_path_l,cpu=False)
-    # else:
-    #     learn = load_learner(model_path_m,cpu=False)
-    
-    
+
     #Load tile info 
     tile_info_df = pd.read_csv(save_location_tiles + save_name + ".csv")
     tile_mag_extract = list(set(tile_info_df['MAG_EXTRACT']))[0]
