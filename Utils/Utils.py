@@ -32,7 +32,7 @@ import shapely
 import warnings
 warnings.filterwarnings("ignore")
 
-def do_mask_original(img,lvl_resize):
+def do_mask_original(img,lvl_resize, rad = 5):
     ''' create tissue mask '''
     # get he image and find tissue mask
     he = np.array(img)
@@ -40,7 +40,7 @@ def do_mask_original(img,lvl_resize):
     heHSV = cv2.cvtColor(he, cv2.COLOR_BGR2GRAY)
     ret, thresh1 = cv2.threshold(heHSV, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     imagem = cv2.bitwise_not(thresh1)
-    tissue_mask = morphology.binary_dilation(imagem, morphology.disk(radius=5))
+    tissue_mask = morphology.binary_dilation(imagem, morphology.disk(radius=rad))
     tissue_mask = morphology.remove_small_objects(tissue_mask, 1000)
     tissue_mask = ndimage.binary_fill_holes(tissue_mask)
 
@@ -58,42 +58,6 @@ def do_mask_original(img,lvl_resize):
         try:
             poly = Polygon(cvals)
             if poly.length > 0: 
-                polygons.append(Polygon(poly.exterior))
-        except:
-            pass
-    tissue = unary_union(polygons)
-    while not tissue.is_valid:
-        print('pred_union is invalid, buffering...')
-        tissue = tissue.buffer(0)
-
-    return tissue, tissue_mask
-    
-def do_mask(img,lvl_resize):
-    ''' create tissue mask '''
-    # get he image and find tissue mask
-    he = np.array(img)
-    he = he[:, :, 0:3]
-    heHSV = cv2.cvtColor(he, cv2.COLOR_BGR2GRAY)
-    ret, thresh1 = cv2.threshold(heHSV, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    imagem = cv2.bitwise_not(thresh1)
-    tissue_mask = morphology.binary_dilation(imagem, morphology.disk(radius=5))
-    tissue_mask = morphology.remove_small_objects(tissue_mask, 1000)
-    tissue_mask = ndimage.binary_fill_holes(tissue_mask)
-
-    # create polygons for faster tiling in cancer detection step
-    polygons = []
-    contours, hier = cv2.findContours(tissue_mask.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    for contour in contours:
-        cvals = contour.transpose(0, 2, 1)
-        cvals = np.reshape(cvals, (cvals.shape[0], 2))
-        cvals = cvals.astype('float64')
-        for i in range(len(cvals)):
-            cvals[i][0] = np.round(cvals[i][0]*lvl_resize,2)
-            cvals[i][1] = np.round(cvals[i][1]*lvl_resize,2)
-        try:
-            poly = Polygon(cvals)
-            if (poly.length > 0) & (poly.is_valid): #Added is_valid to fix GEOSException: TopologyException: unable to assign free hole to a shell at 0 150524
                 polygons.append(Polygon(poly.exterior))
         except:
             pass
@@ -165,6 +129,16 @@ def cancer_mask2(pred_image,hetissue, thres):
     labels[labels>0]=1
     return labels
 
+def cancer_mask_fix_res(preds,hetissue, thres):
+    ''' smooth cancer map and find high probability areas '''
+    preds[hetissue < 1] = 0 #If tissue map value < 1, then preds = 0
+    preds_mask = np.zeros(preds.shape)
+    preds_mask[preds > thres] = 1
+    preds_mask = morphology.binary_dilation(preds_mask, morphology.disk(radius=2))
+    preds_mask = morphology.binary_erosion(preds_mask, morphology.disk(radius=2))
+    preds_mask = ndimage.binary_fill_holes(preds_mask)
+    return preds_mask
+    
 def slide_ROIS(polygons,mpp,savename,labels,ref,roi_color):
     ''' generate geojson from polygons '''
     all_polys = unary_union(polygons)
@@ -304,9 +278,28 @@ def extract_tile_start_end_coords(all_tile, deepzoom_lvl, x_loc, y_loc):
 
 
 def get_map_startend(tile_start_cord, tile_end_cord, level_resize):
-    m_xstart = int(np.floor(tile_start_cord[1] / level_resize))
-    m_xend = int(np.floor(tile_end_cord[1] / level_resize))
-    m_ystart = int(np.floor(tile_start_cord[0] / level_resize))
-    m_yend = int(np.floor(tile_end_cord[0] / level_resize))
+    r'''
+    Note: The maps has x and y swaped relatived to the original slides
+    #Change from floor to ceil 11/06/24
+    '''
+    m_xstart = int(np.ceil(tile_start_cord[1] / level_resize))
+    m_xend = int(np.ceil(tile_end_cord[1] / level_resize))
+    m_ystart = int(np.ceil(tile_start_cord[0] / level_resize))
+    m_yend = int(np.ceil(tile_end_cord[0] / level_resize))
 
     return m_xstart, m_xend, m_ystart, m_yend
+
+
+def get_downsample_factor(base_magnification, target_magnification):
+    
+    ds_factor =(base_magnification/target_magnification) #downsample factor
+    
+    return ds_factor
+
+
+def get_image_at_target_mag(slide_obj,level0_width, level0_height,downsample_factor):
+    getLvl = slide_obj.get_best_level_for_downsample(downsample_factor)
+    img_pull = slide_obj.read_region((0, 0), getLvl, slide_obj.level_dimensions[getLvl]) #image at level closed to target_magnification
+    img_pull = img_pull.resize(size=(int(np.ceil(level0_width/downsample_factor)),int(np.ceil(level0_height/downsample_factor))),resample=PIL.Image.LANCZOS) #resize to actual target_magnification
+
+    return img_pull

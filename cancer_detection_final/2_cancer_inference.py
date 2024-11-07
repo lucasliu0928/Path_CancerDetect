@@ -95,23 +95,20 @@ for cur_id in selected_ids:
     elif '(2017-0133)' in cur_id:
         _file = wsi_location + cur_id + '.svs'
 
+    #Laod slides
     oslide = openslide.OpenSlide(_file)
     save_name = str(Path(os.path.basename(_file)).with_suffix(''))
     
     save_location = save_location_pred + "/" + cur_id + "/" 
     create_dir_if_not_exists(save_location)
     
-    if ft_model == False:
-        save_location = save_location + "/" + "prior_model" + "/"
-        create_dir_if_not_exists(save_location)
-    
-    #load pytorch model
-    learn = load_learner(model_path_m,cpu=False) #all use mets model
-    
+    #load pytorch model   
     if ft_model == True:
         learn = load_learner(model_path_m,cpu=False) #all use mets model
-    else: 
+    else:
         learn = load_learner(model_path_m_prior,cpu=False) #all use prior mets model
+        save_location = save_location + "/" + "prior_model" + "/"
+        create_dir_if_not_exists(save_location)
     
 
     #Load tile info 
