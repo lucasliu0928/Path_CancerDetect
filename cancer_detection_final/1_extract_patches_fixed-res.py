@@ -40,40 +40,35 @@ mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
 pixel_overlap = 100  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
-rad_tissue = 2 #radius for tissue detection
 
+#DIR
 proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
-wsi_location = proj_dir + "data/OPX/"
-#wsi_location = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/'
+wsi_location_ccola = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/'
+wsi_location_opx = proj_dir + '/data/OPX/'
 out_location = proj_dir + 'intermediate_data/cancer_prediction_results110224/'
 
 #Create output dir
 create_dir_if_not_exists(out_location)
-save_location_tiles = out_location + 'tiles/'  
-create_dir_if_not_exists(save_location_tiles)
-save_location_pred = out_location + 'cancer_pred_out/'  
-create_dir_if_not_exists(save_location_pred)
-save_location_pred = save_location_pred + "OL" + str(pixel_overlap) + "/"
-create_dir_if_not_exists(save_location_pred)
-save_location_tiles = save_location_tiles + "OL" + str(pixel_overlap) + "/"
-create_dir_if_not_exists(save_location_tiles)
+out_location = out_location  + "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/"
 
 
-selected_ids = ['OPX_015', 'OPX_017', 'OPX_020']
-['OPX_010','OPX_024','OPX_031','OPX_040','OPX_047','OPX_057','OPX_088',
-'(2017-0133) 4-2-B_B1-1','(2017-0133) 15-B_A1-2', '(2017-0133) 23-B_A1-8',
-'(2017-0133) 25-B_A1-2', '(2017-0133) 28-B_A1-8','(2017-0133) 32-R_A1-2','(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8']
+selected_ids = ['OPX_015', 'OPX_017', 'OPX_020', '(2017-0133) 4-2-B_B1-1', 
+                '(2017-0133) 15-B_A1-2', '(2017-0133) 23-B_A1-8', 
+                '(2017-0133) 25-B_A1-2', '(2017-0133) 28-B_A1-8','(2017-0133) 32-R_A1-2',
+                '(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8']
 for cur_id in selected_ids:
 
     if 'OPX' in cur_id:
-        _file = wsi_location + cur_id + ".tif"
+        _file = wsi_location_opx + cur_id + ".tif"
+        rad_tissue = 5
     elif '(2017-0133)' in cur_id:
-        _file = wsi_location + cur_id + '.svs'
+        _file = wsi_location_ccola + cur_id + '.svs'
+        rad_tissue = 2
 
     #Load slides
     oslide = openslide.OpenSlide(_file)
     save_name = str(Path(os.path.basename(_file)).with_suffix(''))
-    save_location = save_location_pred + "/" + cur_id + "/" 
+    save_location = out_location + "/" + cur_id + "/" 
     create_dir_if_not_exists(save_location)
 
     #Generate tiles
@@ -141,5 +136,5 @@ for cur_id in selected_ids:
         print("WARNING: YOU ENTERED AN INCORRECT MAGNIFICATION LEVEL")
 
     tile_info_df = pd.concat(tile_info)
-    tile_info_df.to_csv(save_location_tiles + save_name + ".csv", index = False)
+    tile_info_df.to_csv(save_location + save_name + "_tiles.csv", index = False)
 
