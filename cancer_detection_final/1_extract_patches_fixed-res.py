@@ -34,12 +34,14 @@ from Utils import get_downsample_factor, get_image_at_target_mag
 from Utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
 
-
+############################################################################################################
 #USER INPUT 
+############################################################################################################
 mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
 pixel_overlap = 100  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
+mag_target_tiss = 1.25   #1.25x for tissue detection
 
 #DIR
 proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
@@ -52,10 +54,28 @@ create_dir_if_not_exists(out_location)
 out_location = out_location  + "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/"
 
 
-selected_ids = ['OPX_015', 'OPX_017', 'OPX_020', '(2017-0133) 4-2-B_B1-1', 
-                '(2017-0133) 15-B_A1-2', '(2017-0133) 23-B_A1-8', 
-                '(2017-0133) 25-B_A1-2', '(2017-0133) 28-B_A1-8','(2017-0133) 32-R_A1-2',
-                '(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8']
+
+
+############################################################################################################
+#Select IDS
+############################################################################################################
+#Get IDs that are in FT train or already processed to exclude 
+fine_tune_ids_df = pd.read_csv('/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
+ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
+processed_fttestids = os.listdir(out_location)
+toexclude_ids = ft_train_ids + processed_fttestids #35
+
+#All available IDs
+opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #207
+ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
+all_ids = opx_ids + ccola_ids
+
+#Exclude ids in ft_train or processed
+selected_ids = [x for x in all_ids if x not in toexclude_ids] #406
+
+############################################################################################################
+#Start 
+############################################################################################################
 for cur_id in selected_ids:
 
     if 'OPX' in cur_id:
@@ -80,8 +100,7 @@ for cur_id in selected_ids:
 
 
     #1.25x for low res img 
-    mag_target = 1.25
-    lvl_resize = get_downsample_factor(base_mag,mag_target) #downsample factor
+    lvl_resize = get_downsample_factor(base_mag,target_magnification = mag_target_tiss) #downsample factor
     lvl_img = get_image_at_target_mag(oslide,l0_w, l0_h,lvl_resize)
     lvl_img.save(os.path.join(save_location + save_name + '_low-res.png'))
 
