@@ -63,7 +63,7 @@ out_location = out_location  + "IMSIZE" + str(save_image_size) + "_OL" + str(pix
 fine_tune_ids_df = pd.read_csv('/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
 ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
 processed_fttestids = os.listdir(out_location)
-toexclude_ids = ft_train_ids + processed_fttestids #35
+toexclude_ids = ft_train_ids + ['OPX_182'] + processed_fttestids #OPX_182 –Exclude Possible Colon AdenoCa 
 
 #All available IDs
 opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #207
@@ -71,7 +71,7 @@ ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2
 all_ids = opx_ids + ccola_ids
 
 #Exclude ids in ft_train or processed
-selected_ids = [x for x in all_ids if x not in toexclude_ids] #406
+selected_ids = [x for x in all_ids if x not in toexclude_ids]
 
 ############################################################################################################
 #Start 

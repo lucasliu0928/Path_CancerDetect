@@ -46,7 +46,7 @@ save_image_size = 250   # do not change this, model trained at 250x250 at 20x
 pixel_overlap = 100     # specify the level of pixel overlap in your saved images
 limit_bounds = True     # this is weird, dont change it
 smooth = True           # whether or not to gaussian smooth the output probability map
-ft_model = False        # whether or not to use fine-tuned model
+ft_model = True        # whether or not to use fine-tuned model
 mag_target_prob = 2.5   # 2.5x for probality maps
 mag_target_tiss = 1.25   #1.25x for tissue detection
 bi_thres = 0.4  #Binary classification threshold for cancer mask
@@ -59,11 +59,30 @@ out_location = proj_dir + 'intermediate_data/cancer_prediction_results110224/'+ 
 model_path = proj_dir + 'models/cancer_detection_models/mets/'
 
 
-selected_ids = ['OPX_015', 'OPX_017', 'OPX_020', 
-                '(2017-0133) 4-2-B_B1-1', '(2017-0133) 15-B_A1-2', 
-                '(2017-0133) 23-B_A1-8', '(2017-0133) 25-B_A1-2', 
-                '(2017-0133) 28-B_A1-8', '(2017-0133) 32-R_A1-2',
-                '(2017-0133) 95-3-P_A1-8','(2017-0133) 99-B_A1-8']
+############################################################################################################
+#Select IDS
+############################################################################################################
+#Get IDs that are in FT train or already processed to exclude 
+fine_tune_ids_df = pd.read_csv('/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
+ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
+
+#OPX_182 –Exclude Possible Colon AdenoCa 
+toexclude_ids = ft_train_ids + ['OPX_182'] #25
+
+#All available IDs
+opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #207
+opx_ids.sort()
+ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
+ccola_ids.sort()
+all_test = opx_ids + ccola_ids
+
+#Exclude ids in ft_train or processed
+selected_ids = [x for x in all_test if x not in toexclude_ids] #416
+
+
+############################################################################################################
+#START
+############################################################################################################
 for cur_id in selected_ids:
 
     if 'OPX' in cur_id:
@@ -189,7 +208,7 @@ for cur_id in selected_ids:
 
 
         #Get binary prediction for each tile
-        #NOTE: prevoiuse do x_map when predition, is not accuate, because the x_map may change as process to the next tile, so need to to this in post processing
+        #NOTE: previous do x_map when prediction, is not accurate, because the x_map may change as process to the next tile, so need to do this in post-processing
         tile_info_df['TUMOR_PIXEL_PERC'] = pd.NA
         for index, row in tile_info_df.iterrows():
             cur_map_loc = row['pred_map_location'].strip("()").split(", ")
