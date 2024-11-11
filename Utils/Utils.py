@@ -303,3 +303,21 @@ def get_image_at_target_mag(slide_obj,level0_width, level0_height,downsample_fac
     img_pull = img_pull.resize(size=(int(np.ceil(level0_width/downsample_factor)),int(np.ceil(level0_height/downsample_factor))),resample=PIL.Image.LANCZOS) #resize to actual target_magnification
 
     return img_pull
+
+def check_any_invalid_poly(input_polygons):
+    invalid_poly = [x for x in input_polygons if not x.is_valid]
+    return invalid_poly     
+    
+def make_valid_poly(input_polygons, buff_value = 4):
+    r'''
+    For invalid polygon error, add buffer to make the polygon valid:
+    '''
+
+    smooth_polygon = []
+    for poly in input_polygons:
+        if not poly.is_valid:
+            buffered_poly = poly.buffer(buff_value)
+        else:
+            buffered_poly = poly
+        smooth_polygon.append(buffered_poly)
+    return smooth_polygon
