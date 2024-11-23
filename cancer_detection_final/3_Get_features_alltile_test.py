@@ -69,7 +69,7 @@ class get_tile_representation(Dataset):
 ##################
 ###### DIR  ######
 ##################
-proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
+proj_dir = '/fh/fast/etzioni_r/Lucas/mutation_pred/'
 wsi_path = proj_dir + '/data/OPX/'
 label_path = proj_dir + 'data/MutationCalls/'
 model_path = proj_dir + 'models/feature_extraction_models/'
