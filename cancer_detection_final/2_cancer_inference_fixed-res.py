@@ -43,7 +43,7 @@ warnings.filterwarnings("ignore")
 #USER INPUT 
 mag_extract = 20        # do not change this, model trained at 250x250 at 20x
 save_image_size = 250   # do not change this, model trained at 250x250 at 20x
-pixel_overlap = 100     # specify the level of pixel overlap in your saved images
+pixel_overlap = 0     # specify the level of pixel overlap in your saved images
 limit_bounds = True     # this is weird, dont change it
 smooth = True           # whether or not to gaussian smooth the output probability map
 ft_model = True        # whether or not to use fine-tuned model

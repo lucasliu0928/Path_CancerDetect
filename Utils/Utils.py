@@ -30,6 +30,7 @@ from shapely.ops import cascaded_union, unary_union
 import json
 import shapely
 import warnings
+import datetime
 warnings.filterwarnings("ignore")
 
 def do_mask_original(img,lvl_resize, rad = 5):
@@ -321,3 +322,18 @@ def make_valid_poly(input_polygons, buff_value = 4):
             buffered_poly = poly
         smooth_polygon.append(buffered_poly)
     return smooth_polygon
+
+
+# Min-max normalization function
+def minmax_normalize(tensor):
+    min_val = tensor.min()
+    max_val = tensor.max()
+    normalized_tensor = (tensor - min_val) / (max_val - min_val)
+    return normalized_tensor
+
+
+def log_message(message, file_name):
+    """Logs a message to the specified file with a timestamp."""
+    with open(file_name, 'a') as file:  # 'a' mode appends to the file
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        file.write(f'{timestamp} {message}\n')

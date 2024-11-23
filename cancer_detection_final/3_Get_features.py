@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
-#NOTE: use paimg1 env, the retccl one has package issue with torchvision
+#NOTE: use paimg9 env
 import sys
 import os
 import numpy as np
@@ -50,7 +47,7 @@ import ResNet as ResNet
 from torch.utils.data import Dataset
 import numpy as np
 import os
-import h5py
+#import h5py
 import time
 from sklearn.model_selection import KFold
 import numpy as np
@@ -220,7 +217,6 @@ test_ids = test_ids_folds[selected_fold]
 ############################################################################################################
 ct = 0 
 for cur_id in selected_ids:
-
     if ct % 10 == 0: print(ct)
 
     #Load slide
@@ -255,9 +251,7 @@ for cur_id in selected_ids:
     print("--- %s seconds ---" % (time.time() - start_time))
     
     feature_df = np.concatenate(feature_list)
-    feature_df = pd.DataFrame(feature_df)
-    
-    
+
     save_location = tile_path + cur_id + '/' + 'features/'
     create_dir_if_not_exists(save_location)
     save_name = save_location + 'train_features_' + pretrain_model_name + '.h5'
@@ -265,4 +259,4 @@ for cur_id in selected_ids:
     comb_df.to_hdf(save_name, key='tile_info', mode='a')
 
     ct += 1
-
+      

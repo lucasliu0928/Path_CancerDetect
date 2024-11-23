@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-#NOTE: use paimg1 env, the retccl one has package issue with torchvision
+#NOTE: use paimg9 env
 import sys
 import os
 import numpy as np
@@ -164,43 +164,47 @@ model.fc = nn.Identity()
 model.load_state_dict(pretext_model, strict=True)
 
 
+proceeded_ids = ['OPX_001', 'OPX_002', 'OPX_003', 'OPX_004', 'OPX_005', 'OPX_006', 'OPX_007', 'OPX_008', 'OPX_009', 'OPX_011', 
+'OPX_012', 'OPX_013', 'OPX_014', 'OPX_015', 'OPX_016', 'OPX_017', 'OPX_018', 'OPX_019', 'OPX_020', 'OPX_021', 'OPX_022', 
+'OPX_023', 'OPX_025', 'OPX_026', 'OPX_027', 'OPX_028', 'OPX_029', 'OPX_030']
 ############################################################################################################
 #For each patient tile, get representation
 ############################################################################################################
 ct = 0 
 for cur_id in selected_ids:
+    print(cur_id)
+    if cur_id not in proceeded_ids:
+        if ct % 10 == 0: print(ct)
 
-    if ct % 10 == 0: print(ct)
-
-    #Load slide
-    _file = wsi_path + cur_id + ".tif"
-    oslide = openslide.OpenSlide(_file)
-    save_name = str(Path(os.path.basename(_file)).with_suffix(''))
-    
-    #Generate tiles
-    tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
-    
-    #Get tile info
-    comb_df = all_comb_df.loc[all_comb_df['SAMPLE_ID'] == cur_id]
-    
-    
-    #Grab tile 
-    tile_img = get_tile_representation(comb_df, tiles, tile_lvls, model)
-    
-    #Get feature
-    start_time = time.time()
-    feature_list = [tile_img[i][1] for i in range(comb_df.shape[0])]
-    print("--- %s seconds ---" % (time.time() - start_time))
-    
-    feature_df = np.concatenate(feature_list)
-    feature_df = pd.DataFrame(feature_df)
-    
-    
-    save_location = tile_path + cur_id + '/' + 'features/'
-    create_dir_if_not_exists(save_location)
-    save_name = save_location + 'features_alltiles_nonoverlap' + pretrain_model_name + '.h5'
-    feature_df.to_hdf(save_name, key='feature', mode='w')
-    comb_df.to_hdf(save_name, key='tile_info', mode='a')
+        #Load slide
+        _file = wsi_path + cur_id + ".tif"
+        oslide = openslide.OpenSlide(_file)
+        save_name = str(Path(os.path.basename(_file)).with_suffix(''))
+        
+        #Generate tiles
+        tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
+        
+        #Get tile info
+        comb_df = all_comb_df.loc[all_comb_df['SAMPLE_ID'] == cur_id]
+        
+        
+        #Grab tile 
+        tile_img = get_tile_representation(comb_df, tiles, tile_lvls, model)
+        
+        #Get feature
+        start_time = time.time()
+        feature_list = [tile_img[i][1] for i in range(comb_df.shape[0])]
+        print("--- %s seconds ---" % (time.time() - start_time))
+        
+        feature_df = np.concatenate(feature_list)
+        feature_df = pd.DataFrame(feature_df)
+        
+        
+        save_location = tile_path + cur_id + '/' + 'features/'
+        create_dir_if_not_exists(save_location)
+        save_name = save_location + 'features_alltiles_nonoverlap' + pretrain_model_name + '.h5'
+        feature_df.to_hdf(save_name, key='feature', mode='w')
+        comb_df.to_hdf(save_name, key='tile_info', mode='a')
 
     ct += 1
 
