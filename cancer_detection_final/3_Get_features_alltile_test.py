@@ -166,12 +166,19 @@ model.load_state_dict(pretext_model, strict=True)
 
 proceeded_ids = ['OPX_001', 'OPX_002', 'OPX_003', 'OPX_004', 'OPX_005', 'OPX_006', 'OPX_007', 'OPX_008', 'OPX_009', 'OPX_011', 
 'OPX_012', 'OPX_013', 'OPX_014', 'OPX_015', 'OPX_016', 'OPX_017', 'OPX_018', 'OPX_019', 'OPX_020', 'OPX_021', 'OPX_022', 
-'OPX_023', 'OPX_025', 'OPX_026', 'OPX_027', 'OPX_028', 'OPX_029', 'OPX_030']
+'OPX_023', 'OPX_025', 'OPX_026', 'OPX_027', 'OPX_028', 'OPX_029', 'OPX_030', 'OPX_032', 'OPX_033', 'OPX_034', 'OPX_035', 
+'OPX_036', 'OPX_037', 'OPX_038', 'OPX_039', 'OPX_041', 'OPX_042', 'OPX_043', 'OPX_044', 'OPX_045', 'OPX_046', 'OPX_048', 
+'OPX_049', 'OPX_050', 'OPX_051', 'OPX_052', 'OPX_053', 'OPX_054', 'OPX_055', 'OPX_056', 'OPX_058', 'OPX_059', 'OPX_060', 
+'OPX_061', 'OPX_062', 'OPX_063', 'OPX_064', 'OPX_065', 'OPX_066', 'OPX_067', 'OPX_068', 'OPX_069', 'OPX_070', 'OPX_071', 
+'OPX_072', 'OPX_073', 'OPX_074', 'OPX_075', 'OPX_076', 'OPX_077', 'OPX_078', 'OPX_079', 'OPX_080', 'OPX_081', 'OPX_082', 
+'OPX_083', 'OPX_084', 'OPX_085', 'OPX_086', 'OPX_087', 'OPX_089', 'OPX_090', 'OPX_091', 'OPX_092', 'OPX_093', 'OPX_094', 'OPX_095']
+
+
 ############################################################################################################
 #For each patient tile, get representation
 ############################################################################################################
 ct = 0 
-selected_ids['OPX_093']
+selected_ids = ['OPX_093']
 for cur_id in selected_ids:
     print(cur_id)
     if cur_id not in proceeded_ids:
