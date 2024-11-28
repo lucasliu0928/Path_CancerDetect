@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 import sys
 import os
 import numpy as np
@@ -37,13 +34,15 @@ from Utils import get_downsample_factor, get_image_at_target_mag
 from Utils import create_dir_if_not_exists
 from Utils import get_map_startend
 from Utils import cancer_mask_fix_res, tile_ROIS, check_any_invalid_poly, make_valid_poly
+from Utils import convert_img
 warnings.filterwarnings("ignore")
 
-
+############################################################################################################
 #USER INPUT 
+############################################################################################################
 mag_extract = 20        # do not change this, model trained at 250x250 at 20x
 save_image_size = 250   # do not change this, model trained at 250x250 at 20x
-pixel_overlap = 0     # specify the level of pixel overlap in your saved images
+pixel_overlap = 0       # specify the level of pixel overlap in your saved images
 limit_bounds = True     # this is weird, dont change it
 smooth = True           # whether or not to gaussian smooth the output probability map
 ft_model = True        # whether or not to use fine-tuned model
@@ -51,9 +50,11 @@ mag_target_prob = 2.5   # 2.5x for probality maps
 mag_target_tiss = 1.25   #1.25x for tissue detection
 bi_thres = 0.4  #Binary classification threshold for cancer mask
 
+############################################################################################################
 #DIR
-proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
-wsi_location_ccola = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/'
+############################################################################################################
+proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
+wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
 wsi_location_opx = proj_dir + '/data/OPX/'
 out_location = proj_dir + 'intermediate_data/cancer_prediction_results110224/'+ "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/"
 model_path = proj_dir + 'models/cancer_detection_models/mets/'
@@ -63,10 +64,10 @@ model_path = proj_dir + 'models/cancer_detection_models/mets/'
 #Select IDS
 ############################################################################################################
 #Get IDs that are in FT train or already processed to exclude 
-fine_tune_ids_df = pd.read_csv('/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
+fine_tune_ids_df = pd.read_csv(proj_dir + '/intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
 ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
 
-#OPX_182 –Exclude Possible Colon AdenoCa 
+#OPX_182 –Exclude Possible Colon AdenoCa 
 toexclude_ids = ft_train_ids + ['OPX_182'] #25
 
 #All available IDs
@@ -74,7 +75,8 @@ opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #207
 opx_ids.sort()
 ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
 ccola_ids.sort()
-all_test = opx_ids + ccola_ids
+#all_test = opx_ids + ccola_ids
+all_test = opx_ids
 
 #Exclude ids in ft_train or processed
 selected_ids = [x for x in all_test if x not in toexclude_ids] #416
@@ -238,7 +240,8 @@ for cur_id in selected_ids:
                 x ,y = int(cur_xy[0]) , int(cur_xy[1])
                 tile_pull_ex = tiles.get_tile(tile_lvls.index(mag_extract), (x, y))
                 tile_pull_ex = tile_pull_ex.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
-    
+                tile_pull_ex = convert_img(tile_pull_ex)
+                
                 #Save tile
                 cur_tf = round(cur_row['TUMOR_PIXEL_PERC'],2)
                 cur_mag = cur_row['MAG_EXTRACT']

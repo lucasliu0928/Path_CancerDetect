@@ -32,6 +32,7 @@ from Utils import do_mask_original,check_tissue,whitespace_check
 from Utils import slide_ROIS
 from Utils import get_downsample_factor, get_image_at_target_mag
 from Utils import create_dir_if_not_exists
+from Utils import convert_img
 warnings.filterwarnings("ignore")
 
 ############################################################################################################
@@ -44,8 +45,8 @@ limit_bounds = True  # this is weird, dont change it
 mag_target_tiss = 1.25   #1.25x for tissue detection
 
 #DIR
-proj_dir = '/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/'
-wsi_location_ccola = '/fh/scratch/delete90/haffner_m/user/scan_archives/Prostate/MDAnderson/CCola/all_slides/'
+proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
+wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
 wsi_location_opx = proj_dir + '/data/OPX/'
 out_location = proj_dir + 'intermediate_data/cancer_prediction_results110224/'
 
@@ -54,13 +55,11 @@ create_dir_if_not_exists(out_location)
 out_location = out_location  + "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/"
 
 
-
-
 ############################################################################################################
 #Select IDS
 ############################################################################################################
 #Get IDs that are in FT train or already processed to exclude 
-fine_tune_ids_df = pd.read_csv('/fh/scratch/delete90/etzioni_r/lucas_l/michael_project/mutation_pred/intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
+fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
 ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
 processed_fttestids = os.listdir(out_location)
 toexclude_ids = ft_train_ids + ['OPX_182'] + processed_fttestids #OPX_182 –Exclude Possible Colon AdenoCa 
@@ -103,6 +102,7 @@ for cur_id in selected_ids:
     #1.25x for low res img 
     lvl_resize = get_downsample_factor(base_mag,target_magnification = mag_target_tiss) #downsample factor
     lvl_img = get_image_at_target_mag(oslide,l0_w, l0_h,lvl_resize)
+    lvl_img = convert_img(lvl_img)
     lvl_img.save(os.path.join(save_location + save_name + '_low-res.png'))
 
 

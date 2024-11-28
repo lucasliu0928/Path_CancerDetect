@@ -13,13 +13,7 @@ import pandas as pd
 import numpy as np
 import os
 from PIL import ImageCms, Image
-
-
-def convert_img(in_img):
-    srgb_profile = ImageCms.createProfile("sRGB")
-    converted_img = ImageCms.profileToProfile(in_img, srgb_profile, srgb_profile)
-
-    return converted_img
+from Utils import convert_img
 
 class pull_tiles(Dataset):
     def __init__(self, tile_info, deepzoom_tiles, tile_levels):

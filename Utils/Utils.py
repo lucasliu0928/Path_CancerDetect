@@ -31,6 +31,9 @@ import json
 import shapely
 import warnings
 import datetime
+import random
+import torch
+from PIL import ImageCms, Image
 warnings.filterwarnings("ignore")
 
 def do_mask_original(img,lvl_resize, rad = 5):
@@ -337,3 +340,21 @@ def log_message(message, file_name):
     with open(file_name, 'a') as file:  # 'a' mode appends to the file
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         file.write(f'{timestamp} {message}\n')
+
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
+
+def convert_img(in_img):
+    srgb_profile = ImageCms.createProfile("sRGB")
+    converted_img = ImageCms.profileToProfile(in_img, srgb_profile, srgb_profile)
+
+    return converted_img
