@@ -11,6 +11,8 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn import metrics
 import torchvision
 import numpy as np
+import os
+from Utils import minmax_normalize
 
 def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_class).ravel() #CM
@@ -59,3 +61,38 @@ def imshow(img):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
+
+
+
+
+def compute_performance_each_label(selected_label, prediction_df, prediction_type):
+    
+    perf_list = []
+    for mut in selected_label:
+        cur_pred_df = prediction_df.loc[prediction_df['OUTCOME'] == mut]
+        cur_perf_df = compute_performance(cur_pred_df['Y_True'],
+                                          cur_pred_df['Pred_Prob'],
+                                          cur_pred_df['Pred_Class'],
+                                          prediction_type)
+        cur_perf_df['OUTCOME'] = mut
+        perf_list.append(cur_perf_df)
+    
+    comb_perf = pd.concat(perf_list)
+
+    return comb_perf
+
+
+def get_attention_and_tileinfo(pt_label_df, patient_att_score):    
+    #Get label
+    pt_label_df.reset_index(drop = True, inplace = True)
+
+    #Get attention
+    cur_att  = pd.DataFrame({'ATT':list(minmax_normalize(patient_att_score))})
+    cur_att.reset_index(drop = True, inplace = True)
+
+    #Comb
+    cur_att_df = pd.concat([pt_label_df,cur_att], axis = 1)
+    cur_att_df.reset_index(drop = True, inplace = True)
+
+    return cur_att_df
+

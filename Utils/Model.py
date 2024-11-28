@@ -10,18 +10,29 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Mutation_MIL_MT(nn.Module):
-    def __init__(self, in_features = 2048):
+    def __init__(self, in_features = 2048, act_func = 'tanh', drop_out = 0, n_outcomes = 7, dim_out = 128):
         super().__init__()
         self.in_features = in_features  
-        self.L = 2048 # 512 node fully connected layer
+        self.L = in_features # 2048 node fully connected layer
         self.D = 128 # 128 node attention layer
         self.K = 1
+        self.n_outs = n_outcomes # number of outcomes
+        self.d_out = dim_out   # dim of output layers
+        self.drop_out = drop_out
+
+        if act_func == 'leakyrelu':
+            self.act_func = nn.LeakyReLU()
+        if act_func == 'tanh':
+            self.act_func = nn.Tanh()
+        elif act_func == 'relu':
+            self.act_func = nn.ReLU()
 
         
         self.attention = nn.Sequential(
             nn.Linear(self.L, self.D),
             nn.Tanh(),
-            nn.Linear(self.D, self.K)
+            nn.Linear(self.D, self.K),
+            nn.Tanh()
         )
 
         # self.one_encoder = nn.Sequential()
@@ -33,8 +44,70 @@ class Mutation_MIL_MT(nn.Module):
                 
         self.embedding_layer = nn.Sequential(
             nn.Linear(self.in_features, 1024), #linear layer
+            self.act_func,
             nn.Linear(1024, 512), #linear layer
+            self.act_func,
             nn.Linear(512, 256), #linear layer
+            self.act_func,
+            nn.Linear(256, 128), #linear layer
+        )
+
+        #Outcome layers
+        self.hidden_layers =  nn.ModuleList([nn.Linear(self.d_out, 1) for _ in range(self.n_outs)])        
+        
+        self.dropout = nn.Dropout(p=drop_out)
+
+    def forward(self, x):
+        r'''
+        x size: [1, N_TILE ,N_FEATURE]
+        '''
+        #attention
+        A = self.attention(x) # NxK
+        A = F.softmax(A, dim=1) # softmax over N
+        M = x*A
+        x = M.sum(dim=1) #1, 2048
+
+        
+        #Linear
+        x = self.embedding_layer(x) 
+
+        out = []
+        for i in range(len(self.hidden_layers)):
+            cur_out = self.hidden_layers[i](x)
+            out.append(cur_out)
+
+        #Drop out
+        if self.drop_out > 0:
+            for i in range(len(self.hidden_layers)):
+                out[i] = self.dropout(out[i])
+        
+        # predict 
+        for i in range(len(self.hidden_layers)):
+            out[i] = torch.sigmoid(out[i])
+        
+        return out,A
+
+
+
+class Mutation_MEANPOOLING_MT(nn.Module):
+    def __init__(self, in_features = 2048, act_func = 'tanh'):
+        super().__init__()
+        self.in_features = in_features  
+
+        if act_func == 'leakyrelu':
+            self.act_func = nn.LeakyReLU()
+        if act_func == 'tanh':
+            self.act_func = nn.Tanh()
+        elif act_func == 'relu':
+            self.act_func = nn.ReLU()
+                
+        self.embedding_layer = nn.Sequential(
+            nn.Linear(self.in_features, 1024), #linear layer
+            self.act_func,
+            nn.Linear(1024, 512), #linear layer
+            self.act_func,
+            nn.Linear(512, 256), #linear layer
+            self.act_func,
             nn.Linear(256, 128), #linear layer
         )
         
@@ -47,17 +120,13 @@ class Mutation_MIL_MT(nn.Module):
         self.ln_out7 = nn.Linear(128, 1) #linear layer
         
         
-        self.dropout = nn.Dropout(p=0.1)
+        self.dropout = nn.Dropout(p=0.0)
 
     def forward(self, x):
         r'''
         x size: [1, N_TILE ,N_FEATURE]
         '''
-        #attention
-        A = self.attention(x) # NxK
-        A = F.softmax(A, dim=1) # softmax over N
-        M = x*A
-        x = M.sum(dim=1) #N_Sample, 2048
+        x = torch.mean(x, dim=1) #N_Sample, 2048
 
         
         #Linear
@@ -90,4 +159,119 @@ class Mutation_MIL_MT(nn.Module):
 
         y = [y1, y2, y3, y4, y5, y6, y7]
         
+        return y
+
+
+
+class Mutation_MIL_ONE_MUT(nn.Module):
+    def __init__(self, in_features = 2048, act_func = 'tanh', drop_out = False):
+        super().__init__()
+        self.in_features = in_features  
+        self.L = 2048 # 2048 node fully connected layer
+        self.D = 128 # 128 node attention layer
+        self.K = 1
+        self.drop_out = drop_out
+
+        if act_func == 'leakyrelu':
+            self.act_func = nn.LeakyReLU()
+        if act_func == 'tanh':
+            self.act_func = nn.Tanh()
+        elif act_func == 'relu':
+            self.act_func = nn.ReLU()
+
+        
+        self.attention = nn.Sequential(
+            nn.Linear(self.L, self.D),
+            nn.Tanh(),
+            nn.Linear(self.D, self.K)
+        )
+
+                
+        self.embedding_layer = nn.Sequential(
+            nn.Linear(self.in_features, 1024), #linear layer
+            self.act_func,
+            nn.Linear(1024, 512), #linear layer
+            self.act_func,
+            nn.Linear(512, 256), #linear layer
+            self.act_func,
+            nn.Linear(256, 128), #linear layer
+        )
+        
+        self.ln_out = nn.Linear(128, 1) #linear layer
+        
+        self.dropout = nn.Dropout(p=0.0)
+
+    def forward(self, x):
+        r'''
+        x size: [1, N_TILE ,N_FEATURE]
+        '''
+        #attention
+        A = self.attention(x) # NxK
+        A = F.softmax(A, dim=1) # softmax over N
+        M = x*A
+        x = M.sum(dim=1) #N_Sample, 2048
+
+        
+        #Linear
+        x = self.embedding_layer(x) 
+        out = self.ln_out(x) 
+
+        #Drop out
+        if self.drop_out == True:
+            out = self.dropout(out)  
+        
+        # predict 
+        y = torch.sigmoid(out)
+
         return y,A
+
+
+
+
+class Mutation_MEAMPOOLING_ONE_MUT(nn.Module):
+    def __init__(self, in_features = 2048, act_func = 'tanh', drop_out = False):
+        super().__init__()
+        self.in_features = in_features  
+        self.drop_out = drop_out
+
+        if act_func == 'leakyrelu':
+            self.act_func = nn.LeakyReLU()
+        if act_func == 'tanh':
+            self.act_func = nn.Tanh()
+        elif act_func == 'relu':
+            self.act_func = nn.ReLU()
+
+                
+        self.embedding_layer = nn.Sequential(
+            nn.Linear(self.in_features, 1024), #linear layer
+            self.act_func,
+            nn.Linear(1024, 512), #linear layer
+            self.act_func,
+            nn.Linear(512, 256), #linear layer
+            self.act_func,
+            nn.Linear(256, 128), #linear layer
+        )
+        
+        self.ln_out = nn.Linear(128, 1) #linear layer
+        
+        self.dropout = nn.Dropout(p=0.0)
+
+    def forward(self, x):
+        r'''
+        x size: [1, N_TILE ,N_FEATURE]
+        '''
+        x = torch.mean(x, dim=1) #N_Sample, 2048
+
+        #Linear
+        x = self.embedding_layer(x) 
+        out = self.ln_out(x) 
+
+        #Drop out
+        if self.drop_out == True:
+            out = self.dropout(out)  
+        
+        # predict 
+        y = torch.sigmoid(out)
+
+        return y
+
