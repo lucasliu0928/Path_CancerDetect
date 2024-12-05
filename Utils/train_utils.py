@@ -145,7 +145,7 @@ def extract_feature_label_tumorinfo_np(selected_df, selected_feature, selected_l
     return feature_np, label_np, info_np, tf_info_np
 
 
-def get_feature_label_array_dynamic(input_path, feature_name, selected_ids,selected_labels, selected_feature, train_or_test, train_sample_size = 'ALL_TUMOR_TILES', tumor_fraction_thres = 0):
+def get_feature_label_array_dynamic(input_path, feature_name, selected_ids,selected_labels, selected_feature, train_or_test, train_sample_size = 'ALLTUMORTILES', tumor_fraction_thres = 0):
     r'''
     #if test, no tumor tiles, select all other tiles
     #if train, no tumor tiles, do not include in the train list
@@ -177,7 +177,7 @@ def get_feature_label_array_dynamic(input_path, feature_name, selected_ids,selec
         
         elif train_or_test == 'Train':
             if cur_n_tumor_tiles > 0: #only include samples has tumor tiles                
-                if train_sample_size == 'ALL_TUMOR_TILES':
+                if train_sample_size == 'ALLTUMORTILES':
                     cur_selected_df  = cur_comb_df_tumor #select all tumor tiles
                 elif train_sample_size > 0:
                     if cur_n_tumor_tiles > train_sample_size:
@@ -229,6 +229,35 @@ class ModelReadyData_diffdim(Dataset):
         tf= self.tf[index]
         
         return x, y, tf
+
+class ModelReadyData_diffdim_withclusterinfo(Dataset):
+    def __init__(self,
+                 feature_list,
+                 label_list,
+                 tumor_info_list,
+                 cluster_list,
+                ):
+        
+        self.x =[torch.FloatTensor(feature) for feature in feature_list] 
+        
+        # Get the Y labels
+        self.y = [torch.FloatTensor(label) for label in label_list] 
+
+        self.tf = [torch.FloatTensor(tf) for tf in tumor_info_list] 
+
+        self.c = [torch.FloatTensor(c) for c in cluster_list] 
+        
+    def __len__(self): 
+        return len(self.x)
+    
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x = self.x[index]
+        y = self.y[index]
+        tf= self.tf[index]
+        c= self.c[index]
+        
+        return x, y, tf,c
 
 
 def prediction(in_dataloader, in_model, n_label, loss_function, device, attention = True):
@@ -383,7 +412,7 @@ class BCE_Weighted_Reg(nn.Module):
 
 def compute_loss_for_all_labels(predicted_list, target_list, weight_list, loss_func_name, loss_function, device, tumor_fractions, attention_scores):    
     loss_list = []
-    for i in range(0,len(predicted_list)):f
+    for i in range(0,len(predicted_list)):
         if loss_func_name == "BCE_Weighted_Reg":
             cur_loss = loss_function(predicted_list[i],target_list[:,:,i].to(device),weight_list[i],tumor_fractions.squeeze().to(device), attention_scores.squeeze())
         elif loss_func_name == "BCELoss": 

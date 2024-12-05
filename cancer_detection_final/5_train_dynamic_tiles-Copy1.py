@@ -35,7 +35,7 @@ from train_utils import pull_tiles
 from train_utils import ModelReadyData_diffdim, convert_to_dict, prediction, BCE_Weighted_Reg, compute_loss_for_all_labels
 from Model import Mutation_MIL_MT
 warnings.filterwarnings("ignore")
-get_ipython().run_line_magic('matplotlib', 'inline')
+#get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 
