@@ -388,3 +388,18 @@ def count_label(label_list, selected_label_names, cohort_name):
     count_df.columns =  cohort_name + '_' + count_df.columns
 
     return count_df
+
+
+def simple_line_plot(x,y, x_lab, y_lab, plt_title, plt_save_dir, fig_size = (10,6)):
+    plt.figure(figsize= fig_size)
+    plt.plot(x, y)
+    plt.xlabel(x_lab)
+    plt.ylabel(y_lab)
+    plt.title(plt_title)
+    plt.tight_layout()
+    plt.savefig(plt_save_dir)
+    plt.show()
+    plt.close()
+
+
+
