@@ -368,3 +368,23 @@ def convert_img(in_img):
     converted_img = ImageCms.profileToProfile(in_img, srgb_profile, srgb_profile)
 
     return converted_img
+
+
+def count_label(label_list, selected_label_names, cohort_name):
+    
+    label_df = pd.DataFrame(np.concatenate(label_list))
+    label_df.columns = selected_label_names
+
+    count_list = []
+    for l in selected_label_names:
+        cur_count = pd.DataFrame(label_df[l].value_counts()).T
+        cur_count.index = [l]
+        count_list.append(cur_count)
+    count_df = pd.concat(count_list)
+    count_df.columns = ['N0','N1']
+    count_df['Perc0'] = round(count_df['N0']/(count_df['N0'] + count_df['N1'])*100,1)
+    count_df['Perc1'] = round(count_df['N1']/(count_df['N0'] + count_df['N1'])*100,1)
+
+    count_df.columns =  cohort_name + '_' + count_df.columns
+
+    return count_df
