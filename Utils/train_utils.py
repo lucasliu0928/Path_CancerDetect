@@ -210,9 +210,10 @@ class ModelReadyData_diffdim(Dataset):
                  feature_list,
                  label_list,
                  tumor_info_list,
+                 feature_indexes,
                 ):
         
-        self.x =[torch.FloatTensor(feature) for feature in feature_list] 
+        self.x =[torch.FloatTensor(feature[:,feature_indexes]) for feature in feature_list] 
         
         # Get the Y labels
         self.y = [torch.FloatTensor(label) for label in label_list] 
