@@ -83,3 +83,12 @@ def get_updated_feature(input_df, selected_ids, selected_feature):
         ct += 1
 
     return feature_list
+
+
+def get_pca_components(feature_data, n_components = 2):
+    pca = PCA(n_components = n_components)
+    pcs = pca.fit_transform(feature_data)
+    explained_variance = pca.explained_variance_
+    print("Explained variance by each component:", explained_variance)
+
+    return pcs

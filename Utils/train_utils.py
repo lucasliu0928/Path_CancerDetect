@@ -210,9 +210,23 @@ class ModelReadyData_diffdim(Dataset):
                  feature_list,
                  label_list,
                  tumor_info_list,
-                 feature_indexes,
+                 include_tumor_fraction = False,
+                 include_cluster = False,
                 ):
-        
+
+        #Feature order: list(range(0,2048)) + ['TUMOR_PIXEL_PERC','Cluster']
+
+        feature_indexes = list(range(0,2050))
+        if include_tumor_fraction == False and include_cluster == False:
+            feature_indexes.remove(2048)
+            feature_indexes.remove(2049)
+        elif include_tumor_fraction == True and include_cluster == False:
+            feature_indexes.remove(2049)
+        elif include_tumor_fraction == False and include_cluster == True:
+            feature_indexes.remove(2048)
+        elif include_tumor_fraction == True and include_cluster == True:
+            feature_indexes = feature_indexes
+            
         self.x =[torch.FloatTensor(feature[:,feature_indexes]) for feature in feature_list] 
         
         # Get the Y labels
