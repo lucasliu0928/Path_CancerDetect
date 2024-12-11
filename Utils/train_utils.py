@@ -275,7 +275,7 @@ class ModelReadyData_diffdim_withclusterinfo(Dataset):
         return x, y, tf,c
 
 
-def prediction(in_dataloader, in_model, n_label, loss_function, device, attention = True):
+def prediction(in_dataloader, in_model, n_label, loss_function, device, mutation_type, attention = True):
     in_model.eval()
     with torch.no_grad():
         running_loss = 0
@@ -300,7 +300,11 @@ def prediction(in_dataloader, in_model, n_label, loss_function, device, attentio
             #Compute loss
             loss_list = []
             for i in range(0,n_label):
-                cur_loss = loss_function(yhat_list[i],y[:,:,i].to(device))  #compute loss
+                if mutation_type == "MT":
+                    label_index = i
+                else:
+                    label_index = all_selected_label.index(mutation_type)
+                cur_loss = loss_function(yhat_list[i],y[:,:,label_index].to(device))  #compute loss
                 loss_list.append(cur_loss) 
             loss = sum(loss_list)
             running_loss += loss.detach().item() 
@@ -425,13 +429,18 @@ class BCE_Weighted_Reg(nn.Module):
 
 
 
-def compute_loss_for_all_labels(predicted_list, target_list, weight_list, loss_func_name, loss_function, device, tumor_fractions, attention_scores):    
+def compute_loss_for_all_labels(predicted_list, target_list, weight_list, loss_func_name, loss_function, device, tumor_fractions, attention_scores, mutation_type, all_selected_label):    
     loss_list = []
     for i in range(0,len(predicted_list)):
+        if mutation_type == "MT":
+            label_index = i
+        else:
+            label_index = all_selected_label.index(mutation_type)
+
         if loss_func_name == "BCE_Weighted_Reg":
-            cur_loss = loss_function(predicted_list[i],target_list[:,:,i].to(device),weight_list[i],tumor_fractions.squeeze().to(device), attention_scores.squeeze())
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device),weight_list[label_index],tumor_fractions.squeeze().to(device), attention_scores.squeeze())
         elif loss_func_name == "BCELoss": 
-            cur_loss = loss_function(predicted_list[i],target_list[:,:,i].to(device), tumor_fractions.squeeze().to(device), attention_scores.squeeze()) 
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device), tumor_fractions.squeeze().to(device), attention_scores.squeeze()) 
         loss_list.append(cur_loss) #compute loss
     #Sum loss for all labels
     loss = sum(loss_list)

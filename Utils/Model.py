@@ -275,3 +275,66 @@ class Mutation_MEAMPOOLING_ONE_MUT(nn.Module):
 
         return y
 
+
+
+class Mutation_Multihead(nn.Module):
+    def __init__(self, in_features = 2048, num_heads = 2, embed_dim = 128, act_func = 'tanh', drop_out = 0, n_outcomes = 7, dim_out = 128):
+        super().__init__()
+        self.in_features = in_features  
+        self.embed_dim = embed_dim # 2048 feature dim
+        self.num_heads = num_heads # N heads
+        self.n_outs = n_outcomes # number of outcomes
+        self.d_out = dim_out   # dim of output layers
+        self.drop_out = drop_out
+
+        if act_func == 'leakyrelu':
+            self.act_func = nn.LeakyReLU()
+        if act_func == 'tanh':
+            self.act_func = nn.Tanh()
+        elif act_func == 'relu':
+            self.act_func = nn.ReLU()
+
+        
+        self.attention =  nn.MultiheadAttention(self.embed_dim, self.num_heads, batch_first = True)
+
+                
+        self.embedding_layer = nn.Sequential(
+            nn.Linear(self.in_features, 1024), #linear layer
+            self.act_func,
+            nn.Linear(1024, 512), #linear layer
+            self.act_func,
+            nn.Linear(512, 256), #linear layer
+            self.act_func,
+            nn.Linear(256, 128), #linear layer
+        )
+
+        #Outcome layers
+        self.hidden_layers =  nn.ModuleList([nn.Linear(self.d_out, 1) for _ in range(self.n_outs)])        
+        
+        self.dropout = nn.Dropout(p=drop_out)
+
+    def forward(self, x):
+        r'''
+        x size: [1, N_TILE ,N_FEATURE]
+        '''        
+        #Linear
+        x = self.embedding_layer(x) 
+        att_output, A = self.attention(x, x, x)
+
+
+
+        out = []
+        for i in range(len(self.hidden_layers)):
+            cur_out = self.hidden_layers[i](att_output)
+            out.append(cur_out)
+
+        #Drop out
+        if self.drop_out > 0:
+            for i in range(len(self.hidden_layers)):
+                out[i] = self.dropout(out[i])
+        
+        # predict 
+        for i in range(len(self.hidden_layers)):
+            out[i] = torch.sigmoid(out[i])
+        
+        return out,A
