@@ -163,7 +163,7 @@ for cur_id in selected_ids:
     
     save_location = tile_path + cur_id + '/' + 'features/'
     create_dir_if_not_exists(save_location)
-    save_name = save_location + 'features_alltiles_' + pretrain_model_name + '.h5'
+    save_name = save_location + 'features_alltiles_' + feature_extraction_method + '.h5'
     feature_df.to_hdf(save_name, key='feature', mode='w')
     comb_df.to_hdf(save_name, key='tile_info', mode='a')
 
