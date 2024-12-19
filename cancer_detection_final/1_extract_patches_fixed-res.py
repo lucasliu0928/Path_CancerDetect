@@ -40,7 +40,7 @@ warnings.filterwarnings("ignore")
 ############################################################################################################
 mag_extract = 20 # do not change this, model trained at 250x250 at 20x
 save_image_size = 250  # do not change this, model trained at 250x250 at 20x
-pixel_overlap = 0  # specify the level of pixel overlap in your saved images
+pixel_overlap = 100  # specify the level of pixel overlap in your saved images
 limit_bounds = True  # this is weird, dont change it
 mag_target_tiss = 1.25   #1.25x for tissue detection
 
@@ -64,14 +64,18 @@ ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'T
 processed_fttestids = os.listdir(out_location)
 toexclude_ids = ft_train_ids + ['OPX_182'] + processed_fttestids #OPX_182 –Exclude Possible Colon AdenoCa 
 
+#New MSI cases
+new_msi_ids = ['OPX_207', 'OPX_208', 'OPX_209',  'OPX_210', 'OPX_211', 'OPX_212', 
+                'OPX_213', 'OPX_214', 'OPX_215', 'OPX_216']
 #All available IDs
 opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #207
 ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
 #all_ids = opx_ids + ccola_ids
-all_ids = opx_ids
+all_ids = opx_ids + new_msi_ids
 
 #Exclude ids in ft_train or processed
 selected_ids = [x for x in all_ids if x not in toexclude_ids]
+
 
 ############################################################################################################
 #Start 

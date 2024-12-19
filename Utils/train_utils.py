@@ -275,7 +275,7 @@ class ModelReadyData_diffdim_withclusterinfo(Dataset):
         return x, y, tf,c
 
 
-def prediction(in_dataloader, in_model, n_label, loss_function, device, mutation_type, attention = True):
+def prediction(in_dataloader, in_model, n_label, loss_function, device, mutation_type, all_selected_label, attention = True):
     in_model.eval()
     with torch.no_grad():
         running_loss = 0
@@ -313,7 +313,6 @@ def prediction(in_dataloader, in_model, n_label, loss_function, device, mutation
         avg_loss = running_loss/len(in_dataloader) 
         
     return pred_prob_list, y_true_list, att_list, avg_loss
-
 
 
 def prediction_one_mute(in_dataloader, in_model, n_label, loss_function, device,attention = True):
@@ -440,7 +439,7 @@ def compute_loss_for_all_labels(predicted_list, target_list, weight_list, loss_f
         if loss_func_name == "BCE_Weighted_Reg":
             cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device),weight_list[label_index],tumor_fractions.squeeze().to(device), attention_scores.squeeze())
         elif loss_func_name == "BCELoss": 
-            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device), tumor_fractions.squeeze().to(device), attention_scores.squeeze()) 
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device)) 
         loss_list.append(cur_loss) #compute loss
     #Sum loss for all labels
     loss = sum(loss_list)

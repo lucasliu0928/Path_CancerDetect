@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class Mutation_MIL_MT(nn.Module):
     def __init__(self, in_features = 2048, act_func = 'tanh', drop_out = 0, n_outcomes = 7, dim_out = 128):
         super().__init__()
@@ -277,8 +278,38 @@ class Mutation_MEAMPOOLING_ONE_MUT(nn.Module):
 
 
 
+class TransformerEncoderLayer(nn.Module):
+    def __init__(self, embed_dim, num_heads, dim_feedforward=2048, dropout=0.1):
+        super(TransformerEncoderLayer, self).__init__()
+        self.self_attn = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout, batch_first = True)
+        self.linear1 = nn.Linear(embed_dim, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, embed_dim)
+
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+
+    def forward(self, src, src_mask=None, src_key_padding_mask=None):
+        src2, _ = self.self_attn(src, src, src, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)
+        src = src + self.dropout1(src2)
+        src = self.norm1(src)
+        src2 = self.linear2(self.dropout(F.relu(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        src = self.norm2(src)
+        return src
+
+
+def min_max_norm(tensor):
+    min_val = tensor.min()
+    max_val = tensor.max()
+    norm_tensor = (tensor - min_val) / (max_val - min_val)
+    return norm_tensor
+
+
 class Mutation_Multihead(nn.Module):
-    def __init__(self, in_features = 2048, num_heads = 2, embed_dim = 128, act_func = 'tanh', drop_out = 0, n_outcomes = 7, dim_out = 128):
+    def __init__(self, in_features = 2048, num_heads = 2, embed_dim = 128, dim_feedforward = 2048, act_func = 'tanh', drop_out = 0, n_outcomes = 7, dim_out = 128):
         super().__init__()
         self.in_features = in_features  
         self.embed_dim = embed_dim # 2048 feature dim
@@ -286,6 +317,7 @@ class Mutation_Multihead(nn.Module):
         self.n_outs = n_outcomes # number of outcomes
         self.d_out = dim_out   # dim of output layers
         self.drop_out = drop_out
+        self.dim_feedforward = dim_feedforward #linear layer in transofrmer
 
         if act_func == 'leakyrelu':
             self.act_func = nn.LeakyReLU()
@@ -294,38 +326,62 @@ class Mutation_Multihead(nn.Module):
         elif act_func == 'relu':
             self.act_func = nn.ReLU()
 
-        
+
+        #Transformer encoder layer
         self.attention =  nn.MultiheadAttention(self.embed_dim, self.num_heads, batch_first = True)
+        self.linear1 = nn.Linear(self.embed_dim, self.dim_feedforward)
+        self.dropout = nn.Dropout(self.drop_out)
+        self.linear2 = nn.Linear(self.dim_feedforward, self.embed_dim)
+
+        self.norm1 = nn.LayerNorm(self.embed_dim)
+        self.norm2 = nn.LayerNorm(self.embed_dim)
+        self.dropout1 = nn.Dropout(self.drop_out)
+        self.dropout2 = nn.Dropout(self.drop_out)
 
                 
-        self.embedding_layer = nn.Sequential(
-            nn.Linear(self.in_features, 1024), #linear layer
-            self.act_func,
-            nn.Linear(1024, 512), #linear layer
-            self.act_func,
-            nn.Linear(512, 256), #linear layer
-            self.act_func,
-            nn.Linear(256, 128), #linear layer
-        )
+        # self.embedding_layer = nn.Sequential(
+        #     nn.Linear(self.in_features, 1024), #linear layer
+        #     self.act_func,
+        #     nn.Linear(1024, 512), #linear layer
+        #     self.act_func,
+        #     nn.Linear(512, 256), #linear layer
+        #     self.act_func,
+        #     nn.Linear(256, 128), #linear layer
+        # )
+
+        #Attention for tiles
+        self.attention_tiles = nn.Linear(128,1)
 
         #Outcome layers
         self.hidden_layers =  nn.ModuleList([nn.Linear(self.d_out, 1) for _ in range(self.n_outs)])        
         
         self.dropout = nn.Dropout(p=drop_out)
 
-    def forward(self, x):
+    def forward(self, x, src_mask=None, src_key_padding_mask=None):
         r'''
         x size: [1, N_TILE ,N_FEATURE]
         '''        
         #Linear
-        x = self.embedding_layer(x) 
-        att_output, A = self.attention(x, x, x)
+        #x = self.embedding_layer(x) 
+        att_output, att_weights = self.attention(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)
+        x = x + self.dropout1(att_output) #add 
+        x = self.norm1(x) #norm
+        att_output2 = self.linear2(self.dropout(F.relu(self.linear1(x)))) #linear feed forward
+        x = x + self.dropout2(att_output2)
+        x = self.norm2(x)
 
+        #Get tile attention
+        #att_tiles = self.attention_tiles(x)
+        #att_tiles = min_max_norm(self.attention_tiles(x))
 
-
+        #Weight by attention tiles
+        #x = att_tiles*x
+        #Mean pooling
+        x = torch.mean(x, dim = 1)
+        
         out = []
         for i in range(len(self.hidden_layers)):
-            cur_out = self.hidden_layers[i](att_output)
+            cur_out = self.hidden_layers[i](x)
             out.append(cur_out)
 
         #Drop out
@@ -337,4 +393,4 @@ class Mutation_Multihead(nn.Module):
         for i in range(len(self.hidden_layers)):
             out[i] = torch.sigmoid(out[i])
         
-        return out,A
+        return out,att_weights #out, att_tiles

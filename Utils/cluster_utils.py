@@ -140,7 +140,7 @@ def plot_cluster_distribution(info_df, selected_label, out_path, cohort_name):
         plt.legend(title=plot_outcome, loc='center left', bbox_to_anchor=(1.0, 0.5))
         
         plt.tight_layout()
-        plt.savefig(out_path + "/outcome_distribution_" + '_' + cohort_name + '.png')
+        plt.savefig(out_path + "/outcome_distribution_" + plot_outcome + '_' + cohort_name + '.png')
         plt.close()
     
     # Plot combined distribution of outcome by cluster 
@@ -161,7 +161,7 @@ def plot_cluster_distribution(info_df, selected_label, out_path, cohort_name):
         plt.legend(title='Cluster', loc='center left', bbox_to_anchor=(1.0, 0.5))
     
         plt.tight_layout()
-        plt.savefig(out_path  + '/cluster_distribution_' + '_' + cohort_name + '.png')
+        plt.savefig(out_path  + '/cluster_distribution_' + plot_outcome + '_' + cohort_name + '.png')
         plt.close()
 
 

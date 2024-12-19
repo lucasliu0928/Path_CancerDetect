@@ -6,7 +6,11 @@ Created on Tue Jul  2 03:27:29 2024
 @author: jliu6
 """
 import pandas as pd
-
+from torch.utils.data import Dataset
+from torchvision import transforms
+import torch
+import torch.nn as nn
+import PIL
 
 def preprocess_mutation_data(indata):
 
@@ -49,3 +53,47 @@ def preprocess_site_data(indata):
     indata.loc[~cond,'SITE_LOCAL'] = 0
     
     return indata
+
+
+
+mean = (0.485, 0.456, 0.406)
+std = (0.229, 0.224, 0.225)
+trnsfrms_val = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean = mean, std = std)
+    ]
+)
+
+
+class get_tile_representation(Dataset):
+    def __init__(self, tile_info, deepzoom_tiles, tile_levels, pretrain_model):
+        super().__init__()
+        self.transform = trnsfrms_val
+        self.tile_info = tile_info
+        self.deepzoom_tiles = deepzoom_tiles
+        self.tile_levels = tile_levels
+        self.mag_extract = list(set(tile_info['MAG_EXTRACT']))[0]
+        self.save_image_size = list(set(tile_info['SAVE_IMAGE_SIZE']))[0]
+        self.pretrain_model = pretrain_model
+
+    def __getitem__(self, idx):
+        #Get x, y index
+        tile_ind = self.tile_info['TILE_XY_INDEXES'].iloc[idx].strip("()").split(", ")
+        x ,y = int(tile_ind[0]) , int(tile_ind[1])
+
+        #Pull tiles
+        tile_pull = self.deepzoom_tiles.get_tile(self.tile_levels.index(self.mag_extract), (x, y))
+        tile_pull = tile_pull.resize(size=(self.save_image_size, self.save_image_size),resample=PIL.Image.LANCZOS) #resize
+
+        #Get features
+        tile_pull_trns = self.transform(tile_pull)
+        tile_pull_trns = tile_pull_trns.unsqueeze(0)  # Adds a dimension at the 0th index
+
+        #use model to get feature
+        self.pretrain_model.eval()
+        with torch.no_grad():
+            features = self.pretrain_model(tile_pull_trns)
+            features = features.cpu().numpy()
+
+        return tile_pull,features
