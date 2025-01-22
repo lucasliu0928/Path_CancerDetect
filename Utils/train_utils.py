@@ -275,6 +275,29 @@ class ModelReadyData_diffdim_withclusterinfo(Dataset):
         return x, y, tf,c
 
 
+class add_tile_xy(Dataset):
+    def __init__(self, original_dataset, additional_component):
+        self.original_dataset = original_dataset
+        self.additional_component = additional_component
+
+    def __len__(self):
+        return len(self.original_dataset)
+
+    def __getitem__(self, idx):
+        original_sample = self.original_dataset[idx]
+        tile_xy = torch.tensor(list(self.additional_component[idx]['TILE_XY_INDEXES'].apply(self.str_to_tuple)))
+
+        # Assuming original_sample is a tuple
+        return original_sample + (tile_xy,)
+
+    # Function to convert string coordinates to tuples
+    def str_to_tuple(self,coord_str):
+        coord_str = coord_str.strip('()')
+        x, y = map(int, coord_str.split(','))
+        return (x, y)
+
+
+
 def prediction(in_dataloader, in_model, n_label, loss_function, device, mutation_type, all_selected_label, attention = True):
     in_model.eval()
     with torch.no_grad():
@@ -315,6 +338,89 @@ def prediction(in_dataloader, in_model, n_label, loss_function, device, mutation
     return pred_prob_list, y_true_list, att_list, avg_loss
 
 
+
+def prediction_sepatt(in_dataloader, in_model, n_label, loss_function, device, mutation_type, all_selected_label, attention = True):
+    in_model.eval()
+    with torch.no_grad():
+        running_loss = 0
+
+        pred_prob_list = []
+        y_true_list = []
+        att_list = []
+        for x,y,tf in in_dataloader:
+
+            #predict
+            
+            if attention == True:
+                yhat_list, att_score = in_model(x.to(device))
+                att_each_out = [] 
+                for i in range(0,len(att_score)):
+                    att_each_out.append(att_score[i].squeeze().cpu().numpy())
+                att_list.append(att_each_out)
+            else:
+                yhat_list  = in_model(x.to(device))
+                
+                
+            pred_prob_list.append(torch.concat(yhat_list, axis = 1).squeeze().detach().cpu().numpy())
+            y_true_list.append(y.squeeze().detach().cpu().numpy())
+            
+
+            #Compute loss
+            loss_list = []
+            for i in range(0,n_label):
+                if mutation_type == "MT":
+                    label_index = i
+                else:
+                    label_index = all_selected_label.index(mutation_type)
+                cur_loss = loss_function(yhat_list[i],y[:,:,label_index].to(device))  #compute loss
+                loss_list.append(cur_loss) 
+            loss = sum(loss_list)
+            running_loss += loss.detach().item() 
+
+        #average loss across all sample
+        avg_loss = running_loss/len(in_dataloader) 
+        
+    return pred_prob_list, y_true_list, att_list, avg_loss
+
+#prediction for moransI
+def prediction_m(in_dataloader, in_model, n_label, loss_function, device, mutation_type, all_selected_label, attention = True):
+    in_model.eval()
+    with torch.no_grad():
+        running_loss = 0
+    
+        pred_prob_list = []
+        y_true_list = []
+        att_list = []
+        for x,y,tf,coor in in_dataloader:
+    
+            #predict
+            if attention == True:
+                yhat_list, att_score = in_model(x.to(device),coor.to(device))
+                att_list.append(att_score.cpu().detach().numpy())
+            else:
+                yhat_list  = in_model(x.to(device))
+                
+                
+            pred_prob_list.append(torch.concat(yhat_list, axis = 0).squeeze().detach().cpu().numpy())
+            y_true_list.append(y.squeeze().detach().cpu().numpy())
+    
+            #Compute loss
+            loss_list = []
+            for i in range(0,n_label):
+                if mutation_type == "MT":
+                    label_index = i
+                else:
+                    label_index = all_selected_label.index(mutation_type)
+                cur_loss = loss_function(yhat_list[i],y[:,:,label_index][0].to(device))  #compute loss
+                loss_list.append(cur_loss) 
+            loss = sum(loss_list)
+            running_loss += loss.detach().item() 
+    
+        #average loss across all sample
+        avg_loss = running_loss/len(in_dataloader) 
+        
+    return pred_prob_list, y_true_list, att_list, avg_loss
+    
 def prediction_one_mute(in_dataloader, in_model, n_label, loss_function, device,attention = True):
     in_model.eval()
     with torch.no_grad():
@@ -426,7 +532,52 @@ class BCE_Weighted_Reg(nn.Module):
 
         return loss
 
+class BCE_Weighted_Reg_focal(nn.Module):
+    def __init__(self, lambda_coef, reg_type, model, gamma = 2,reduction = "mean", att_reg_flag = False):
+        super(BCE_Weighted_Reg_focal, self).__init__()
+        self.lambda_coef = lambda_coef
+        self.reg_type = reg_type
+        self.model = model
+        self.reduction = reduction
+        self.att_reg_flag = att_reg_flag 
+        self.gamma = gamma
 
+        self.att_reg_loss = nn.MSELoss()
+
+    def forward(self, output, target, class_weight, tumor_fractions, attention_scores):
+
+        #Compute Focal Loss
+        #https://medium.com/visionwizard/understanding-focal-loss-a-quick-read-b914422913e7
+        loss = - (target * ((1 - output)**self.gamma) * torch.log(output) + (1-target)* (output**self.gamma) *torch.log(1-output))
+        
+        #Weight loss for each class
+        pos_idex = torch.where(target == 1)[0] #index of pos
+        neg_idex = torch.where(target == 0)[0] #index of neg
+        
+        loss[neg_idex] =  loss[neg_idex]*class_weight[0] #neg class weight * corresponding loss
+        loss[pos_idex] =  loss[pos_idex]*class_weight[1]
+
+
+        if self.reduction == 'mean':
+            loss = loss.mean()
+
+        if self.att_reg_flag == True:
+            loss = loss + self.att_reg_loss(tumor_fractions, attention_scores)
+        
+        #Regularization
+        l1_regularization = 0
+        l2_regularization = 0
+        for param in self.model.parameters():
+            l1_regularization += param.abs().sum()
+            l2_regularization += param.square().sum()
+        if self.reg_type == "L1":
+            loss = loss + self.lambda_coef*l1_regularization    
+        elif self.reg_type == "L2":
+            loss = loss + self.lambda_coef*l2_regularization 
+        else:
+            loss = loss 
+
+        return loss
 
 def compute_loss_for_all_labels(predicted_list, target_list, weight_list, loss_func_name, loss_function, device, tumor_fractions, attention_scores, mutation_type, all_selected_label):    
     loss_list = []
@@ -438,6 +589,30 @@ def compute_loss_for_all_labels(predicted_list, target_list, weight_list, loss_f
 
         if loss_func_name == "BCE_Weighted_Reg":
             cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device),weight_list[label_index],tumor_fractions.squeeze().to(device), attention_scores.squeeze())
+        elif loss_func_name == "BCE_Weighted_Reg_focal":
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device),weight_list[label_index],tumor_fractions.squeeze().to(device), attention_scores.squeeze())
+        elif loss_func_name == "BCELoss": 
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device)) 
+        loss_list.append(cur_loss) #compute loss
+    #Sum loss for all labels
+    loss = sum(loss_list)
+
+    return loss
+
+
+
+def compute_loss_for_all_labels_sepatt(predicted_list, target_list, weight_list, loss_func_name, loss_function, device, tumor_fractions, attention_scores, mutation_type, all_selected_label):    
+    loss_list = []
+    for i in range(0,len(predicted_list)):
+        if mutation_type == "MT":
+            label_index = i
+        else:
+            label_index = all_selected_label.index(mutation_type)
+
+        if loss_func_name == "BCE_Weighted_Reg":
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device),weight_list[label_index],tumor_fractions.squeeze().to(device), attention_scores[i].squeeze())
+        elif loss_func_name == "BCE_Weighted_Reg_focal":
+            cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device),weight_list[label_index],tumor_fractions.squeeze().to(device), attention_scores[i].squeeze())
         elif loss_func_name == "BCELoss": 
             cur_loss = loss_function(predicted_list[i],target_list[:,:,label_index].to(device)) 
         loss_list.append(cur_loss) #compute loss

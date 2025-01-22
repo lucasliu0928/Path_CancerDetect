@@ -23,7 +23,9 @@ import time
 #User Input
 ##################
 feature_extraction_method = 'retccl'
-PIXEL_OVERLAP = 0
+PIXEL_OVERLAP = 100
+selected_ids = ['OPX_207', 'OPX_208', 'OPX_209', 'OPX_210', 'OPX_211', 'OPX_212', 'OPX_213', 'OPX_214', 'OPX_215', 'OPX_216']
+print(selected_ids)
 
 ##################
 ###### DIR  ######
@@ -38,13 +40,6 @@ label_path = proj_dir + 'data/MutationCalls/'
 #Select GPU
 ##################
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-############################################################################################################
-#Select IDS
-############################################################################################################
-selected_ids = ['OPX_207', 'OPX_208', 'OPX_209', 'OPX_210', 'OPX_211', 'OPX_212', 'OPX_213', 'OPX_214', 'OPX_215', 'OPX_216']
-print(selected_ids)
-
 
 ################################################
 #Load mutation label data
