@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+# ENV: paimg9
 
 
 import sys
@@ -46,15 +47,14 @@ cohort_name = "TAN_TMA_Cores"
 
 #DIR
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-out_location = proj_dir + 'intermediate_data/1_tile_pulling/' + cohort_name + "/" #1_tile_pulling, cancer_prediction_results110224
 wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
 wsi_location_opx = proj_dir + '/data/OPX/'
 wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
 
 #Create output dir
-create_dir_if_not_exists(out_location)
+out_location = proj_dir + 'intermediate_data/1_tile_pulling/' + cohort_name + "/" #1_tile_pulling, cancer_prediction_results110224
 out_location = out_location  + "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/"
-create_dir_if_not_exists(out_location)s
+create_dir_if_not_exists(out_location)
 
 
 ############################################################################################################
@@ -90,6 +90,9 @@ selected_ids.sort()
 ############################################################################################################
 for cur_id in selected_ids:
 
+    save_location = out_location + "/" + cur_id + "/" 
+    create_dir_if_not_exists(save_location)
+
     if 'OPX' in cur_id:
         _file = wsi_location_opx + cur_id + ".tif"
         rad_tissue = 5
@@ -100,9 +103,6 @@ for cur_id in selected_ids:
         _file = wsi_location_tan + cur_id + '.tif'
         rad_tissue = 2
 
-    save_name = str(Path(os.path.basename(_file)).with_suffix(''))
-    save_location = out_location + "/" + save_name + "/" 
-    create_dir_if_not_exists(save_location)
 
     #Generating tiles 
     if 'OPX' in cur_id or '(2017-0133)' in cur_id:
@@ -113,9 +113,9 @@ for cur_id in selected_ids:
         
 
     
-    tile_info_df.to_csv(save_location + save_name + "_tiles.csv", index = False)
-    lvl_img.save(os.path.join(save_location + save_name + '_low-res.png'))
-    lvl_mask.save(os.path.join(save_location, save_name + '_tissue.png'))
-    slide_ROIS(polygons=tissue, mpp=float(mpp),savename=os.path.join(save_location, save_name + '_tissue.json'),labels='tissue', ref=[0, 0], roi_color=-16770432)
+    tile_info_df.to_csv(save_location + cur_id + "_tiles.csv", index = False)
+    lvl_img.save(os.path.join(save_location + cur_id + '_low-res.png'))
+    lvl_mask.save(os.path.join(save_location, cur_id + '_tissue.png'))
+    slide_ROIS(polygons=tissue, mpp=float(mpp),savename=os.path.join(save_location, cur_id + '_tissue.json'),labels='tissue', ref=[0, 0], roi_color=-16770432)
     
 
