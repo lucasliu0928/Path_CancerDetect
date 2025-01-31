@@ -403,3 +403,178 @@ def simple_line_plot(x,y, x_lab, y_lab, plt_title, plt_save_dir, fig_size = (10,
 
 
 
+def generating_tiles(pt_id,_file, save_image_size, pixel_overlap, limit_bounds, mag_target_tiss, rad_tissue, mag_extract):
+    
+    #Load slides
+    oslide = openslide.OpenSlide(_file)
+
+    #Generate tiles
+    tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
+
+    #get level 0 size in px
+    l0_w = oslide.level_dimensions[0][0]
+    l0_h = oslide.level_dimensions[0][1]
+
+
+    #1.25x for low res img 
+    mpp = oslide.properties[openslide.PROPERTY_NAME_MPP_X] #for generating tisseu json
+    lvl_resize = get_downsample_factor(base_mag,target_magnification = mag_target_tiss) #downsample factor
+    lvl_img = get_image_at_target_mag(oslide,l0_w, l0_h,lvl_resize)
+    lvl_img = convert_img(lvl_img)
+    
+
+
+    # 1.25X for tissue detection
+    print('detecting tissue')
+    tissue, he_mask = do_mask_original(lvl_img, lvl_resize, rad = rad_tissue)
+    lvl_mask = PIL.Image.fromarray(np.uint8(he_mask * 255))
+    lvl_mask = lvl_mask.convert('L')
+
+
+    print('Start pulling tiles')
+    lvl =  mag_extract
+    if lvl in tile_lvls:
+        #get deep zoom levels
+        lvl_in_deepzoom = tile_lvls.index(lvl)
+        # pull tile info for level
+        x_tiles, y_tiles = tiles.level_tiles[lvl_in_deepzoom] #this extract tiles at mag_extract
+        print(y_tiles,x_tiles)
+        tile_info = []
+        for y in range(0, y_tiles):
+            if y % 50 == 0: print(y)
+            for x in range(0, x_tiles):
+                #Grab tile coordinates
+                tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords(tiles, lvl_in_deepzoom, x, y) #this returns the coors at level 0 reference original slides
+
+                #Check tissue membership
+                tile_tiss = check_tissue(tile_starts= tile_starts, tile_ends=tile_ends,roi=tissue)
+                if tile_tiss > 0.9:
+                    #Extract tile
+                    tile_pull = tiles.get_tile(lvl_in_deepzoom, (x, y))
+
+                    #Check white space
+                    ws = whitespace_check(im=tile_pull)
+
+                    if ws < 0.9: #If the white space is less than 90%
+                        tile_info.append(pd.DataFrame({'SAMPLE_ID' : pt_id, 
+                                                       'MAG_EXTRACT' : lvl,
+                                                       'SAVE_IMAGE_SIZE': save_image_size,
+                                                       'PIXEL_OVERLAP': pixel_overlap,
+                                                       'LIMIT_BOUNDS': limit_bounds,
+                                                       'TILE_XY_INDEXES' : str((x ,y)),
+                                                       'TILE_COOR_ATLV0' : save_coords,
+                                                       'WHITE_SPACE' : ws,
+                                                       'TISSUE_COVERAGE': tile_tiss}, index = [0]))
+
+    else:
+        print("WARNING: YOU ENTERED AN INCORRECT MAGNIFICATION LEVEL")
+
+    tile_info_df = pd.concat(tile_info)
+
+    return mpp, lvl_img, lvl_mask, tissue, tile_info_df
+
+
+def calculate_num_tiles(slide_size, tile_size, overlap=0):
+    """
+    Calculate the number of tiles for a given image size, tile size, and overlap.
+    
+    Parameters:
+    - image_size: Tuple (width, height) of the image.
+    - tile_size: Size of each tile (assuming square tiles).
+    - overlap: Number of overlapping pixels (default is 0 for non-overlapping).
+    
+    Returns:
+    - num_tiles_width: Number of tiles along the width.
+    - num_tiles_height: Number of tiles along the height.
+    """
+    stride = tile_size - overlap
+    
+    num_tiles_width = math.floor((slide_size[0] - tile_size) / stride) + 1
+    num_tiles_height = math.floor((slide_size[1] - tile_size) / stride) + 1
+    
+    return num_tiles_width, num_tiles_height
+
+
+def extract_tile_start_end_coords_tma(x_loc, y_loc, tile_size, overlap):
+    r'''
+    #This func returns the coordiates in the original image of TMA at original dim
+    '''
+    #Get stride
+    stride = tile_size - overlap
+    
+    #Get top left pixel coordinates
+    topleft_x = stride * (x_loc - 1) 
+    topleft_y = stride * (y_loc - 1)
+    
+    #Get region size in current level 
+    rsize_x = tile_size 
+    rsize_y = tile_size
+    
+    #Get tile starts and end   
+    start_loc = (topleft_x, topleft_y) #start
+    end_loc = (topleft_x + rsize_x, topleft_y + rsize_y) #end
+    
+    #Get save coord name (first two is the starting loc, and the last two are the x and y size considering dsfactor)
+    coord_name = str(topleft_x) + "-" + str(topleft_y) + "_" + '%.0f' % (rsize_x) + "-" + '%.0f' % (rsize_y)
+
+    #Get tile_coords the same format as OPX, (start_loc, deepzzomlvl, rise)
+    tile_coords = (start_loc, 'NA', (rsize_x, rsize_y))
+    
+    return start_loc, end_loc, coord_name, tile_coords
+
+
+def generating_tiles_tma(pt_id, _file, save_image_size, pixel_overlap, rad_tissue):
+    #Load slides
+    tma = PIL.Image.open(_file)
+    
+    #get level 0 size in px
+    l0_w = tma.size[0]
+    l0_h = tma.size[1]
+    
+    #4x for low res img 500x500 (assume base_mag @40)
+    mpp = 40 #for generting _tissue.json
+    lvl_resize = 10  #get_downsample_factor(base_mag,target_magnification = 4) #downsample factor
+    lvl_img = tma.resize(size=(int(np.ceil(l0_w/lvl_resize)),int(np.ceil(l0_h/lvl_resize))), resample=PIL.Image.LANCZOS)
+    lvl_img = convert_img(lvl_img)
+    
+    #4x for tissue detection, asssume original tma image is at 40x
+    print('detecting tissue')
+    tissue, he_mask = do_mask_original(lvl_img, lvl_resize, rad = rad_tissue)
+    lvl_mask = PIL.Image.fromarray(np.uint8(he_mask * 255))
+    lvl_mask = lvl_mask.convert('L')
+    
+    print('Start pulling tiles')
+    num_subs_x, num_subs_y = calculate_num_tiles(slide_size = tma.size,tile_size = save_image_size, overlap = pixel_overlap)
+    print(num_subs_y,num_subs_x)
+    
+    tile_info = []
+    for x in range(1, num_subs_x + 1):
+        for y in range(1, num_subs_y + 1):
+            #Grab tile coordinates
+            tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords_tma(x, y, tile_size = save_image_size, overlap = pixel_overlap)
+            
+            #Check tissue membership
+            tile_tiss = check_tissue(tile_starts= tile_starts, tile_ends=tile_ends,roi=tissue)
+            if tile_tiss > 0.9:
+                #Extract tile
+                tile_pull = tma.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1]))
+            
+                #Check white space
+                ws = whitespace_check(im=tile_pull)
+                
+                if ws < 0.9: #If the white space is less than 90%
+                    tile_info.append(pd.DataFrame({'SAMPLE_ID' : pt_id, 
+                                                   'MAG_EXTRACT' : pd.NA,
+                                                   'SAVE_IMAGE_SIZE': save_image_size,
+                                                   'PIXEL_OVERLAP': pixel_overlap,
+                                                   'LIMIT_BOUNDS': pd.NA,
+                                                   'TILE_XY_INDEXES' : str((x ,y)),
+                                                   'TILE_COOR_ATLV0' : save_coords,
+                                                   'WHITE_SPACE' : ws,
+                                                   'TISSUE_COVERAGE': tile_tiss}, index = [0]))
+    tile_info_df = pd.concat(tile_info)
+    
+    return mpp, lvl_img, lvl_mask, tissue, tile_info_df
+
+
+
