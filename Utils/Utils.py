@@ -417,7 +417,6 @@ def generating_tiles(pt_id,_file, save_image_size, pixel_overlap, limit_bounds, 
 
 
     #1.25x for low res img 
-    mpp = oslide.properties[openslide.PROPERTY_NAME_MPP_X] #for generating tisseu json
     lvl_resize = get_downsample_factor(base_mag,target_magnification = mag_target_tiss) #downsample factor
     lvl_img = get_image_at_target_mag(oslide,l0_w, l0_h,lvl_resize)
     lvl_img = convert_img(lvl_img)
@@ -426,6 +425,7 @@ def generating_tiles(pt_id,_file, save_image_size, pixel_overlap, limit_bounds, 
 
     # 1.25X for tissue detection
     print('detecting tissue')
+    mpp = oslide.properties[openslide.PROPERTY_NAME_MPP_X] #for generating tisseu json
     tissue, he_mask = do_mask_original(lvl_img, lvl_resize, rad = rad_tissue)
     lvl_mask = PIL.Image.fromarray(np.uint8(he_mask * 255))
     lvl_mask = lvl_mask.convert('L')
@@ -577,4 +577,279 @@ def generating_tiles_tma(pt_id, _file, save_image_size, pixel_overlap, rad_tissu
     return mpp, lvl_img, lvl_mask, tissue, tile_info_df
 
 
+#Grab tiles and plot
+def plot_tiles_with_topK_cancerprob(tile_info_data, tiles, tile_lvls, mag_extract, save_image_size, save_location, k = 5):
+    
+    tile_info_data_sorted= tile_info_data.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
+    for i in range(0,k): #top5
+        #Get tile coords
+        cur_row = tile_info_data_sorted.iloc[i]
+        cur_xy = cur_row['TILE_XY_INDEXES'].strip("()").split(", ")
+        x ,y = int(cur_xy[0]) , int(cur_xy[1])
+
+        #Grab tile
+        tile_pull_ex = tiles.get_tile(tile_lvls.index(mag_extract), (x, y))
+        tile_pull_ex = tile_pull_ex.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
+        tile_pull_ex = convert_img(tile_pull_ex)
+        
+        #Save tile
+        cur_tf = round(cur_row['TUMOR_PIXEL_PERC'],2)
+        cur_mag = cur_row['MAG_EXTRACT']
+        tile_save_name = "TILE_@" + str(cur_mag) + "x" + "_X" + str(x) +  "Y" + str(y) +   "_TF" + str(cur_tf) + ".png"
+        tile_pull_ex.save(os.path.join(save_location, tile_save_name))
+
+def plot_tiles_with_topK_cancerprob_tma(tile_info_data, tma, pixel_overlap, save_image_size, save_location, k = 5):
+
+    tile_info_data_sorted= tile_info_data.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
+    for i in range(0,k): #top5
+        #Get tile coords
+        cur_row = tile_info_data_sorted.iloc[i]
+        cur_xy = cur_row['TILE_XY_INDEXES'].strip("()").split(", ")
+        x ,y = int(cur_xy[0]) , int(cur_xy[1])
+    
+        #Grab tile coordinates
+        tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords_tma(x, y, tile_size = save_image_size, overlap = pixel_overlap)
+    
+        #Grab tile
+        tile_pull_ex = tma.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1]))
+        tile_pull_ex = tile_pull_ex.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
+        tile_pull_ex = convert_img(tile_pull_ex)
+        
+        #Save tile
+        cur_tf = round(cur_row['TUMOR_PIXEL_PERC'],2)
+        cur_mag = cur_row['MAG_EXTRACT']
+        tile_save_name = "TILE_@" + str(cur_mag) + "x" + "_X" + str(x) +  "Y" + str(y) +   "_TF" + str(cur_tf) + ".png"
+        tile_pull_ex.save(os.path.join(save_location, tile_save_name))
+
+def get_binary_pred_tile(tile_info_data, binary_pred_matrix):
+    tile_info_data['TUMOR_PIXEL_PERC'] = pd.NA
+    for index, row in tile_info_data.iterrows():
+        cur_map_loc = row['pred_map_location'].strip("()").split(", ")
+        map_xstart, map_xend, map_ystart, map_yend = int(cur_map_loc[0]),int(cur_map_loc[1]), int(cur_map_loc[2]), int(cur_map_loc[3])
+    
+        #Get current prediction
+        cur_pred = binary_pred_matrix[map_xstart:map_xend,map_ystart:map_yend]
+        cur_count1 = np.sum(cur_pred == 1) #num pixels that has predicted prob = 1
+        cur_perc1  = (cur_count1 / cur_pred.size) #fraction of pixels prob = 1
+        tile_info_data.loc[index,'TUMOR_PIXEL_PERC'] = cur_perc1
+
+    return tile_info_data
+
+
+def check_tile_info_match(tile_info_data, mag_extract, save_image_size, pixel_overlap, limit_bounds):
+    
+    tile_mag_extract = list(set(tile_info_data['MAG_EXTRACT']))[0]
+    tile_save_image_size = list(set(tile_info_data['SAVE_IMAGE_SIZE']))[0]
+    tile_pixel_overlap = list(set(tile_info_data['PIXEL_OVERLAP']))[0]
+    tile_limit_bounds =   list(set(tile_info_data['LIMIT_BOUNDS']))[0]
+
+    cond1 = (tile_mag_extract == mag_extract)
+    cond2 = (tile_save_image_size == save_image_size)
+    cond3 = (tile_pixel_overlap == pixel_overlap)
+    cond4 = (tile_limit_bounds == limit_bounds)
+
+    if cond1 & cond2 & cond3 & cond4:
+        can_proceed = True
+        print(can_proceed)
+    return can_proceed
+
+
+
+def cancer_inference_wsi(_file, model, tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, save_name):
+    
+    #check to see if info matches, and if can proceed
+    can_proceed = check_tile_info_match(tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds) 
+
+
+    if can_proceed == True:
+        #Load slides
+        oslide = openslide.OpenSlide(_file)
+        
+        #Generate tiles
+        tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
+    
+        print('starting inference')
+        #get level 0 size in px
+        l0_w = oslide.level_dimensions[0][0]
+        l0_h = oslide.level_dimensions[0][1]
+    
+        #2.5x for probability maps
+        lvl_resize = get_downsample_factor(base_mag,target_magnification = mag_target_prob) #downsample factor
+        x_map = np.zeros((int(np.ceil(l0_h/lvl_resize)),int(np.ceil(l0_w/lvl_resize))), float)
+        x_count = np.zeros((int(np.ceil(l0_h/lvl_resize)),int(np.ceil(l0_w/lvl_resize))), float)
+    
+        
+        tile_info_df['pred_map_location'] = pd.NA
+        for index, row in tile_info_df.iterrows():
+            if (index % 500 == 0): print(index)
+            cur_xy = row['TILE_XY_INDEXES'].strip("()").split(", ")
+            x ,y = int(cur_xy[0]) , int(cur_xy[1])
+            #Extract tile for prediction
+            lvl_in_deepzoom = tile_lvls.index(mag_extract)
+            tile_pull = tiles.get_tile(lvl_in_deepzoom, (x, y))
+            tile_pull = tile_pull.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
+            tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords(tiles, lvl_in_deepzoom, x, y) #get tile coords
+            map_xstart, map_xend, map_ystart, map_yend = get_map_startend(tile_starts,tile_ends,lvl_resize) #Get current tile position in map
+            tile_info_df.loc[index,'pred_map_location'] = str(tuple([map_xstart, map_xend, map_ystart, map_yend]))
+
+            #Cancer segmentation
+            tile_pull = np.array(tile_pull)
+            with model.no_bar():
+                inp, pred_class, pred_idx, outputs = model.predict(tile_pull[:, :, 0:3], with_input=True)
+            
+            #Get predicted output
+            #NOTe: updated 11/06, use cv2.resize
+            outputs_np = outputs.numpy() #[N_CLASS, IMAGE_SIZE, IMAGE_SIZE]
+            output_c1_np = cv2.resize(outputs_np[1], (map_yend - map_ystart,map_xend - map_xstart)) #class1 predicted prob, resize (width (col in np), height(row in np))
+            output_c1_np = output_c1_np.round(2)
+            
+            #Store predicted probabily in map and count
+            try: 
+                x_count[map_xstart:map_xend,map_ystart:map_yend] += 1
+                x_map[map_xstart:map_xend,map_ystart:map_yend] += output_c1_np
+            except:
+                pass
+    
+        print('post-processing')
+        print('Cancer Prob generation')
+        x_count = np.where(x_count < 1, 1, x_count)
+        x_map = x_map / x_count
+        x_map[x_map>1]=1
+
+        if smooth == True:
+            x_sm = filters.gaussian(x_map, sigma=2)
+        if smooth == False:
+            x_sm = x_map
+        cmap = plt.get_cmap('jet')
+        rgba_img = cmap(x_sm)
+        rgb_img = np.delete(rgba_img, 3, 2)
+        colimg = PIL.Image.fromarray(np.uint8(rgb_img * 255))
+        colimg.save(os.path.join(save_location, save_name + '_cancer_prob.jpeg'))
+
+
+        print('Get cancer binary mask...')
+        #1.25x tissue detection
+        lvl_resize_tissue = get_downsample_factor(base_mag,target_magnification = mag_target_tiss) #downsample factor
+        lvl_img = get_image_at_target_mag(oslide,l0_w, l0_h,lvl_resize_tissue)
+        tissue, he_mask = do_mask_original(lvl_img, lvl_resize_tissue, rad = rad_tissue)
+
+        #Binary classification
+        binary_preds = cancer_mask_fix_res(x_sm,cv2.resize(np.uint8(he_mask),(x_sm.shape[1],x_sm.shape[0])), bi_thres)
+        #Get binary prediction for each tile, #NOTE: previous do x_map when prediction, is not accurate, because the x_map may change as process to the next tile, so need to do this in post-processing
+        tile_info_df = get_binary_pred_tile(tile_info_df, binary_preds)
+        tile_info_df.to_csv(save_location + save_name + "_TILE_TUMOR_PERC.csv", index = False)
+        
+        #Output annotation
+        print('Output json annotation...')
+        polygons = tile_ROIS(mask_arr=binary_preds, lvl_resize=lvl_resize)
+
+        #Make valid polygons (ex: OPX_022)
+        invalid_polygons = check_any_invalid_poly(polygons) #check if there is any invalid polys
+        if len(invalid_polygons) > 0 :
+            polygons = make_valid_poly(polygons, buff_value = 4)
+    
+        slide_ROIS(polygons=polygons, mpp=float(oslide.properties[openslide.PROPERTY_NAME_MPP_X]),
+                        savename=os.path.join(save_location,save_name +'_cancer.json'), labels='AI_tumor', ref=[0,0], roi_color=-16711936)
+
+        #Grab tiles and plot
+        print('Plot top predicted  tiles...')
+        plot_tiles_with_topK_cancerprob(tile_info_df, tiles, tile_lvls, mag_extract, save_image_size, save_location, k = 5)
+
+
+
+
+def cancer_inference_tma(_file, model, tile_info_df, save_image_size, pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name):
+
+    #Load slides
+    tma = PIL.Image.open(_file)
+    
+    print('starting inference')
+    #get level 0 size in px
+    l0_w = tma.size[0]
+    l0_h = tma.size[1]
+    
+    #2.5x for probability maps
+    mpp = 40 ##assume @40
+    lvl_resize = get_downsample_factor(mpp,target_magnification = mag_target_prob) #downsample factor
+    x_map = np.zeros((int(np.ceil(l0_h/lvl_resize)),int(np.ceil(l0_w/lvl_resize))), float)
+    x_count = np.zeros((int(np.ceil(l0_h/lvl_resize)),int(np.ceil(l0_w/lvl_resize))), float)
+    
+    
+    tile_info_df['pred_map_location'] = pd.NA
+    for index, row in tile_info_df.iterrows():
+        if (index % 500 == 0): print(index)
+        cur_xy = row['TILE_XY_INDEXES'].strip("()").split(", ")
+        x ,y = int(cur_xy[0]) , int(cur_xy[1])
+    
+        #Grab tile coordinates
+        tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords_tma(x, y, tile_size = save_image_size, overlap = pixel_overlap)
+    
+        # #Extract tile for prediction
+        tile_pull = tma.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1]))    
+        map_xstart, map_xend, map_ystart, map_yend = get_map_startend(tile_starts,tile_ends,lvl_resize) #Get current tile position in map
+        tile_info_df.loc[index,'pred_map_location'] = str(tuple([map_xstart, map_xend, map_ystart, map_yend]))
+    
+        #Cancer segmentation
+        tile_pull = np.array(tile_pull)
+        with model.no_bar():
+            inp, pred_class, pred_idx, outputs = model.predict(tile_pull[:, :, 0:3], with_input=True)
+        
+        #Get predicted output
+        #NOTe: updated 11/06, use cv2.resize
+        outputs_np = outputs.numpy() #[N_CLASS, IMAGE_SIZE, IMAGE_SIZE]
+        output_c1_np = cv2.resize(outputs_np[1], (map_yend - map_ystart,map_xend - map_xstart)) #class1 predicted prob, resize (width (col in np), height(row in np))
+        output_c1_np = output_c1_np.round(2)
+        
+        #Store predicted probabily in map and count
+        try: 
+            x_count[map_xstart:map_xend,map_ystart:map_yend] += 1
+            x_map[map_xstart:map_xend,map_ystart:map_yend] += output_c1_np
+        except:
+            pass
+            
+    print('post-processing')
+    print('Cancer Prob generation')
+    x_count = np.where(x_count < 1, 1, x_count)
+    x_map = x_map / x_count
+    x_map[x_map>1]=1
+    
+    if smooth == True:
+        x_sm = filters.gaussian(x_map, sigma=2)
+    if smooth == False:
+        x_sm = x_map
+    cmap = plt.get_cmap('jet')
+    rgba_img = cmap(x_sm)
+    rgb_img = np.delete(rgba_img, 3, 2)
+    colimg = PIL.Image.fromarray(np.uint8(rgb_img * 255))
+    colimg.save(os.path.join(save_location, save_name + '_cancer_prob.jpeg'))
+    
+    
+    print('Get cancer binary mask...')
+    #4x tissue detection
+    lvl_resize_tissue = 10  #get_downsample_factor(base_mag,target_magnification = 4) #downsample factor
+    lvl_img = tma.resize(size=(int(np.ceil(l0_w/lvl_resize_tissue)),int(np.ceil(l0_h/lvl_resize_tissue))), resample=PIL.Image.LANCZOS)
+    lvl_img = convert_img(lvl_img)
+    tissue, he_mask = do_mask_original(lvl_img, lvl_resize_tissue, rad = rad_tissue)
+    
+    #Binary classification
+    binary_preds = cancer_mask_fix_res(x_sm,cv2.resize(np.uint8(he_mask),(x_sm.shape[1],x_sm.shape[0])), bi_thres)
+    #Get binary prediction for each tile, #NOTE: previous do x_map when prediction, is not accurate, because the x_map may change as process to the next tile, so need to do this in post-processing
+    tile_info_df = get_binary_pred_tile(tile_info_df, binary_preds)
+    tile_info_df.to_csv(save_location + save_name + "_TILE_TUMOR_PERC.csv", index = False)
+    
+    #Output annotation
+    print('Output json annotation...')
+    polygons = tile_ROIS(mask_arr=binary_preds, lvl_resize=lvl_resize)
+    
+    #Make valid polygons (ex: OPX_022)
+    invalid_polygons = check_any_invalid_poly(polygons) #check if there is any invalid polys
+    if len(invalid_polygons) > 0 :
+        polygons = make_valid_poly(polygons, buff_value = 4)
+    
+    slide_ROIS(polygons=polygons, mpp=float(mpp),
+                    savename=os.path.join(save_location,save_name +'_cancer.json'), labels='AI_tumor', ref=[0,0], roi_color=-16711936)
+    
+    #Grab tiles and plot
+    print('Plot top predicted  tiles...')
+    plot_tiles_with_topK_cancerprob_tma(tile_info_df,tma, pixel_overlap, save_image_size, save_location, k = 5)
 
