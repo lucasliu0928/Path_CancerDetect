@@ -11,6 +11,7 @@ from torchvision import transforms
 import torch
 import torch.nn as nn
 import PIL
+from Utils import extract_tile_start_end_coords_tma
 
 def preprocess_mutation_data(indata):
 
@@ -46,7 +47,7 @@ def preprocess_site_data(indata):
     #Rename ID col
     indata.rename(columns = {'OPX_Number': 'SAMPLE_ID'}, inplace = True)
 
-    #Recode MSI,1: POS, 0: NEG/NA
+    #Recode
     indata['SITE_LOCAL'] = pd.NA
     cond = indata['Anatomic site'] == 'Prostate'
     indata.loc[cond,'SITE_LOCAL'] = 1
@@ -85,6 +86,41 @@ class get_tile_representation(Dataset):
         #Pull tiles
         tile_pull = self.deepzoom_tiles.get_tile(self.tile_levels.index(self.mag_extract), (x, y))
         tile_pull = tile_pull.resize(size=(self.save_image_size, self.save_image_size),resample=PIL.Image.LANCZOS) #resize
+
+        #Get features
+        tile_pull_trns = self.transform(tile_pull)
+        tile_pull_trns = tile_pull_trns.unsqueeze(0)  # Adds a dimension at the 0th index
+
+        #use model to get feature
+        self.pretrain_model.eval()
+        with torch.no_grad():
+            features = self.pretrain_model(tile_pull_trns)
+            features = features.cpu().numpy()
+
+        return tile_pull,features
+
+
+
+class get_tile_representation_tma(Dataset):
+    def __init__(self, tile_info, tma, pretrain_model):
+        super().__init__()
+        self.transform = trnsfrms_val
+        self.tile_info = tile_info
+        self.save_image_size = list(set(tile_info['SAVE_IMAGE_SIZE']))[0]
+        self.pixel_overlap = list(set(tile_info['PIXEL_OVERLAP']))[0]
+        self.pretrain_model = pretrain_model
+        self.tma = tma
+
+    def __getitem__(self, idx):
+        #Get x, y index
+        tile_ind = self.tile_info['TILE_XY_INDEXES'].iloc[idx].strip("()").split(", ")
+        x ,y = int(tile_ind[0]) , int(tile_ind[1])
+
+        #Pull tiles
+        tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords_tma(x, y, tile_size = self.save_image_size, overlap = self.pixel_overlap)
+        tile_pull = self.tma.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1])) 
+        tile_pull = tile_pull.resize(size=(self.save_image_size, self.save_image_size),resample=PIL.Image.LANCZOS) #resize
+        tile_pull = tile_pull.convert('RGB')
 
         #Get features
         tile_pull_trns = self.transform(tile_pull)
