@@ -106,10 +106,10 @@ def get_feature_label_array(input_path, feature_folder, selected_ids,selected_la
 
 
 
-def combine_feature_label_tumorinfo(patient_id, input_path, input_file_name):
+def combine_feature_label_tumorinfo(patient_id, feature_path, tumor_info_path, input_file_name):
 
     #Input dir
-    input_dir = input_path + patient_id + '/' + 'features/' + input_file_name + '.h5'
+    input_dir = feature_path + patient_id + '/' + 'features/' + input_file_name + '.h5'
 
     #feature
     feature_df = pd.read_hdf(input_dir, key='feature')
@@ -121,7 +121,7 @@ def combine_feature_label_tumorinfo(patient_id, input_path, input_file_name):
     
     
     #Add tumor info to label
-    tumor_info_df = pd.read_csv(os.path.join(input_path, patient_id, "ft_model/", patient_id + "_TILE_TUMOR_PERC.csv"))
+    tumor_info_df = pd.read_csv(os.path.join(tumor_info_path, patient_id, "ft_model/", patient_id + "_TILE_TUMOR_PERC.csv"))
     tumor_info_df.reset_index(drop = True, inplace = True)
     label_df = label_df.merge(tumor_info_df, on = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP',
                                                    'LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE',
@@ -145,7 +145,7 @@ def extract_feature_label_tumorinfo_np(selected_df, selected_feature, selected_l
     return feature_np, label_np, info_np, tf_info_np
 
 
-def get_feature_label_array_dynamic(input_path, feature_name, selected_ids,selected_labels, selected_feature, train_or_test, train_sample_size = 'ALLTUMORTILES', tumor_fraction_thres = 0):
+def get_feature_label_array_dynamic(feature_path, tumor_info_path, feature_name, selected_ids,selected_labels, selected_feature, tumor_fraction_thres = 0):
     r'''
     #if test, no tumor tiles, select all other tiles
     #if train, no tumor tiles, do not include in the train list
@@ -160,36 +160,21 @@ def get_feature_label_array_dynamic(input_path, feature_name, selected_ids,selec
         if ct % 10 == 0 : print(ct)
 
         #Combined feature label and tumor info
-        cur_comb_df = combine_feature_label_tumorinfo(pt, input_path, feature_name)
+        cur_comb_df = combine_feature_label_tumorinfo(pt, feature_path, tumor_info_path, feature_name)
         
         #Select tumor fraction > X tiles
-        cur_comb_df_tumor = cur_comb_df.loc[cur_comb_df['TUMOR_PIXEL_PERC'] > tumor_fraction_thres].copy()
+        cur_comb_df_tumor = cur_comb_df.loc[cur_comb_df['TUMOR_PIXEL_PERC'] >= tumor_fraction_thres].copy()
         cur_comb_df_tumor = cur_comb_df_tumor.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
         cur_n_tumor_tiles = cur_comb_df_tumor.shape[0] # N of tumor tiles
-
         
-        if train_or_test == 'Test':
-            if cur_n_tumor_tiles > 0: #if any tumor tiles
-                cur_selected_df =  cur_comb_df_tumor  #select all tumor tiles
-            else:
-                cur_selected_df =  cur_comb_df #select all other tiles
-            cur_selected_df = cur_selected_df.reset_index(drop = True)
+
+
+        if tumor_fraction_thres == 0: #select all tiles
+            cur_selected_df =  cur_comb_df 
+        elif tumor_fraction_thres > 0: #select tumor tiles based on the threshold
+            cur_selected_df =  cur_comb_df_tumor 
+        cur_selected_df = cur_selected_df.reset_index(drop = True)
         
-        elif train_or_test == 'Train':
-            if cur_n_tumor_tiles > 0: #only include samples has tumor tiles                
-                if train_sample_size == 'ALLTUMORTILES':
-                    cur_selected_df  = cur_comb_df_tumor #select all tumor tiles
-                elif train_sample_size > 0:
-                    if cur_n_tumor_tiles > train_sample_size:
-                        cur_selected_df = cur_comb_df_tumor.iloc[0:train_sample_size,] #select top tumor tiles
-                    else:
-                        cur_selected_df = cur_comb_df_tumor #select all tumor tiles
-                cur_selected_df = cur_selected_df.reset_index(drop = True)
-            else:
-                cur_selected_df = None
-
-
-
         if cur_selected_df is not None :
             #Extract feature, label and tumor info
             cur_feature, cur_label, cur_info, cur_tf_info =  extract_feature_label_tumorinfo_np(cur_selected_df, selected_feature, selected_labels)
@@ -205,6 +190,84 @@ def get_feature_label_array_dynamic(input_path, feature_name, selected_ids,selec
 
 
 
+def combine_feature_label_tumorinfo_tma(patient_id, feature_path, tumor_info_path, input_file_name, selected_labels):
+
+    #Input dir
+    input_dir = feature_path + patient_id + '/' + 'features/' + input_file_name + '.h5'
+
+    #feature
+    feature_df = pd.read_hdf(input_dir, key='feature')
+    feature_df.columns = feature_df.columns.astype(str)
+    
+    #Label
+    label_df = pd.read_hdf(input_dir, key='tile_info')
+    label_df.reset_index(drop = True, inplace = True)
+    #add lacking labels as nan to fit the input format in the model
+    labels_notintma = [x for x in selected_labels if x not in label_df.columns]
+    for label in labels_notintma:
+        label_df[label] = np.nan
+    
+    #Add tumor info to label
+    tumor_info_df = pd.read_csv(os.path.join(tumor_info_path, patient_id, "ft_model/", patient_id + "_TILE_TUMOR_PERC.csv"))
+    tumor_info_df.reset_index(drop = True, inplace = True)
+    label_df = label_df.merge(tumor_info_df, on = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP',
+                                                   'LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE',
+                                                   'TISSUE_COVERAGE'])
+    
+    #Combine feature and label and tumor info
+    comb_df = pd.concat([feature_df,label_df], axis = 1)
+
+    return comb_df
+
+def extract_feature_label_tumorinfo_np_tma(selected_df, selected_feature, selected_labels):
+    #Extract feature, label and tumor info
+    feature_np = selected_df[selected_feature].values #np array
+    label_np   = selected_df[selected_labels].drop_duplicates().values.astype('float32') #numpy array
+    info_np    = selected_df[['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP', 'LIMIT_BOUNDS', 
+                               'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE', 'TISSUE_COVERAGE', 'SITE_LOCAL', 'pred_map_location', 'TUMOR_PIXEL_PERC']]
+    tf_info_np = selected_df['TUMOR_PIXEL_PERC'].values
+
+    return feature_np, label_np, info_np, tf_info_np
+
+
+def get_feature_label_array_dynamic_tma(feature_path, tumor_info_path, feature_name, selected_ids,selected_labels, selected_feature, tumor_fraction_thres = 0):
+    
+    feature_list = []
+    label_list = []
+    info_list = []
+    tumor_info_list = []
+    id_list = []
+    ct = 0 
+    for pt in selected_ids:
+        if ct % 100 == 0 : print(ct)
+    
+        #Combined feature label and tumor info
+        cur_comb_df = combine_feature_label_tumorinfo_tma(pt, feature_path, tumor_info_path, feature_name, selected_labels)
+        
+        #Select tumor fraction > X tiles
+        cur_comb_df_tumor = cur_comb_df.loc[cur_comb_df['TUMOR_PIXEL_PERC'] >= tumor_fraction_thres].copy()
+        cur_comb_df_tumor = cur_comb_df_tumor.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
+        cur_n_tumor_tiles = cur_comb_df_tumor.shape[0] # N of tumor tiles
+    
+        if tumor_fraction_thres == 0: #select all tiles
+            cur_selected_df =  cur_comb_df 
+        elif tumor_fraction_thres > 0: #select tumor tiles based on the threshold
+            cur_selected_df =  cur_comb_df_tumor 
+        cur_selected_df = cur_selected_df.reset_index(drop = True)
+    
+        if cur_selected_df is not None :
+            #Extract feature, label and tumor info
+            cur_feature, cur_label, cur_info, cur_tf_info =  extract_feature_label_tumorinfo_np_tma(cur_selected_df, selected_feature, selected_labels)
+            feature_list.append(cur_feature)
+            label_list.append(cur_label)
+            info_list.append(cur_info)
+            tumor_info_list.append(cur_tf_info)
+            id_list.append(pt)
+            ct += 1
+        
+    return feature_list, label_list, info_list, tumor_info_list, id_list
+
+    
 class ModelReadyData_diffdim(Dataset):
     def __init__(self,
                  feature_list,
@@ -212,18 +275,23 @@ class ModelReadyData_diffdim(Dataset):
                  tumor_info_list,
                  include_tumor_fraction = False,
                  include_cluster = False,
+                 feature_name = 'retccl',
                 ):
 
         #Feature order: list(range(0,2048)) + ['TUMOR_PIXEL_PERC','Cluster']
 
-        feature_indexes = list(range(0,2050))
+        if feature_name == 'retccl':
+            n_total_f = 2048 + 2
+        else:
+            n_total_f = 1024 + 2 
+        feature_indexes = list(range(0,n_total_f))
         if include_tumor_fraction == False and include_cluster == False:
-            feature_indexes.remove(2048)
-            feature_indexes.remove(2049)
+            feature_indexes.remove(n_total_f - 2)
+            feature_indexes.remove(n_total_f - 1)
         elif include_tumor_fraction == True and include_cluster == False:
-            feature_indexes.remove(2049)
+            feature_indexes.remove(n_total_f -1)
         elif include_tumor_fraction == False and include_cluster == True:
-            feature_indexes.remove(2048)
+            feature_indexes.remove(n_total_f - 2)
         elif include_tumor_fraction == True and include_cluster == True:
             feature_indexes = feature_indexes
             

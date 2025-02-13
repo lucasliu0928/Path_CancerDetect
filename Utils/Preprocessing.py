@@ -73,7 +73,7 @@ transform_resize = transforms.Compose(
 )
 
 class get_tile_representation(Dataset):
-    def __init__(self, tile_info, deepzoom_tiles, tile_levels, pretrain_model, resize = False):
+    def __init__(self, tile_info, deepzoom_tiles, tile_levels, pretrain_model, device, resize = False):
         super().__init__()
         self.transform = trnsfrms_val
         self.transform_resize = transform_resize
@@ -84,6 +84,7 @@ class get_tile_representation(Dataset):
         self.save_image_size = list(set(tile_info['SAVE_IMAGE_SIZE']))[0]
         self.pretrain_model = pretrain_model
         self.resize = resize
+        self.device = device
 
     def __getitem__(self, idx):
         #Get x, y index
@@ -104,6 +105,8 @@ class get_tile_representation(Dataset):
         #use model to get feature
         self.pretrain_model.eval()
         with torch.no_grad():
+            tile_pull_trns = tile_pull_trns.to(self.device)
+            self.pretrain_model = self.pretrain_model.to(self.device)
             features = self.pretrain_model(tile_pull_trns)
             features = features.cpu().numpy()
 
@@ -112,7 +115,7 @@ class get_tile_representation(Dataset):
 
 
 class get_tile_representation_tma(Dataset):
-    def __init__(self, tile_info, tma, pretrain_model, resize = False):
+    def __init__(self, tile_info, tma, pretrain_model, device, resize = False):
         super().__init__()
         self.transform = trnsfrms_val
         self.transform_resize = transform_resize
@@ -122,6 +125,7 @@ class get_tile_representation_tma(Dataset):
         self.pretrain_model = pretrain_model
         self.tma = tma
         self.resize = resize
+        self.device = device
 
     def __getitem__(self, idx):
         #Get x, y index
@@ -144,6 +148,8 @@ class get_tile_representation_tma(Dataset):
         #use model to get feature
         self.pretrain_model.eval()
         with torch.no_grad():
+            tile_pull_trns = tile_pull_trns.to(self.device)
+            self.pretrain_model = self.pretrain_model.to(self.device)
             features = self.pretrain_model(tile_pull_trns)
             features = features.cpu().numpy()
 

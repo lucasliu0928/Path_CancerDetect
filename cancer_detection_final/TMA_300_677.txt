@@ -1,0 +1,1171 @@
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/' already exists.
+cuda
+TMA97D-5-7
+0
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-5-7/features/' already exists.
+--- 18.024445295333862 seconds ---
+TMA97D-5-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-5-8/features/' already exists.
+--- 7.189921140670776 seconds ---
+TMA97D-5-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-5-9/features/' already exists.
+--- 9.998305082321167 seconds ---
+TMA97D-6-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-1/features/' already exists.
+--- 9.111104011535645 seconds ---
+TMA97D-6-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-10/features/' already exists.
+--- 9.550158739089966 seconds ---
+TMA97D-6-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-11/features/' already exists.
+--- 9.807778120040894 seconds ---
+TMA97D-6-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-12/features/' already exists.
+--- 10.185065031051636 seconds ---
+TMA97D-6-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-13/features/' already exists.
+--- 13.259280443191528 seconds ---
+TMA97D-6-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-2/features/' already exists.
+--- 10.490894556045532 seconds ---
+TMA97D-6-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-3/features/' already exists.
+--- 11.681130409240723 seconds ---
+TMA97D-6-4
+10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-4/features/' already exists.
+--- 9.899540662765503 seconds ---
+TMA97D-6-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-5/features/' already exists.
+--- 13.810847759246826 seconds ---
+TMA97D-6-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-6/features/' already exists.
+--- 7.747425317764282 seconds ---
+TMA97D-6-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-6-9/features/' already exists.
+--- 9.74538516998291 seconds ---
+TMA97D-7-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-1/features/' already exists.
+--- 9.124422311782837 seconds ---
+TMA97D-7-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-10/features/' already exists.
+--- 9.709506750106812 seconds ---
+TMA97D-7-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-11/features/' already exists.
+--- 12.497245788574219 seconds ---
+TMA97D-7-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-12/features/' already exists.
+--- 9.853979349136353 seconds ---
+TMA97D-7-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-13/features/' already exists.
+--- 8.883650779724121 seconds ---
+TMA97D-7-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-2/features/' already exists.
+--- 11.446916103363037 seconds ---
+TMA97D-7-4
+20
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-4/features/' already exists.
+--- 9.6563241481781 seconds ---
+TMA97D-7-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-5/features/' already exists.
+--- 10.94103193283081 seconds ---
+TMA97D-7-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-7-6/features/' already exists.
+--- 8.914095878601074 seconds ---
+TMA97D-8-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-10/features/' already exists.
+--- 9.834566593170166 seconds ---
+TMA97D-8-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-11/features/' already exists.
+--- 7.103573560714722 seconds ---
+TMA97D-8-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-12/features/' already exists.
+--- 9.314475774765015 seconds ---
+TMA97D-8-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-13/features/' already exists.
+--- 9.569463968276978 seconds ---
+TMA97D-8-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-3/features/' already exists.
+--- 12.322729587554932 seconds ---
+TMA97D-8-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-5/features/' already exists.
+--- 9.486685991287231 seconds ---
+TMA97D-8-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-6/features/' already exists.
+--- 10.25699520111084 seconds ---
+TMA97D-8-8
+30
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-8/features/' already exists.
+--- 8.492823600769043 seconds ---
+TMA97D-8-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97D-8-9/features/' already exists.
+--- 11.256701946258545 seconds ---
+TMA97F-1-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-1/features/' already exists.
+--- 9.943026781082153 seconds ---
+TMA97F-1-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-10/features/' already exists.
+--- 10.122599363327026 seconds ---
+TMA97F-1-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-11/features/' already exists.
+--- 10.783295631408691 seconds ---
+TMA97F-1-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-12/features/' already exists.
+--- 10.813677549362183 seconds ---
+TMA97F-1-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-13/features/' already exists.
+--- 11.016096591949463 seconds ---
+TMA97F-1-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-14/features/' already exists.
+--- 9.962560415267944 seconds ---
+TMA97F-1-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-2/features/' already exists.
+--- 10.09120774269104 seconds ---
+TMA97F-1-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-3/features/' already exists.
+--- 8.56786584854126 seconds ---
+TMA97F-1-4
+40
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-4/features/' already exists.
+--- 10.162690877914429 seconds ---
+TMA97F-1-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-5/features/' already exists.
+--- 10.833149671554565 seconds ---
+TMA97F-1-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-6/features/' already exists.
+--- 9.780694484710693 seconds ---
+TMA97F-1-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-8/features/' already exists.
+--- 9.453665018081665 seconds ---
+TMA97F-1-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-1-9/features/' already exists.
+--- 12.13581395149231 seconds ---
+TMA97F-2-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-1/features/' already exists.
+--- 10.988406419754028 seconds ---
+TMA97F-2-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-10/features/' already exists.
+--- 9.946687698364258 seconds ---
+TMA97F-2-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-11/features/' already exists.
+--- 12.524409532546997 seconds ---
+TMA97F-2-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-12/features/' already exists.
+--- 9.794360876083374 seconds ---
+TMA97F-2-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-13/features/' already exists.
+--- 10.45265817642212 seconds ---
+TMA97F-2-3
+50
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-3/features/' already exists.
+--- 10.092002630233765 seconds ---
+TMA97F-2-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-4/features/' already exists.
+--- 9.464973449707031 seconds ---
+TMA97F-2-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-5/features/' already exists.
+--- 9.226152181625366 seconds ---
+TMA97F-2-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-6/features/' already exists.
+--- 9.592838287353516 seconds ---
+TMA97F-2-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-8/features/' already exists.
+--- 8.215343713760376 seconds ---
+TMA97F-2-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-2-9/features/' already exists.
+--- 9.436296463012695 seconds ---
+TMA97F-3-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-1/features/' already exists.
+--- 10.800914525985718 seconds ---
+TMA97F-3-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-11/features/' already exists.
+--- 10.519494533538818 seconds ---
+TMA97F-3-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-14/features/' already exists.
+--- 11.419976472854614 seconds ---
+TMA97F-3-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-3/features/' already exists.
+--- 10.916707277297974 seconds ---
+TMA97F-3-4
+60
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-4/features/' already exists.
+--- 11.097538232803345 seconds ---
+TMA97F-3-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-6/features/' already exists.
+--- 9.386470079421997 seconds ---
+TMA97F-3-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-7/features/' already exists.
+--- 10.861695289611816 seconds ---
+TMA97F-3-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-8/features/' already exists.
+--- 7.847089767456055 seconds ---
+TMA97F-3-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-3-9/features/' already exists.
+--- 9.995723247528076 seconds ---
+TMA97F-4-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-1/features/' already exists.
+--- 9.788735389709473 seconds ---
+TMA97F-4-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-10/features/' already exists.
+--- 9.267014503479004 seconds ---
+TMA97F-4-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-11/features/' already exists.
+--- 10.489589929580688 seconds ---
+TMA97F-4-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-12/features/' already exists.
+--- 10.933789730072021 seconds ---
+TMA97F-4-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-13/features/' already exists.
+--- 11.115285634994507 seconds ---
+TMA97F-4-3
+70
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-3/features/' already exists.
+--- 9.739166259765625 seconds ---
+TMA97F-4-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-4/features/' already exists.
+--- 9.664580583572388 seconds ---
+TMA97F-4-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-5/features/' already exists.
+--- 9.457105159759521 seconds ---
+TMA97F-4-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-6/features/' already exists.
+--- 8.98038935661316 seconds ---
+TMA97F-4-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-7/features/' already exists.
+--- 11.308828115463257 seconds ---
+TMA97F-4-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-4-9/features/' already exists.
+--- 10.085214376449585 seconds ---
+TMA97F-5-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-10/features/' already exists.
+--- 11.912237405776978 seconds ---
+TMA97F-5-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-11/features/' already exists.
+--- 11.310693979263306 seconds ---
+TMA97F-5-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-12/features/' already exists.
+--- 11.295549631118774 seconds ---
+TMA97F-5-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-4/features/' already exists.
+--- 9.422035694122314 seconds ---
+TMA97F-5-6
+80
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-6/features/' already exists.
+--- 10.360321521759033 seconds ---
+TMA97F-5-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-7/features/' already exists.
+--- 10.56888723373413 seconds ---
+TMA97F-5-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-5-9/features/' already exists.
+--- 9.986065864562988 seconds ---
+TMA97F-6-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-1/features/' already exists.
+--- 10.296687126159668 seconds ---
+TMA97F-6-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-10/features/' already exists.
+--- 9.08565068244934 seconds ---
+TMA97F-6-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-12/features/' already exists.
+--- 10.078145742416382 seconds ---
+TMA97F-6-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-13/features/' already exists.
+--- 10.122330904006958 seconds ---
+TMA97F-6-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-3/features/' already exists.
+--- 9.564846515655518 seconds ---
+TMA97F-6-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-4/features/' already exists.
+--- 9.62142825126648 seconds ---
+TMA97F-6-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-5/features/' already exists.
+--- 11.249011039733887 seconds ---
+TMA97F-6-8
+90
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-8/features/' already exists.
+--- 10.296660900115967 seconds ---
+TMA97F-6-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-6-9/features/' already exists.
+--- 9.135000705718994 seconds ---
+TMA97F-7-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-1/features/' already exists.
+--- 10.694737672805786 seconds ---
+TMA97F-7-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-10/features/' already exists.
+--- 10.918606758117676 seconds ---
+TMA97F-7-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-11/features/' already exists.
+--- 8.430826425552368 seconds ---
+TMA97F-7-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-12/features/' already exists.
+--- 10.284373760223389 seconds ---
+TMA97F-7-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-3/features/' already exists.
+--- 10.438600778579712 seconds ---
+TMA97F-7-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-4/features/' already exists.
+--- 10.381958246231079 seconds ---
+TMA97F-7-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-6/features/' already exists.
+--- 10.300592422485352 seconds ---
+TMA97F-7-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-8/features/' already exists.
+--- 10.404762029647827 seconds ---
+TMA97F-7-9
+100
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97F-7-9/features/' already exists.
+--- 10.160777807235718 seconds ---
+TMA97G-1-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-1/features/' already exists.
+--- 11.207107782363892 seconds ---
+TMA97G-1-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-10/features/' already exists.
+--- 9.221839666366577 seconds ---
+TMA97G-1-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-11/features/' already exists.
+--- 10.816020250320435 seconds ---
+TMA97G-1-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-12/features/' already exists.
+--- 11.225636720657349 seconds ---
+TMA97G-1-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-13/features/' already exists.
+--- 9.739008665084839 seconds ---
+TMA97G-1-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-14/features/' already exists.
+--- 10.44942569732666 seconds ---
+TMA97G-1-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-2/features/' already exists.
+--- 10.319828271865845 seconds ---
+TMA97G-1-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-3/features/' already exists.
+--- 10.767221450805664 seconds ---
+TMA97G-1-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-4/features/' already exists.
+--- 10.186662197113037 seconds ---
+TMA97G-1-5
+110
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-5/features/' already exists.
+--- 9.918263912200928 seconds ---
+TMA97G-1-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-6/features/' already exists.
+--- 11.390706300735474 seconds ---
+TMA97G-1-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-8/features/' already exists.
+--- 11.517952680587769 seconds ---
+TMA97G-1-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-1-9/features/' already exists.
+--- 10.343562841415405 seconds ---
+TMA97G-2-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-1/features/' already exists.
+--- 9.482709407806396 seconds ---
+TMA97G-2-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-10/features/' already exists.
+--- 11.630663394927979 seconds ---
+TMA97G-2-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-11/features/' already exists.
+--- 8.475902080535889 seconds ---
+TMA97G-2-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-12/features/' already exists.
+--- 9.466530561447144 seconds ---
+TMA97G-2-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-13/features/' already exists.
+--- 10.523202657699585 seconds ---
+TMA97G-2-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-14/features/' already exists.
+--- 6.021106004714966 seconds ---
+TMA97G-2-2
+120
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-2/features/' already exists.
+--- 9.911892175674438 seconds ---
+TMA97G-2-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-3/features/' already exists.
+--- 8.821110963821411 seconds ---
+TMA97G-2-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-4/features/' already exists.
+--- 8.792392253875732 seconds ---
+TMA97G-2-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-5/features/' already exists.
+--- 11.860839128494263 seconds ---
+TMA97G-2-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-6/features/' already exists.
+--- 10.447254180908203 seconds ---
+TMA97G-2-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-8/features/' already exists.
+--- 10.090197801589966 seconds ---
+TMA97G-2-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-2-9/features/' already exists.
+--- 9.432668685913086 seconds ---
+TMA97G-3-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-1/features/' already exists.
+--- 10.9709632396698 seconds ---
+TMA97G-3-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-10/features/' already exists.
+--- 10.676561832427979 seconds ---
+TMA97G-3-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-11/features/' already exists.
+--- 9.876365423202515 seconds ---
+TMA97G-3-12
+130
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-12/features/' already exists.
+--- 10.164515495300293 seconds ---
+TMA97G-3-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-13/features/' already exists.
+--- 12.177841424942017 seconds ---
+TMA97G-3-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-14/features/' already exists.
+--- 7.035441875457764 seconds ---
+TMA97G-3-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-3/features/' already exists.
+--- 10.444884538650513 seconds ---
+TMA97G-3-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-4/features/' already exists.
+--- 11.111508846282959 seconds ---
+TMA97G-3-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-5/features/' already exists.
+--- 11.300175905227661 seconds ---
+TMA97G-3-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-6/features/' already exists.
+--- 9.55266261100769 seconds ---
+TMA97G-3-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-8/features/' already exists.
+--- 9.69776439666748 seconds ---
+TMA97G-3-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-3-9/features/' already exists.
+--- 9.25597596168518 seconds ---
+TMA97G-4-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-1/features/' already exists.
+--- 8.159240961074829 seconds ---
+TMA97G-4-10
+140
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-10/features/' already exists.
+--- 7.561039447784424 seconds ---
+TMA97G-4-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-11/features/' already exists.
+--- 10.64753270149231 seconds ---
+TMA97G-4-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-12/features/' already exists.
+--- 9.63648533821106 seconds ---
+TMA97G-4-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-13/features/' already exists.
+--- 7.262644052505493 seconds ---
+TMA97G-4-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-2/features/' already exists.
+--- 9.628876447677612 seconds ---
+TMA97G-4-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-3/features/' already exists.
+--- 11.987330675125122 seconds ---
+TMA97G-4-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-4/features/' already exists.
+--- 10.510489702224731 seconds ---
+TMA97G-4-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-5/features/' already exists.
+--- 7.569329023361206 seconds ---
+TMA97G-4-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-6/features/' already exists.
+--- 7.279126882553101 seconds ---
+TMA97G-4-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-8/features/' already exists.
+--- 11.760785102844238 seconds ---
+TMA97G-4-9
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-4-9/features/' already exists.
+--- 9.397936344146729 seconds ---
+TMA97G-5-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-1/features/' already exists.
+--- 8.900984525680542 seconds ---
+TMA97G-5-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-10/features/' already exists.
+--- 10.313695430755615 seconds ---
+TMA97G-5-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-11/features/' already exists.
+--- 10.348349332809448 seconds ---
+TMA97G-5-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-12/features/' already exists.
+--- 7.6462483406066895 seconds ---
+TMA97G-5-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-13/features/' already exists.
+--- 7.890454292297363 seconds ---
+TMA97G-5-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-3/features/' already exists.
+--- 10.100653886795044 seconds ---
+TMA97G-5-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-4/features/' already exists.
+--- 8.311319589614868 seconds ---
+TMA97G-5-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-5/features/' already exists.
+--- 10.185703039169312 seconds ---
+TMA97G-5-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-6/features/' already exists.
+--- 9.546733379364014 seconds ---
+TMA97G-5-8
+160
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-8/features/' already exists.
+--- 12.024228811264038 seconds ---
+TMA97G-5-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-5-9/features/' already exists.
+--- 11.361531734466553 seconds ---
+TMA97G-6-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-1/features/' already exists.
+--- 7.20162034034729 seconds ---
+TMA97G-6-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-10/features/' already exists.
+--- 10.714245796203613 seconds ---
+TMA97G-6-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-11/features/' already exists.
+--- 9.474850416183472 seconds ---
+TMA97G-6-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-12/features/' already exists.
+--- 10.51949667930603 seconds ---
+TMA97G-6-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-3/features/' already exists.
+--- 10.052617311477661 seconds ---
+TMA97G-6-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-4/features/' already exists.
+--- 10.08689546585083 seconds ---
+TMA97G-6-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-5/features/' already exists.
+--- 8.916461944580078 seconds ---
+TMA97G-6-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-6/features/' already exists.
+--- 8.405315399169922 seconds ---
+TMA97G-6-8
+170
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-8/features/' already exists.
+--- 9.849958658218384 seconds ---
+TMA97G-6-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-6-9/features/' already exists.
+--- 9.731395721435547 seconds ---
+TMA97G-7-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-1/features/' already exists.
+--- 8.30263090133667 seconds ---
+TMA97G-7-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-10/features/' already exists.
+--- 9.362218379974365 seconds ---
+TMA97G-7-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-11/features/' already exists.
+--- 8.375996351242065 seconds ---
+TMA97G-7-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-12/features/' already exists.
+--- 9.270794868469238 seconds ---
+TMA97G-7-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-3/features/' already exists.
+--- 8.71600604057312 seconds ---
+TMA97G-7-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-4/features/' already exists.
+--- 10.062998056411743 seconds ---
+TMA97G-7-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-5/features/' already exists.
+--- 11.272992610931396 seconds ---
+TMA97G-7-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-8/features/' already exists.
+--- 11.385433435440063 seconds ---
+TMA97G-7-9
+180
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-7-9/features/' already exists.
+--- 11.174322843551636 seconds ---
+TMA97G-8-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-8-11/features/' already exists.
+--- 10.082027673721313 seconds ---
+TMA97G-8-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-8-13/features/' already exists.
+--- 11.451686382293701 seconds ---
+TMA97G-8-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-8-2/features/' already exists.
+--- 9.578112125396729 seconds ---
+TMA97G-8-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-8-3/features/' already exists.
+--- 9.473485708236694 seconds ---
+TMA97G-8-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-8-5/features/' already exists.
+--- 8.975869417190552 seconds ---
+TMA97G-8-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97G-8-9/features/' already exists.
+--- 10.655333280563354 seconds ---
+TMA97H-1-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-1/features/' already exists.
+--- 10.553722381591797 seconds ---
+TMA97H-1-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-10/features/' already exists.
+--- 10.103342294692993 seconds ---
+TMA97H-1-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-11/features/' already exists.
+--- 9.826499462127686 seconds ---
+TMA97H-1-12
+190
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-12/features/' already exists.
+--- 13.7776939868927 seconds ---
+TMA97H-1-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-13/features/' already exists.
+--- 12.156977891921997 seconds ---
+TMA97H-1-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-14/features/' already exists.
+--- 11.622398614883423 seconds ---
+TMA97H-1-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-2/features/' already exists.
+--- 10.184600830078125 seconds ---
+TMA97H-1-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-3/features/' already exists.
+--- 10.267354011535645 seconds ---
+TMA97H-1-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-4/features/' already exists.
+--- 10.137411832809448 seconds ---
+TMA97H-1-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-6/features/' already exists.
+--- 9.390873908996582 seconds ---
+TMA97H-1-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-8/features/' already exists.
+--- 10.908403635025024 seconds ---
+TMA97H-1-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-1-9/features/' already exists.
+--- 11.560946702957153 seconds ---
+TMA97H-2-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-1/features/' already exists.
+--- 9.155317544937134 seconds ---
+TMA97H-2-10
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-10/features/' already exists.
+--- 11.066975116729736 seconds ---
+TMA97H-2-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-11/features/' already exists.
+--- 8.428614616394043 seconds ---
+TMA97H-2-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-12/features/' already exists.
+--- 11.591908693313599 seconds ---
+TMA97H-2-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-13/features/' already exists.
+--- 11.504958868026733 seconds ---
+TMA97H-2-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-14/features/' already exists.
+--- 11.593942880630493 seconds ---
+TMA97H-2-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-2/features/' already exists.
+--- 10.85591721534729 seconds ---
+TMA97H-2-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-3/features/' already exists.
+--- 8.467816352844238 seconds ---
+TMA97H-2-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-4/features/' already exists.
+--- 7.913367986679077 seconds ---
+TMA97H-2-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-5/features/' already exists.
+--- 10.943536281585693 seconds ---
+TMA97H-2-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-6/features/' already exists.
+--- 8.676676034927368 seconds ---
+TMA97H-2-8
+210
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-8/features/' already exists.
+--- 5.433619737625122 seconds ---
+TMA97H-2-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-2-9/features/' already exists.
+--- 9.854849338531494 seconds ---
+TMA97H-3-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-1/features/' already exists.
+--- 10.096552610397339 seconds ---
+TMA97H-3-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-10/features/' already exists.
+--- 7.555169582366943 seconds ---
+TMA97H-3-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-11/features/' already exists.
+--- 10.011043787002563 seconds ---
+TMA97H-3-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-12/features/' already exists.
+--- 10.96070909500122 seconds ---
+TMA97H-3-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-13/features/' already exists.
+--- 11.078155994415283 seconds ---
+TMA97H-3-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-14/features/' already exists.
+--- 8.275312662124634 seconds ---
+TMA97H-3-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-2/features/' already exists.
+--- 11.753332376480103 seconds ---
+TMA97H-3-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-3/features/' already exists.
+--- 9.253913879394531 seconds ---
+TMA97H-3-5
+220
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-5/features/' already exists.
+--- 11.101099491119385 seconds ---
+TMA97H-3-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-6/features/' already exists.
+--- 11.828492879867554 seconds ---
+TMA97H-3-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-8/features/' already exists.
+--- 10.75005292892456 seconds ---
+TMA97H-3-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-3-9/features/' already exists.
+--- 7.7393670082092285 seconds ---
+TMA97H-4-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-1/features/' already exists.
+--- 9.91289496421814 seconds ---
+TMA97H-4-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-10/features/' already exists.
+--- 11.579060554504395 seconds ---
+TMA97H-4-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-11/features/' already exists.
+--- 11.242644548416138 seconds ---
+TMA97H-4-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-12/features/' already exists.
+--- 10.624800443649292 seconds ---
+TMA97H-4-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-13/features/' already exists.
+--- 10.053755760192871 seconds ---
+TMA97H-4-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-2/features/' already exists.
+--- 10.450386762619019 seconds ---
+TMA97H-4-3
+230
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-3/features/' already exists.
+--- 11.772672414779663 seconds ---
+TMA97H-4-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-4/features/' already exists.
+--- 11.379024744033813 seconds ---
+TMA97H-4-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-5/features/' already exists.
+--- 10.293551921844482 seconds ---
+TMA97H-4-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-6/features/' already exists.
+--- 11.458858966827393 seconds ---
+TMA97H-4-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-7/features/' already exists.
+--- 9.531989097595215 seconds ---
+TMA97H-4-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-8/features/' already exists.
+--- 9.84814739227295 seconds ---
+TMA97H-4-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-4-9/features/' already exists.
+--- 10.25870943069458 seconds ---
+TMA97H-5-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-1/features/' already exists.
+--- 10.967490673065186 seconds ---
+TMA97H-5-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-10/features/' already exists.
+--- 10.078941822052002 seconds ---
+TMA97H-5-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-11/features/' already exists.
+--- 10.993143558502197 seconds ---
+TMA97H-5-12
+240
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-12/features/' already exists.
+--- 10.285691976547241 seconds ---
+TMA97H-5-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-13/features/' already exists.
+--- 10.283237934112549 seconds ---
+TMA97H-5-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-2/features/' already exists.
+--- 11.666773557662964 seconds ---
+TMA97H-5-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-3/features/' already exists.
+--- 9.907419681549072 seconds ---
+TMA97H-5-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-4/features/' already exists.
+--- 9.055418491363525 seconds ---
+TMA97H-5-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-5/features/' already exists.
+--- 10.719494342803955 seconds ---
+TMA97H-5-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-6/features/' already exists.
+--- 10.411897659301758 seconds ---
+TMA97H-5-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-7/features/' already exists.
+--- 10.19799017906189 seconds ---
+TMA97H-5-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-8/features/' already exists.
+--- 8.301451206207275 seconds ---
+TMA97H-5-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-5-9/features/' already exists.
+--- 10.03172755241394 seconds ---
+TMA97H-6-1
+250
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-1/features/' already exists.
+--- 10.437379360198975 seconds ---
+TMA97H-6-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-10/features/' already exists.
+--- 10.596519470214844 seconds ---
+TMA97H-6-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-11/features/' already exists.
+--- 11.697546482086182 seconds ---
+TMA97H-6-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-12/features/' already exists.
+--- 8.67768907546997 seconds ---
+TMA97H-6-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-13/features/' already exists.
+--- 10.296877384185791 seconds ---
+TMA97H-6-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-2/features/' already exists.
+--- 7.884613752365112 seconds ---
+TMA97H-6-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-4/features/' already exists.
+--- 11.511102676391602 seconds ---
+TMA97H-6-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-5/features/' already exists.
+--- 8.439680337905884 seconds ---
+TMA97H-6-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-6/features/' already exists.
+--- 9.560135841369629 seconds ---
+TMA97H-6-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-8/features/' already exists.
+--- 11.825979232788086 seconds ---
+TMA97H-6-9
+260
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-6-9/features/' already exists.
+--- 9.9454505443573 seconds ---
+TMA97H-7-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-1/features/' already exists.
+--- 12.13321590423584 seconds ---
+TMA97H-7-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-10/features/' already exists.
+--- 9.91109037399292 seconds ---
+TMA97H-7-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-11/features/' already exists.
+--- 9.86688756942749 seconds ---
+TMA97H-7-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-12/features/' already exists.
+--- 10.376856803894043 seconds ---
+TMA97H-7-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-13/features/' already exists.
+--- 8.824041843414307 seconds ---
+TMA97H-7-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-2/features/' already exists.
+--- 6.258993625640869 seconds ---
+TMA97H-7-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-3/features/' already exists.
+--- 9.40536642074585 seconds ---
+TMA97H-7-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-4/features/' already exists.
+--- 7.052261114120483 seconds ---
+TMA97H-7-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-5/features/' already exists.
+--- 7.4640724658966064 seconds ---
+TMA97H-7-6
+270
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-7-6/features/' already exists.
+--- 7.006655693054199 seconds ---
+TMA97H-8-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-1/features/' already exists.
+--- 12.40855860710144 seconds ---
+TMA97H-8-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-10/features/' already exists.
+--- 9.872846126556396 seconds ---
+TMA97H-8-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-11/features/' already exists.
+--- 9.830950498580933 seconds ---
+TMA97H-8-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-12/features/' already exists.
+--- 5.769830703735352 seconds ---
+TMA97H-8-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-13/features/' already exists.
+--- 10.763427972793579 seconds ---
+TMA97H-8-14
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-14/features/' already exists.
+--- 11.883443593978882 seconds ---
+TMA97H-8-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-2/features/' already exists.
+--- 11.517647981643677 seconds ---
+TMA97H-8-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-3/features/' already exists.
+--- 12.387760639190674 seconds ---
+TMA97H-8-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-4/features/' already exists.
+--- 10.32817268371582 seconds ---
+TMA97H-8-5
+280
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-5/features/' already exists.
+--- 11.826134443283081 seconds ---
+TMA97H-8-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-6/features/' already exists.
+--- 9.490700244903564 seconds ---
+TMA97H-8-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-8/features/' already exists.
+--- 11.964778184890747 seconds ---
+TMA97H-8-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97H-8-9/features/' already exists.
+--- 8.76779055595398 seconds ---
+TMA97I-1-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-1/features/' already exists.
+--- 11.555641174316406 seconds ---
+TMA97I-1-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-11/features/' already exists.
+--- 4.795738935470581 seconds ---
+TMA97I-1-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-12/features/' already exists.
+--- 6.533782720565796 seconds ---
+TMA97I-1-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-13/features/' already exists.
+--- 6.022225856781006 seconds ---
+TMA97I-1-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-2/features/' already exists.
+--- 11.100475788116455 seconds ---
+TMA97I-1-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-3/features/' already exists.
+--- 11.49740982055664 seconds ---
+TMA97I-1-4
+290
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-4/features/' already exists.
+--- 12.545499563217163 seconds ---
+TMA97I-1-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-6/features/' already exists.
+--- 9.836730718612671 seconds ---
+TMA97I-1-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-8/features/' already exists.
+--- 9.409764528274536 seconds ---
+TMA97I-1-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-1-9/features/' already exists.
+--- 8.218170642852783 seconds ---
+TMA97I-2-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-1/features/' already exists.
+--- 8.751121759414673 seconds ---
+TMA97I-2-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-10/features/' already exists.
+--- 9.844667673110962 seconds ---
+TMA97I-2-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-11/features/' already exists.
+--- 10.209137678146362 seconds ---
+TMA97I-2-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-12/features/' already exists.
+--- 11.89995265007019 seconds ---
+TMA97I-2-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-13/features/' already exists.
+--- 10.801233530044556 seconds ---
+TMA97I-2-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-2/features/' already exists.
+--- 9.440905570983887 seconds ---
+TMA97I-2-3
+300
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-3/features/' already exists.
+--- 11.519724130630493 seconds ---
+TMA97I-2-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-4/features/' already exists.
+--- 11.418370246887207 seconds ---
+TMA97I-2-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-5/features/' already exists.
+--- 11.029986143112183 seconds ---
+TMA97I-2-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-6/features/' already exists.
+--- 11.595531463623047 seconds ---
+TMA97I-2-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-8/features/' already exists.
+--- 10.467923879623413 seconds ---
+TMA97I-2-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-2-9/features/' already exists.
+--- 12.161379098892212 seconds ---
+TMA97I-3-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-1/features/' already exists.
+--- 12.615649938583374 seconds ---
+TMA97I-3-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-10/features/' already exists.
+--- 5.19801664352417 seconds ---
+TMA97I-3-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-11/features/' already exists.
+--- 10.085994482040405 seconds ---
+TMA97I-3-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-12/features/' already exists.
+--- 10.721336603164673 seconds ---
+TMA97I-3-13
+310
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-13/features/' already exists.
+--- 10.05149793624878 seconds ---
+TMA97I-3-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-2/features/' already exists.
+--- 9.83364200592041 seconds ---
+TMA97I-3-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-3/features/' already exists.
+--- 9.918099403381348 seconds ---
+TMA97I-3-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-4/features/' already exists.
+--- 11.504152536392212 seconds ---
+TMA97I-3-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-5/features/' already exists.
+--- 9.88681411743164 seconds ---
+TMA97I-3-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-6/features/' already exists.
+--- 9.141458988189697 seconds ---
+TMA97I-3-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-8/features/' already exists.
+--- 11.56699824333191 seconds ---
+TMA97I-3-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-3-9/features/' already exists.
+--- 3.9764106273651123 seconds ---
+TMA97I-4-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-1/features/' already exists.
+--- 10.75420355796814 seconds ---
+TMA97I-4-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-10/features/' already exists.
+--- 11.00963306427002 seconds ---
+TMA97I-4-11
+320
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-11/features/' already exists.
+--- 11.506311178207397 seconds ---
+TMA97I-4-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-12/features/' already exists.
+--- 10.164825201034546 seconds ---
+TMA97I-4-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-13/features/' already exists.
+--- 10.479085445404053 seconds ---
+TMA97I-4-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-2/features/' already exists.
+--- 8.757267475128174 seconds ---
+TMA97I-4-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-3/features/' already exists.
+--- 10.333756685256958 seconds ---
+TMA97I-4-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-4/features/' already exists.
+--- 10.929681539535522 seconds ---
+TMA97I-4-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-5/features/' already exists.
+--- 10.982776641845703 seconds ---
+TMA97I-4-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-6/features/' already exists.
+--- 9.96282696723938 seconds ---
+TMA97I-4-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-7/features/' already exists.
+--- 9.334525108337402 seconds ---
+TMA97I-4-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-8/features/' already exists.
+--- 11.35818600654602 seconds ---
+TMA97I-4-9
+330
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-4-9/features/' already exists.
+--- 11.069015502929688 seconds ---
+TMA97I-5-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-1/features/' already exists.
+--- 8.484773635864258 seconds ---
+TMA97I-5-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-10/features/' already exists.
+--- 10.152555465698242 seconds ---
+TMA97I-5-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-11/features/' already exists.
+--- 12.152855157852173 seconds ---
+TMA97I-5-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-12/features/' already exists.
+--- 12.56005334854126 seconds ---
+TMA97I-5-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-13/features/' already exists.
+--- 10.081294536590576 seconds ---
+TMA97I-5-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-2/features/' already exists.
+--- 8.956126928329468 seconds ---
+TMA97I-5-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-3/features/' already exists.
+--- 12.50313401222229 seconds ---
+TMA97I-5-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-4/features/' already exists.
+--- 13.547873735427856 seconds ---
+TMA97I-5-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-5/features/' already exists.
+--- 11.141260623931885 seconds ---
+TMA97I-5-6
+340
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-6/features/' already exists.
+--- 10.52579665184021 seconds ---
+TMA97I-5-7
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-7/features/' already exists.
+--- 11.234403133392334 seconds ---
+TMA97I-5-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-8/features/' already exists.
+--- 9.355603456497192 seconds ---
+TMA97I-5-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-5-9/features/' already exists.
+--- 7.281314134597778 seconds ---
+TMA97I-6-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-1/features/' already exists.
+--- 12.07714319229126 seconds ---
+TMA97I-6-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-11/features/' already exists.
+--- 9.900950908660889 seconds ---
+TMA97I-6-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-12/features/' already exists.
+--- 9.581990480422974 seconds ---
+TMA97I-6-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-13/features/' already exists.
+--- 9.807100772857666 seconds ---
+TMA97I-6-2
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-2/features/' already exists.
+--- 10.63485598564148 seconds ---
+TMA97I-6-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-3/features/' already exists.
+--- 10.321815490722656 seconds ---
+TMA97I-6-4
+350
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-4/features/' already exists.
+--- 8.890722036361694 seconds ---
+TMA97I-6-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-5/features/' already exists.
+--- 12.622661352157593 seconds ---
+TMA97I-6-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-6/features/' already exists.
+--- 10.408109903335571 seconds ---
+TMA97I-6-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-8/features/' already exists.
+--- 10.398197174072266 seconds ---
+TMA97I-6-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-6-9/features/' already exists.
+--- 12.005510091781616 seconds ---
+TMA97I-7-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-1/features/' already exists.
+--- 10.285132646560669 seconds ---
+TMA97I-7-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-10/features/' already exists.
+--- 8.24520230293274 seconds ---
+TMA97I-7-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-11/features/' already exists.
+--- 6.406837463378906 seconds ---
+TMA97I-7-12
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-12/features/' already exists.
+--- 6.543118238449097 seconds ---
+TMA97I-7-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-13/features/' already exists.
+--- 4.76159143447876 seconds ---
+TMA97I-7-2
+360
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-2/features/' already exists.
+--- 8.723683834075928 seconds ---
+TMA97I-7-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-3/features/' already exists.
+--- 12.398776531219482 seconds ---
+TMA97I-7-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-4/features/' already exists.
+--- 10.810904026031494 seconds ---
+TMA97I-7-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-5/features/' already exists.
+--- 11.453829526901245 seconds ---
+TMA97I-7-6
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-6/features/' already exists.
+--- 9.209269523620605 seconds ---
+TMA97I-7-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-8/features/' already exists.
+--- 11.65580940246582 seconds ---
+TMA97I-7-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-7-9/features/' already exists.
+--- 11.105901002883911 seconds ---
+TMA97I-8-1
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-1/features/' already exists.
+--- 9.067710876464844 seconds ---
+TMA97I-8-10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-10/features/' already exists.
+--- 8.888526916503906 seconds ---
+TMA97I-8-11
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-11/features/' already exists.
+--- 9.547768354415894 seconds ---
+TMA97I-8-12
+370
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-12/features/' already exists.
+--- 10.417959928512573 seconds ---
+TMA97I-8-13
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-13/features/' already exists.
+--- 8.738590955734253 seconds ---
+TMA97I-8-3
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-3/features/' already exists.
+--- 12.393635272979736 seconds ---
+TMA97I-8-4
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-4/features/' already exists.
+--- 9.709810733795166 seconds ---
+TMA97I-8-5
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-5/features/' already exists.
+--- 12.054879903793335 seconds ---
+TMA97I-8-8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-8/features/' already exists.
+--- 10.459330797195435 seconds ---
+TMA97I-8-9
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TAN_TMA_Cores/IMSIZE250_OL0/TMA97I-8-9/features/' already exists.
+--- 10.02683711051941 seconds ---

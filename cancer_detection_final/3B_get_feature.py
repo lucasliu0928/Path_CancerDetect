@@ -22,6 +22,9 @@ import PIL
 import timm
 import argparse
 
+#Run: python3 -u 3B_get_feature.py --select_idx_start 80 --select_idx_end 120 --cuda_device 'cuda' --pixel_overlap 100 --save_image_size 250 --cohort_name OPX --feature_extraction_method uni1 
+
+
 ############################################################################################################
 #Parser
 ############################################################################################################
@@ -31,7 +34,8 @@ parser.add_argument('--save_image_size', default='250', type=int, help='the size
 parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX')
 parser.add_argument('--feature_extraction_method', default='uni1', type=str, help='feature extraction model: retccl, uni1, uni2')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-
+parser.add_argument('--select_idx_start', type=int)
+parser.add_argument('--select_idx_end', type=int)
 
 if __name__ == '__main__':
     
@@ -68,6 +72,7 @@ if __name__ == '__main__':
     #Select GPU
     ############################################################################################################
     device = torch.device(args.cuda_device if torch.cuda.is_available() else 'cpu')
+    print(device)
 
     ############################################################################################################
     #Select IDS
@@ -138,63 +143,60 @@ if __name__ == '__main__':
     #For each patient tile, get representation
     ############################################################################################################
     ct = 0 
-    for cur_id in selected_ids:
+    for cur_id in selected_ids[args.select_idx_start:args.select_idx_end]:
         print(cur_id)
-
         if ct % 10 == 0: print(ct)
 
-        if 'OPX' in cur_id:
-            _file = wsi_location_opx + cur_id + ".tif"
-        elif '(2017-0133)' in cur_id:
-            _file = wsi_location_ccola + cur_id + '.svs'
-        elif 'TMA' in cur_id:
-            _file = wsi_location_tan + cur_id + '.tif'
-
-        
-        save_name = str(Path(os.path.basename(_file)).with_suffix(''))
-        
-        if cohort_name == "OPX":
-            #Load slide
-            oslide = openslide.OpenSlide(_file)
-
-            #Get tile info
-            cur_tile_info_df = tile_info_df.loc[tile_info_df['SAMPLE_ID'] == cur_id]
-            
-            #Generate tiles
-            tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds=True)  # limit_bounds set True always, do not change it
-            #Grab tile 
-            tile_img = get_tile_representation(cur_tile_info_df, tiles, tile_lvls, model, resize_transform)
-            
-
-            
-        elif cohort_name == "TAN_TMA_Cores":      
-            #Load slide
-            tma = PIL.Image.open(_file)
-            
-            #Get tile info
-            cur_tile_info_df = tile_info_df.loc[tile_info_df['SAMPLE_ID'] == cur_id]
-            
-            #Grab tile 
-            tile_img = get_tile_representation_tma(cur_tile_info_df,tma, model, resize_transform)
-
-
-
-        
-        #Get feature
-        start_time = time.time()
-        feature_list = [tile_img[i][1] for i in range(cur_tile_info_df.shape[0])]
-        print("--- %s seconds ---" % (time.time() - start_time))
-        feature_df = np.concatenate(feature_list)
-        feature_df = pd.DataFrame(feature_df)
-                    
-        
-        
         save_location = out_location + cur_id + '/features/'
         create_dir_if_not_exists(save_location)
         save_name = save_location + 'features_alltiles_' + feature_extraction_method + '.h5'
-        feature_df.to_hdf(save_name, key='feature', mode='w')
-        cur_tile_info_df.to_hdf(save_name, key='tile_info', mode='a')
 
-        ct += 1
+        if os.path.exists(save_name) == False: #check if processed
+            
+            if 'OPX' in cur_id:
+                _file = wsi_location_opx + cur_id + ".tif"
+            elif '(2017-0133)' in cur_id:
+                _file = wsi_location_ccola + cur_id + '.svs'
+            elif 'TMA' in cur_id:
+                _file = wsi_location_tan + cur_id + '.tif'
+
+                    
+            if cohort_name == "OPX":
+                #Load slide
+                oslide = openslide.OpenSlide(_file)
+
+                #Get tile info
+                cur_tile_info_df = tile_info_df.loc[tile_info_df['SAMPLE_ID'] == cur_id]
+                
+                #Generate tiles
+                tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds=True)  # limit_bounds set True always, do not change it
+                #Grab tile 
+                tile_img = get_tile_representation(cur_tile_info_df, tiles, tile_lvls, model, device, resize_transform)
+                
+
+                
+            elif cohort_name == "TAN_TMA_Cores":      
+                #Load slide
+                tma = PIL.Image.open(_file)
+                
+                #Get tile info
+                cur_tile_info_df = tile_info_df.loc[tile_info_df['SAMPLE_ID'] == cur_id]
+                
+                #Grab tile 
+                tile_img = get_tile_representation_tma(cur_tile_info_df,tma, model, device, resize_transform)
+
+
+
+            
+            #Get feature
+            start_time = time.time()
+            feature_list = [tile_img[i][1] for i in range(cur_tile_info_df.shape[0])]
+            print("--- %s seconds ---" % (time.time() - start_time))
+            feature_df = np.concatenate(feature_list)
+            feature_df = pd.DataFrame(feature_df)    
+            feature_df.to_hdf(save_name, key='feature', mode='w')
+            cur_tile_info_df.to_hdf(save_name, key='tile_info', mode='a')
+
+            ct += 1
 
 
