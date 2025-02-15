@@ -1,0 +1,7 @@
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/TCGA_PRAD/' already exists.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/TCGA_PRAD/IMSIZE250_OL0/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/TCGA_PRAD/IMSIZE250_OL0//00784afd-6fc2-4f5e-b07e-0ebb38152339/' created.
+detecting tissue
+Start pulling tiles
+180 186
+0

@@ -1,0 +1,5 @@
+/var/tmp/slurmd/job9735006/slurm_script: line 17: /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/acmil/bin/activate: No such file or directory
+Traceback (most recent call last):
+  File "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/code_s/cancer_detection_final/7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature.py", line 10, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'

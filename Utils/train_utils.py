@@ -282,8 +282,11 @@ class ModelReadyData_diffdim(Dataset):
 
         if feature_name == 'retccl':
             n_total_f = 2048 + 2
-        else:
+        elif feature_name == 'uni1':
             n_total_f = 1024 + 2 
+        elif feature_name == 'uni2':
+            n_total_f = 1536 + 2 
+            
         feature_indexes = list(range(0,n_total_f))
         if include_tumor_fraction == False and include_cluster == False:
             feature_indexes.remove(n_total_f - 2)
