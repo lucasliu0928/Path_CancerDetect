@@ -1,0 +1,9 @@
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/TCGA_PRAD/IMSIZE250_OL0/' already exists.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/TCGA_PRAD/IMSIZE250_OL0//00784afd-6fc2-4f5e-b07e-0ebb38152339/' already exists.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/TCGA_PRAD/IMSIZE250_OL0//00784afd-6fc2-4f5e-b07e-0ebb38152339/ft_model/' already exists.
+(20298, 9)
+True
+starting inference
+0
+500
+1000

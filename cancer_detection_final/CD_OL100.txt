@@ -1,0 +1,10 @@
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/TCGA_PRAD/IMSIZE250_OL100/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/TCGA_PRAD/IMSIZE250_OL100//00784afd-6fc2-4f5e-b07e-0ebb38152339/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/TCGA_PRAD/IMSIZE250_OL100//00784afd-6fc2-4f5e-b07e-0ebb38152339/ft_model/' created.
+(56092, 9)
+True
+starting inference
+0
+500
+1000
+1500
