@@ -97,7 +97,7 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
-    toexclude_ids = ft_train_ids 
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
 
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #217
@@ -120,11 +120,13 @@ if __name__ == '__main__':
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
 
-
     ############################################################################################################
     #START
     ############################################################################################################
+    ct = 0
     for cur_id in selected_ids:
+        if (ct % 50 == 0): print(ct)
+        ct += 1
 
         save_location = out_location + "/" + cur_id + "/" 
         create_dir_if_not_exists(save_location)
@@ -155,8 +157,12 @@ if __name__ == '__main__':
             create_dir_if_not_exists(save_location)
 
         #Check if already processed
-        if os.path.exists(save_location + "ft_model" + "/") == False:
-            
+        out_files = os.listdir(os.path.join(save_location))
+        n_out_files = len([f for f in out_files if not f.startswith('.')])
+        if  n_out_files == 8:
+            print(f'PROCESSED: index: {ct}, ID: {cur_id}, n_files: {n_out_files}')      
+        else:
+            print(f'NOT PROCESSED: index: {ct}, ID: {cur_id}, n_files: {n_out_files}')  
             #Load tile info 
             if cohort_name == 'TCGA_PRAD':
                 tile_info_df = pd.read_csv(feature_location + cur_id + "/"  + slides_name + "_tiles.csv")
@@ -169,4 +175,3 @@ if __name__ == '__main__':
                 cancer_inference_tma(_file, learn, tile_info_df, save_image_size, pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name = cur_id)
             else:
                 cancer_inference_wsi(_file, learn, tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, save_name = slides_name)
-

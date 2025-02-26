@@ -31,7 +31,7 @@ import argparse
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--feature_extraction_method', default='uni1', type=str, help='feature extraction model: retccl, uni1, uni2')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--select_idx_start', type=int)
@@ -63,6 +63,7 @@ if __name__ == '__main__':
     wsi_location_opx = proj_dir + '/data/OPX/'
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
+    wsi_location_tcga = proj_dir + 'data/TCGA_PRAD/'
     tile_info_path = proj_dir + 'intermediate_data/3_updated_tile_info/'+ folder_name
 
     out_location = proj_dir + 'intermediate_data/4_tile_feature/'+ folder_name
@@ -80,12 +81,13 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id']) #24, 7 from OPX, 17 from ccola
-    toexclude_ids = ft_train_ids 
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
 
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #217
     ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
     tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
+    tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
 
     if cohort_name == "OPX":
         all_ids = opx_ids
@@ -93,8 +95,10 @@ if __name__ == '__main__':
         all_ids = ccola_ids
     elif cohort_name == "TAN_TMA_Cores":
         all_ids = tan_ids
+    elif cohort_name == 'TCGA_PRAD':
+        all_ids = tcga_ids
     elif cohort_name == "all":
-        all_ids = opx_ids + ccola_ids + tan_ids
+        all_ids = opx_ids + ccola_ids + tan_ids + tcga_ids
 
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids] #209 for 
@@ -159,6 +163,9 @@ if __name__ == '__main__':
                 _file = wsi_location_ccola + cur_id + '.svs'
             elif 'TMA' in cur_id:
                 _file = wsi_location_tan + cur_id + '.tif'
+            else:
+                slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
+                _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
 
                     
             if cohort_name == "OPX":
@@ -172,7 +179,21 @@ if __name__ == '__main__':
                 tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds=True)  # limit_bounds set True always, do not change it
                 #Grab tile 
                 tile_img = get_tile_representation(cur_tile_info_df, tiles, tile_lvls, model, device, resize_transform)
+
+
+            elif cohort_name == 'TCGA_PRAD':
+                #Load slide
+                oslide = openslide.OpenSlide(_file)
+
+                #Get tile info
+                cur_tile_info_df = tile_info_df.loc[tile_info_df['SAMPLE_ID'] == slides_name]
                 
+                #Generate tiles
+                tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds=True)        
+                
+                #Grab tile 
+                tile_img = get_tile_representation(cur_tile_info_df, tiles, tile_lvls, model, device, resize_transform)
+                    
 
                 
             elif cohort_name == "TAN_TMA_Cores":      

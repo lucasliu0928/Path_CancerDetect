@@ -13,10 +13,10 @@ import torch.nn as nn
 import PIL
 from Utils import extract_tile_start_end_coords_tma
 
-def preprocess_mutation_data(indata):
+def preprocess_mutation_data(indata, id_col = 'OPX_Number'):
 
     #Rename ID col
-    indata.rename(columns = {'OPX_Number': 'SAMPLE_ID'}, inplace = True)
+    indata.rename(columns = {id_col: 'SAMPLE_ID'}, inplace = True)
 
     #Recode, 1: mutation, 0: no mutation
     indata.iloc[:, 5:] = indata.iloc[:, 5:].notna().astype(int)
@@ -42,10 +42,10 @@ def preprocess_mutation_data(indata):
     return indata
 
 
-def preprocess_site_data(indata):
+def preprocess_site_data(indata, id_col = 'OPX_Number'):
 
     #Rename ID col
-    indata.rename(columns = {'OPX_Number': 'SAMPLE_ID'}, inplace = True)
+    indata.rename(columns = {id_col: 'SAMPLE_ID'}, inplace = True)
 
     #Recode
     indata['SITE_LOCAL'] = pd.NA

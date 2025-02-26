@@ -1,0 +1,36 @@
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/' already exists.
+cuda
+1b87f2f3-1710-456a-9835-590feadf546e
+0
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/1b87f2f3-1710-456a-9835-590feadf546e/features/' already exists.
+--- 1133.5458710193634 seconds ---
+1c0eb7a4-710a-409c-8ce6-bc3b0d920334
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/1c0eb7a4-710a-409c-8ce6-bc3b0d920334/features/' created.
+--- 797.4639942646027 seconds ---
+1f0d2975-1007-4a95-974c-2c4b65a7fb68
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/1f0d2975-1007-4a95-974c-2c4b65a7fb68/features/' created.
+--- 548.9213471412659 seconds ---
+1f7623b7-fe59-422c-8376-a040c2bdc656
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/1f7623b7-fe59-422c-8376-a040c2bdc656/features/' created.
+--- 477.5628559589386 seconds ---
+202e9943-0192-434f-b2c0-96ef8a75ca4f
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/202e9943-0192-434f-b2c0-96ef8a75ca4f/features/' created.
+--- 915.9059319496155 seconds ---
+22ac89c8-dec3-4210-b1e4-61720a9f30e8
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/22ac89c8-dec3-4210-b1e4-61720a9f30e8/features/' created.
+--- 656.922171831131 seconds ---
+22afb53d-38c7-4638-88e4-61ad1e3f6d40
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/22afb53d-38c7-4638-88e4-61ad1e3f6d40/features/' created.
+--- 132.9992799758911 seconds ---
+23465b33-2ab3-49d0-b72c-59c5f1a3eb85
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/23465b33-2ab3-49d0-b72c-59c5f1a3eb85/features/' created.
+--- 607.4741830825806 seconds ---
+2349543e-b4aa-4bab-a006-e075ef6a1251
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/2349543e-b4aa-4bab-a006-e075ef6a1251/features/' created.
+--- 366.9960346221924 seconds ---
+23944f66-e85d-48b9-b2ba-e78d933637da
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/23944f66-e85d-48b9-b2ba-e78d933637da/features/' created.
+--- 409.9063792228699 seconds ---
+2436bdac-15ad-4773-b7de-8786f52b89ad
+10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/TCGA_PRAD/IMSIZE250_OL0/2436bdac-15ad-4773-b7de-8786f52b89ad/features/' created.

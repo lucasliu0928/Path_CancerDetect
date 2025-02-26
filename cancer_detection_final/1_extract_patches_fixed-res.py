@@ -86,7 +86,7 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
-    toexclude_ids = ft_train_ids 
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
 
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx) if x != '.DS_Store'] #217
@@ -119,35 +119,39 @@ if __name__ == '__main__':
         save_location = out_location + "/" + cur_id + "/" 
         create_dir_if_not_exists(save_location)
 
+        check_imgout = glob.glob(save_location + "*.png")
+        if len(check_imgout) == 0 :
         
-        if 'OPX' in cur_id:
-            _file = wsi_location_opx + cur_id + ".tif"
-            rad_tissue = 5
-        elif '(2017-0133)' in cur_id:
-            _file = wsi_location_ccola + cur_id + '.svs'
-            rad_tissue = 2
-        elif 'TMA' in cur_id:
-            _file = wsi_location_tan + cur_id + '.tif'
-            rad_tissue = 2
-        else:
-            slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
-            _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
-            rad_tissue = 2
+            if 'OPX' in cur_id:
+                _file = wsi_location_opx + cur_id + ".tif"
+                rad_tissue = 5
+            elif '(2017-0133)' in cur_id:
+                _file = wsi_location_ccola + cur_id + '.svs'
+                rad_tissue = 2
+            elif 'TMA' in cur_id:
+                _file = wsi_location_tan + cur_id + '.tif'
+                rad_tissue = 2
+            else:
+                slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
+                _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
+                rad_tissue = 2
 
 
-        #Generating tiles 
-        if 'OPX' in cur_id or '(2017-0133)' in cur_id:
-            mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles(cur_id, _file, save_image_size, pixel_overlap, limit_bounds, mag_target_tiss, rad_tissue, mag_extract)
-            
-        elif 'TMA' in cur_id:
-            mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles_tma(cur_id, _file, save_image_size, pixel_overlap, rad_tissue)
+            #Generating tiles 
+            if 'OPX' in cur_id or '(2017-0133)' in cur_id:
+                mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles(cur_id, _file, save_image_size, pixel_overlap, limit_bounds, mag_target_tiss, rad_tissue, mag_extract)
+                
+            elif 'TMA' in cur_id:
+                mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles_tma(cur_id, _file, save_image_size, pixel_overlap, rad_tissue)
+            else:
+                mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles(cur_id, _file, save_image_size, pixel_overlap, limit_bounds, mag_target_tiss, rad_tissue, mag_extract)
+                tile_info_df['SAMPLE_ID'] = slides_name
+                
+            tile_info_df.to_csv(save_location + slides_name + "_tiles.csv", index = False)
+            lvl_img.save(os.path.join(save_location + slides_name + '_low-res.png'))
+            lvl_mask.save(os.path.join(save_location, slides_name + '_tissue.png'))
+            slide_ROIS(polygons=tissue, mpp=float(mpp),savename=os.path.join(save_location, cur_id + '_tissue.json'),labels='tissue', ref=[0, 0], roi_color=-16770432)
         else:
-            mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles(cur_id, _file, save_image_size, pixel_overlap, limit_bounds, mag_target_tiss, rad_tissue, mag_extract)
-            tile_info_df['SAMPLE_ID'] = slides_name
-            
-        tile_info_df.to_csv(save_location + slides_name + "_tiles.csv", index = False)
-        lvl_img.save(os.path.join(save_location + slides_name + '_low-res.png'))
-        lvl_mask.save(os.path.join(save_location, slides_name + '_tissue.png'))
-        slide_ROIS(polygons=tissue, mpp=float(mpp),savename=os.path.join(save_location, cur_id + '_tissue.json'),labels='tissue', ref=[0, 0], roi_color=-16770432)
+            print(cur_id + ': already processed')
     
 
