@@ -15,6 +15,7 @@ import os
 from PIL import ImageCms, Image
 from Utils import convert_img
 import torch.nn as nn
+import torch.nn.functional as F
 
 class pull_tiles(Dataset):
     def __init__(self, tile_info, deepzoom_tiles, tile_levels):
@@ -131,6 +132,7 @@ def combine_feature_label_tumorinfo(patient_id, feature_path, tumor_info_path, i
     comb_df = pd.concat([feature_df,label_df], axis = 1)
 
     return comb_df
+
 
 
 def extract_feature_label_tumorinfo_np(selected_df, selected_feature, selected_labels):
@@ -267,6 +269,88 @@ def get_feature_label_array_dynamic_tma(feature_path, tumor_info_path, feature_n
         
     return feature_list, label_list, info_list, tumor_info_list, id_list
 
+
+def extract_before_third_hyphen(id_string):
+    parts = id_string.split('-')
+    return '-'.join(parts[:3])
+    
+def combine_feature_label_tumorinfo_TCGA(patient_id, label_dict, feature_path, tumor_info_path, input_file_name):
+
+    #Input dir
+    input_dir = feature_path + patient_id + '/' + 'features/' + input_file_name + '.h5'
+
+    #feature
+    feature_df = pd.read_hdf(input_dir, key='feature')
+    feature_df.columns = feature_df.columns.astype(str)
+    
+    #Label
+    label_df = pd.read_hdf(input_dir, key='tile_info')
+    label_df.reset_index(drop = True, inplace = True)
+    
+    
+    #Add tumor info to label
+    cur_slides_name = [f for f in os.listdir(os.path.join(tumor_info_path, patient_id, "ft_model/")) if '.csv' in f][0].replace('_TILE_TUMOR_PERC.csv','')
+    tumor_info_df = pd.read_csv(os.path.join(tumor_info_path, patient_id, "ft_model/", cur_slides_name + "_TILE_TUMOR_PERC.csv"))
+    tumor_info_df.reset_index(drop = True, inplace = True)
+    label_df = label_df.merge(tumor_info_df, on = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP',
+                                                   'LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE',
+                                                   'TISSUE_COVERAGE'])    
+    #Combine feature and label and tumor info
+    comb_df = pd.concat([feature_df,label_df], axis = 1)
+    comb_df['PATIENT_ID'] = comb_df['SAMPLE_ID'].apply(extract_before_third_hyphen)
+    cur_patient = list(set(comb_df['PATIENT_ID']))[0]
+
+    #Update label
+    for k in label_dict.keys():
+        if cur_patient in label_dict[k]:
+            comb_df[k] = 1
+        else:
+            comb_df[k] = 0
+
+    return comb_df
+
+
+def get_feature_label_array_dynamic_TCGA(feature_path, label_dict, tumor_info_path, feature_name, selected_ids,selected_labels, selected_feature, tumor_fraction_thres = 0):
+    r'''
+    #if test, no tumor tiles, select all other tiles
+    #if train, no tumor tiles, do not include in the train list
+    '''
+    feature_list = []
+    label_list = []
+    info_list = []
+    tumor_info_list = []
+    id_list = []
+    ct = 0 
+    for pt in selected_ids:
+        if ct % 10 == 0 : print(ct)
+
+        #Combined feature label and tumor info
+        cur_comb_df = combine_feature_label_tumorinfo_TCGA(pt, label_dict, feature_path, tumor_info_path, feature_name)
+        
+        #Select tumor fraction > X tiles
+        cur_comb_df_tumor = cur_comb_df.loc[cur_comb_df['TUMOR_PIXEL_PERC'] >= tumor_fraction_thres].copy()
+        cur_comb_df_tumor = cur_comb_df_tumor.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
+        cur_n_tumor_tiles = cur_comb_df_tumor.shape[0] # N of tumor tiles
+        
+
+
+        if tumor_fraction_thres == 0: #select all tiles
+            cur_selected_df =  cur_comb_df 
+        elif tumor_fraction_thres > 0: #select tumor tiles based on the threshold
+            cur_selected_df =  cur_comb_df_tumor 
+        cur_selected_df = cur_selected_df.reset_index(drop = True)
+        
+        if cur_selected_df is not None :
+            #Extract feature, label and tumor info
+            cur_feature, cur_label, cur_info, cur_tf_info =  extract_feature_label_tumorinfo_np(cur_selected_df, selected_feature, selected_labels)
+            feature_list.append(cur_feature)
+            label_list.append(cur_label)
+            info_list.append(cur_info)
+            tumor_info_list.append(cur_tf_info)
+            id_list.append(pt)
+            ct += 1
+            
+    return feature_list, label_list, info_list, tumor_info_list, id_list
     
 class ModelReadyData_diffdim(Dataset):
     def __init__(self,
@@ -691,3 +775,62 @@ def compute_loss_for_all_labels_sepatt(predicted_list, target_list, weight_list,
     loss = sum(loss_list)
 
     return loss
+
+
+class FocalLoss_withATT(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+        super(FocalLoss_withATT, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+        self.att_reg_flag = True
+        self.att_reg_loss = nn.MSELoss()
+
+    def forward(self, inputs, targets, tumor_fractions, attention_scores):
+        BCE_loss = F.cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
+
+        if self.reduction == 'mean':
+            F_loss =  F_loss.mean()
+        elif self.reduction == 'sum':
+            F_loss =  F_loss.sum()
+
+        if self.att_reg_flag == True:
+            attention_scores_mean = torch.softmax(attention_scores, dim=-1).mean(dim = 1) #Take the mean across all braches
+            F_loss = F_loss + self.att_reg_loss(tumor_fractions, attention_scores)
+
+        return F_loss
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=1, reduction='mean'):
+        r'''
+        if alpha = -1, gamma = 0, then it is = CE loss
+        '''
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, pred_logits, target):
+        
+        if not (0 <= self.alpha <= 1) and self.alpha != -1:
+            raise ValueError(f"Invalid alpha value: {alpha}. alpha must be in the range [0,1] or -1 for ignore.")
+
+        ce_loss = F.binary_cross_entropy_with_logits(pred_logits, target, reduction='none')
+        pred = pred_logits.sigmoid()
+        pt = torch.where(target == 1, pred, 1 - pred)
+        loss =  ((1.0 - pt) ** self.gamma) * ce_loss
+        
+        if self.alpha != -1:
+            alpha_t = target*self.alpha + (1.0 - target)*(1.0 - self.alpha)
+            loss = alpha_t*loss
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+
+

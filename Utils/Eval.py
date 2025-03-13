@@ -30,15 +30,15 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     Recall = round(recall_score(y_true, y_pred_class),2)
     Precision = round(precision_score(y_true, y_pred_class),2)
     Specificity = round(tn / (tn + fp),2)
-    perf_tb = pd.DataFrame({"AUC": AUC, 
+    perf_tb = pd.DataFrame({"AUC": AUC,
+                            "Recall": Recall,
+                            "Specificity":Specificity,
                             "ACC": ACC,
+                            "Precision":Precision,
+                            "PR_AUC":PR_AUC,
                             "F1": F1,
                             "F2": F2,
-                            "F3": F3,
-                            "Recall": Recall,
-                            "Precision":Precision,
-                            "Specificity":Specificity,
-                            "PR_AUC":PR_AUC},index = [cohort_name])
+                            "F3": F3},index = [cohort_name])
     
     return perf_tb
 
@@ -96,3 +96,20 @@ def get_attention_and_tileinfo(pt_label_df, patient_att_score):
 
     return cur_att_df
 
+
+
+def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
+
+    #Prediction df
+    pred_df = pd.DataFrame({"SAMPLE_IDs":  cohort_ids, 
+                            "Y_True": y_true, 
+                            "Pred_Prob" :  y_predprob,
+                            "OUTCOME": outcome})
+        
+    pred_df['Pred_Class'] = 0
+    pred_df.loc[pred_df['Pred_Prob'] > THRES,'Pred_Class'] = 1
+
+
+    perf_df = compute_performance_each_label([outcome], pred_df, "SAMPLE_LEVEL")
+
+    return pred_df, perf_df
