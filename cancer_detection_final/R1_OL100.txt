@@ -427,3 +427,22 @@ Start pulling tiles
 50
 100
 150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL100/OPX_218/' created.
+detecting tissue
+Start pulling tiles
+89 192
+0
+50
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL100/OPX_219/' created.
+detecting tissue
+Start pulling tiles
+379 246
+0
+50
+100
+150
+200
+250
+300
+350

@@ -460,3 +460,5 @@ detecting tissue
 Start pulling tiles
 193 197
 0
+50
+100

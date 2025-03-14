@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
 import sys
 import os
 import argparse
@@ -17,10 +14,10 @@ from Utils import generating_tiles, generating_tiles_tma
 warnings.filterwarnings("ignore")
 
 
-
-#Run: python3 -u 1_extract_patches_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overlap 0 
-
-
+#RUN
+#source ~/.bashrc
+#conda activate paimg9
+#python3 -u 1_extract_patches_fixed-res.py  --cohort_name OPX --pixel_overlap 0 
 ############################################################################################################
 #Parser
 ############################################################################################################
