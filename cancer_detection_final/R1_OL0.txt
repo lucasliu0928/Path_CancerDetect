@@ -462,3 +462,267 @@ Start pulling tiles
 0
 50
 100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_224/' created.
+detecting tissue
+Start pulling tiles
+271 189
+0
+50
+100
+150
+200
+250
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_225/' created.
+detecting tissue
+Start pulling tiles
+189 164
+0
+50
+100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_226/' created.
+detecting tissue
+Start pulling tiles
+179 148
+0
+50
+100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_227/' created.
+detecting tissue
+Start pulling tiles
+236 189
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_228/' created.
+detecting tissue
+Start pulling tiles
+252 140
+0
+50
+100
+150
+200
+250
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_229/' created.
+detecting tissue
+Start pulling tiles
+244 123
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_230/' created.
+detecting tissue
+Start pulling tiles
+56 123
+0
+50
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_231/' created.
+detecting tissue
+Start pulling tiles
+203 181
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_232/' created.
+detecting tissue
+Start pulling tiles
+152 181
+0
+50
+100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_233/' created.
+detecting tissue
+Start pulling tiles
+211 140
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_234/' created.
+detecting tissue
+Start pulling tiles
+211 181
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_235/' created.
+detecting tissue
+Start pulling tiles
+267 181
+0
+50
+100
+150
+200
+250
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_236/' created.
+detecting tissue
+Start pulling tiles
+60 74
+0
+50
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_237/' created.
+detecting tissue
+Start pulling tiles
+220 189
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_238/' created.
+detecting tissue
+Start pulling tiles
+58 58
+0
+50
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_239/' created.
+detecting tissue
+Start pulling tiles
+181 91
+0
+50
+100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_240/' created.
+detecting tissue
+Start pulling tiles
+224 189
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_241/' created.
+detecting tissue
+Start pulling tiles
+238 74
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_242/' created.
+detecting tissue
+Start pulling tiles
+242 123
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_243/' created.
+detecting tissue
+Start pulling tiles
+140 91
+0
+50
+100
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_244/' created.
+detecting tissue
+Start pulling tiles
+207 132
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_245/' created.
+detecting tissue
+Start pulling tiles
+119 66
+0
+50
+100
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_246/' created.
+detecting tissue
+Start pulling tiles
+181 140
+0
+50
+100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_247/' created.
+detecting tissue
+Start pulling tiles
+44 74
+0
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_248/' created.
+detecting tissue
+Start pulling tiles
+203 148
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_249/' created.
+detecting tissue
+Start pulling tiles
+318 123
+0
+50
+100
+150
+200
+250
+300
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_250/' created.
+detecting tissue
+Start pulling tiles
+263 189
+0
+50
+100
+150
+200
+250
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_251/' created.
+detecting tissue
+Start pulling tiles
+234 156
+0
+50
+100
+150
+200
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_252/' created.
+detecting tissue
+Start pulling tiles
+46 99
+0
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_253/' created.
+detecting tissue
+Start pulling tiles
+117 41
+0
+50
+100
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_254/' created.
+detecting tissue
+Start pulling tiles
+164 173
+0
+50
+100
+150
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/1_tile_pulling/OPX/IMSIZE250_OL0/OPX_255/' created.
+detecting tissue
+Start pulling tiles
+175 140
+0
+50
+100

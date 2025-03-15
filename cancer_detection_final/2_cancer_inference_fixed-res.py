@@ -3,45 +3,20 @@
 # ENV: paimg9
 import sys
 import os
-import numpy as np
-import cv2
-import openslide
-from openslide import open_slide
-from openslide.deepzoom import DeepZoomGenerator
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
-import geojson
 import argparse
-import matplotlib.pyplot as plt
-import fastai
-from fastai.vision.all import *
-import PIL
-matplotlib.use('Agg')
 import pandas as pd
-import datetime
-from skimage import draw, measure, morphology, filters
-from shapely.geometry import Polygon, Point, MultiPoint, MultiPolygon, shape
-from shapely.ops import cascaded_union, unary_union
-import json
-import shapely
 import warnings
-from scipy import ndimage
+from fastai.vision.all import load_learner
 sys.path.insert(0, '../Utils/')
-from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords
-from Utils import do_mask_original,check_tissue,whitespace_check
-from Utils import slide_ROIS
-from Utils import get_downsample_factor, get_image_at_target_mag
 from Utils import create_dir_if_not_exists
-from Utils import get_map_startend
-from Utils import cancer_mask_fix_res, tile_ROIS, check_any_invalid_poly, make_valid_poly
-from Utils import convert_img
-from Utils import plot_tiles_with_topK_cancerprob, get_binary_pred_tile
 from Utils import cancer_inference_wsi , cancer_inference_tma
 warnings.filterwarnings("ignore")
 
 
-#Run: python3 -u 2_cancer_inference_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overlap 0 
-
+#Run: 
+#source ~/.bashrc
+#conda activate paimg9
+#python3 -u 2_cancer_inference_fixed-res.py  --cohort_name OPX --pixel_overlap 100 
 
 ############################################################################################################
 #Parser
@@ -74,6 +49,8 @@ if __name__ == '__main__':
     mag_target_tiss = args.mag_target_tiss   #1.25x for tissue detection, this is not used for TMA
     bi_thres = args.bi_thres           #Binary classification threshold for cancer mask
     cohort_name = args.cohort_name
+    folder_name = "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap)
+
 
     ############################################################################################################
     #DIR
@@ -83,13 +60,12 @@ if __name__ == '__main__':
     wsi_location_opx = proj_dir + '/data/OPX/'
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_tcga = proj_dir + 'data/TCGA_PRAD/'
-    feature_location = proj_dir + 'intermediate_data/1_tile_pulling/'+ cohort_name + "/" + "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/" #cancer_prediction_results110224
-    model_path = proj_dir + 'models/cancer_detection_models/mets/'
-
-    out_location = proj_dir + 'intermediate_data/2_cancer_detection/'+ cohort_name + "/" + "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap) + "/"
+    feature_location = os.path.join(proj_dir,'intermediate_data','1_tile_pulling', cohort_name, folder_name) #cancer_prediction_results110224
+    model_path = os.path.join(proj_dir,'models','cancer_detection_models', 'mets')
+    
+    
+    out_location = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', cohort_name, folder_name)
     create_dir_if_not_exists(out_location)
-
-
 
     ############################################################################################################
     #Select IDS
@@ -98,15 +74,15 @@ if __name__ == '__main__':
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
     toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
-
+    
     #All available IDs
-    opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #217
+    opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx) if x != '.DS_Store'] #353
     ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
-    tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
+    tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)  if x != '.DS_Store'] #677
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
-
+    
     if cohort_name == "OPX":
-        all_ids = opx_ids
+        all_ids = opx_ids 
     elif cohort_name == "ccola":
         all_ids = ccola_ids
     elif cohort_name == "TAN_TMA_Cores":
@@ -115,7 +91,7 @@ if __name__ == '__main__':
         all_ids = tcga_ids
     elif cohort_name == "all":
         all_ids = opx_ids + ccola_ids + tan_ids + tcga_ids
-        
+    
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
@@ -127,35 +103,37 @@ if __name__ == '__main__':
     for cur_id in selected_ids:
         if (ct % 50 == 0): print(ct)
         ct += 1
-
+    
         save_location = out_location + "/" + cur_id + "/" 
         create_dir_if_not_exists(save_location)
-
+    
+        slides_name = cur_id
         if 'OPX' in cur_id:
-            _file = wsi_location_opx + cur_id + ".tif"
+            _file = wsi_location_opx + slides_name + ".tif"
             rad_tissue = 5
         elif '(2017-0133)' in cur_id:
-            _file = wsi_location_ccola + cur_id + '.svs'
+            _file = wsi_location_ccola + slides_name + '.svs'
             rad_tissue = 2
         elif 'TMA' in cur_id:
-            _file = wsi_location_tan + cur_id + '.tif'
+            _file = wsi_location_tan + slides_name + '.tif'
             rad_tissue = 2
         else:
             slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
             _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
             rad_tissue = 2
-
-
+    
+    
         #Load model   
         if ft_model == True:
-            learn = load_learner(model_path + 'ft_models/dlv3_2ep_2e4_update-07182023_RT_fine_tuned..pkl',cpu=False) #all use mets model
+            learn = load_learner(os.path.join(model_path,'ft_models','dlv3_2ep_2e4_update-07182023_RT_fine_tuned..pkl'),cpu=False) #all use mets model
             save_location = save_location + "ft_model" + "/"
             create_dir_if_not_exists(save_location)
         else:
-            learn = load_learner(model_path + 'dlv3_2ep_2e4_update-07182023_RT.pkl',cpu=False) #all use prior mets model
+            
+            learn = load_learner(os.path.join(model_path,'dlv3_2ep_2e4_update-07182023_RT.pkl'),cpu=False) #all use prior mets model
             save_location = save_location + "prior_model" + "/"
             create_dir_if_not_exists(save_location)
-
+    
         #Check if already processed
         out_files = os.listdir(os.path.join(save_location))
         n_out_files = len([f for f in out_files if not f.startswith('.')])
@@ -165,9 +143,9 @@ if __name__ == '__main__':
             print(f'NOT PROCESSED: index: {ct}, ID: {cur_id}, n_files: {n_out_files}')  
             #Load tile info 
             if cohort_name == 'TCGA_PRAD':
-                tile_info_df = pd.read_csv(feature_location + cur_id + "/"  + slides_name + "_tiles.csv")
+                tile_info_df = pd.read_csv(os.path.join(feature_location, cur_id, slides_name + "_tiles.csv"))
             else:
-                tile_info_df = pd.read_csv(feature_location + cur_id + "/"  + cur_id + "_tiles.csv")
+                tile_info_df = pd.read_csv(os.path.join(feature_location, cur_id, cur_id + "_tiles.csv"))
             print(tile_info_df.shape)
             
             #Run
