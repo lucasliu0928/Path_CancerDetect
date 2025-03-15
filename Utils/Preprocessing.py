@@ -57,33 +57,45 @@ def preprocess_site_data(indata, id_col = 'OPX_Number'):
 
 
 
-trnsfrms_val = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Normalize(mean = (0.485, 0.456, 0.406), std =(0.229, 0.224, 0.225))
-    ]
-)
+def transform_functions(pretrain_model_name = 'uni2'):
 
-transform_resize = transforms.Compose(
-    [
-        transforms.Resize(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    ]
-)
+    if pretrain_model_name == 'retccl':
+        trnsfrms = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean = (0.485, 0.456, 0.406), std =(0.229, 0.224, 0.225))
+            ]
+        )
+    elif pretrain_model_name == 'uni' or pretrain_model_name == 'uni2':
+        trnsfrms = transforms.Compose(
+            [
+                transforms.Resize(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ]
+        )
+    elif pretrain_model_name == 'prov_gigapath':
+        trnsfrms = transforms.Compose(
+            [
+                transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ]
+        )
+
+    return trnsfrms
 
 class get_tile_representation(Dataset):
-    def __init__(self, tile_info, deepzoom_tiles, tile_levels, pretrain_model, device, resize = False):
+    def __init__(self, tile_info, deepzoom_tiles, tile_levels, pretrain_model_name, pretrain_model, device):
         super().__init__()
-        self.transform = trnsfrms_val
-        self.transform_resize = transform_resize
+        self.transform = transform_functions(pretrain_model_name)
         self.tile_info = tile_info
         self.deepzoom_tiles = deepzoom_tiles
         self.tile_levels = tile_levels
         self.mag_extract = list(set(tile_info['MAG_EXTRACT']))[0]
         self.save_image_size = list(set(tile_info['SAVE_IMAGE_SIZE']))[0]
         self.pretrain_model = pretrain_model
-        self.resize = resize
         self.device = device
 
     def __getitem__(self, idx):
@@ -96,10 +108,7 @@ class get_tile_representation(Dataset):
         tile_pull = tile_pull.resize(size=(self.save_image_size, self.save_image_size),resample=PIL.Image.LANCZOS) #resize
 
         #Get features
-        if self.resize == False:
-            tile_pull_trns = self.transform(tile_pull)
-        else: 
-            tile_pull_trns = self.transform_resize(tile_pull)
+        tile_pull_trns = self.transform(tile_pull)
         tile_pull_trns = tile_pull_trns.unsqueeze(0)  # Adds a dimension at the 0th index
 
         #use model to get feature
@@ -115,16 +124,14 @@ class get_tile_representation(Dataset):
 
 
 class get_tile_representation_tma(Dataset):
-    def __init__(self, tile_info, tma, pretrain_model, device, resize = False):
+    def __init__(self, tile_info, tma, pretrain_model_name, pretrain_model, device):
         super().__init__()
-        self.transform = trnsfrms_val
-        self.transform_resize = transform_resize
+        self.transform = transform_functions(pretrain_model_name)
         self.tile_info = tile_info
         self.save_image_size = list(set(tile_info['SAVE_IMAGE_SIZE']))[0]
         self.pixel_overlap = list(set(tile_info['PIXEL_OVERLAP']))[0]
         self.pretrain_model = pretrain_model
         self.tma = tma
-        self.resize = resize
         self.device = device
 
     def __getitem__(self, idx):
@@ -139,10 +146,7 @@ class get_tile_representation_tma(Dataset):
         tile_pull = tile_pull.convert('RGB')
 
         #Get features
-        if self.resize == False:
-            tile_pull_trns = self.transform(tile_pull)
-        else: 
-            tile_pull_trns = self.transform_resize(tile_pull)
+        tile_pull_trns = self.transform(tile_pull)
         tile_pull_trns = tile_pull_trns.unsqueeze(0)  # Adds a dimension at the 0th index
 
         #use model to get feature
