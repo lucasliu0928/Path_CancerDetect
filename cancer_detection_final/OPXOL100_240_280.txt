@@ -1,0 +1,127 @@
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100' already exists.
+cuda
+353
+0
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_247/features' created.
+NOT Processed: OPX_247 N Tiles: 326
+--- 7.07814884185791 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_248/features' created.
+NOT Processed: OPX_248 N Tiles: 19303
+--- 441.0498905181885 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_249/features' created.
+NOT Processed: OPX_249 N Tiles: 4373
+--- 98.78143787384033 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_250/features' created.
+NOT Processed: OPX_250 N Tiles: 13777
+--- 312.38995695114136 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_251/features' created.
+NOT Processed: OPX_251 N Tiles: 18719
+--- 426.58200216293335 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_252/features' created.
+NOT Processed: OPX_252 N Tiles: 397
+--- 8.860427856445312 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_253/features' created.
+NOT Processed: OPX_253 N Tiles: 761
+--- 16.476287126541138 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_254/features' created.
+NOT Processed: OPX_254 N Tiles: 2650
+--- 60.15129494667053 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_255/features' created.
+NOT Processed: OPX_255 N Tiles: 13381
+--- 305.6292085647583 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_256/features' created.
+NOT Processed: OPX_256 N Tiles: 6674
+--- 153.64311504364014 seconds ---
+10
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_257/features' created.
+NOT Processed: OPX_257 N Tiles: 30192
+--- 688.0700061321259 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_258/features' created.
+NOT Processed: OPX_258 N Tiles: 12451
+--- 283.2091100215912 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_259/features' created.
+NOT Processed: OPX_259 N Tiles: 24064
+--- 548.0901257991791 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_260/features' created.
+NOT Processed: OPX_260 N Tiles: 814
+--- 17.91537857055664 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_261/features' created.
+NOT Processed: OPX_261 N Tiles: 245
+--- 5.526109218597412 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_262/features' created.
+NOT Processed: OPX_262 N Tiles: 781
+--- 16.815730094909668 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_263/features' created.
+NOT Processed: OPX_263 N Tiles: 1295
+--- 29.147405862808228 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_264/features' created.
+NOT Processed: OPX_264 N Tiles: 7905
+--- 180.90996289253235 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_265/features' created.
+NOT Processed: OPX_265 N Tiles: 2774
+--- 61.48698329925537 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_266/features' created.
+NOT Processed: OPX_266 N Tiles: 23293
+--- 531.5841300487518 seconds ---
+20
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_267/features' created.
+NOT Processed: OPX_267 N Tiles: 2381
+--- 54.45569825172424 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_268/features' created.
+NOT Processed: OPX_268 N Tiles: 605
+--- 12.99065375328064 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_269/features' created.
+NOT Processed: OPX_269 N Tiles: 22379
+--- 513.5181798934937 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_270/features' created.
+NOT Processed: OPX_270 N Tiles: 27631
+--- 630.0648369789124 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_271/features' created.
+NOT Processed: OPX_271 N Tiles: 1502
+--- 34.048835039138794 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_272/features' created.
+NOT Processed: OPX_272 N Tiles: 12563
+--- 288.3220634460449 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_273/features' created.
+NOT Processed: OPX_273 N Tiles: 19408
+--- 442.4310290813446 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_274/features' created.
+NOT Processed: OPX_274 N Tiles: 1608
+--- 34.98983979225159 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_275/features' created.
+NOT Processed: OPX_275 N Tiles: 2158
+--- 49.61502170562744 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_276/features' created.
+NOT Processed: OPX_276 N Tiles: 1865
+--- 40.74030256271362 seconds ---
+30
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_277/features' created.
+NOT Processed: OPX_277 N Tiles: 1436
+--- 31.857118129730225 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_278/features' created.
+NOT Processed: OPX_278 N Tiles: 1366
+--- 29.8922221660614 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_279/features' created.
+NOT Processed: OPX_279 N Tiles: 1382
+--- 31.707296133041382 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_280/features' created.
+NOT Processed: OPX_280 N Tiles: 663
+--- 14.670458793640137 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_281/features' created.
+NOT Processed: OPX_281 N Tiles: 999
+--- 21.736544847488403 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_282/features' created.
+NOT Processed: OPX_282 N Tiles: 1534
+--- 33.89547634124756 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_283/features' created.
+NOT Processed: OPX_283 N Tiles: 2224
+--- 50.594523906707764 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_284/features' created.
+NOT Processed: OPX_284 N Tiles: 1148
+--- 25.851397275924683 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_285/features' created.
+NOT Processed: OPX_285 N Tiles: 1238
+--- 26.815366506576538 seconds ---
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/4_tile_feature/OPX/IMSIZE250_OL100/OPX_286/features' created.
+NOT Processed: OPX_286 N Tiles: 16863
+--- 384.47696924209595 seconds ---

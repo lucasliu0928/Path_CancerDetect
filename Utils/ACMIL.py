@@ -203,6 +203,44 @@ def predict(net, data_loader, device, conf, header):
     return y_pred_tasks, y_predprob_task, y_true_tasks
 
 
+def predict_v2(net, data_loader, device, conf, header):    
+    y_pred = []
+    y_true = []
+    y_pred_prob = []
+    # Set the network to evaluation mode
+    net.eval()
+    for data in data_loader:
+        image_patches = data[0].to(device, dtype=torch.float32)
+        label_lists = data[1][0]
+        sub_preds_list, slide_preds_list, attn_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+        
+        #Compute loss for each task, then sum
+        pred_list = []
+        pred_prob_list = []
+        for k in range(conf.n_task):
+            sub_preds = sub_preds_list[k]
+            slide_preds = slide_preds_list[k]
+            attn = attn_list[k]
+            labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
+            pred_prob = torch.sigmoid(slide_preds)
+            pred = pred_prob[0][0].round()
+            pred_list.append(pred)
+            pred_prob_list.append(pred_prob)
+    
+        y_pred.append(pred_list)
+        y_true.append(label_lists)
+        y_pred_prob.append(pred_prob_list)
+
+    #Get prediction for each task
+    y_predprob_task = []
+    y_pred_tasks = []
+    y_true_tasks = []
+    for k in range(conf.n_task):
+        y_pred_tasks.append([p[k] for p in y_pred])
+        y_predprob_task.append([p[k].item() for p in y_pred_prob])
+        y_true_tasks.append([t[:,k].to(device, dtype = torch.int64).item() for t in y_true])
+    
+    return y_pred_tasks, y_predprob_task, y_true_tasks
 
 def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none'):
     """
@@ -348,12 +386,12 @@ def evaluate_multitask(net, criterion, data_loader, device, conf, header):
         y_pred_each = torch.cat(y_pred_tasks[k], dim=0)
         y_true_each = torch.cat(y_true_tasks[k], dim=0)
     
-        AUROC_metric = torchmetrics.AUROC(num_classes = conf.n_class, task='multiclass').to(device)
+        AUROC_metric = torchmetrics.AUROC(num_classes = conf.n_class, task='binary').to(device)
         AUROC_metric(y_pred_each, y_true_each)
         auroc_each += AUROC_metric.compute().item()
     
-        F1_metric = torchmetrics.F1Score(num_classes = conf.n_class, task='multiclass').to(device)
-        F1_metric(y_pred_each, y_true_each)
+        F1_metric = torchmetrics.F1Score(num_classes = conf.n_class, task='binary').to(device)
+        F1_metric(y_pred_each, y_true_each.unsqueeze(1))
         f1_score_each += F1_metric.compute().item()
         print("AUROC",str(k),":",AUROC_metric.compute().item())
     auroc = auroc_each/conf.n_task

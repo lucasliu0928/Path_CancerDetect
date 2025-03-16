@@ -13,6 +13,9 @@ import torchvision
 import numpy as np
 import os
 from Utils import minmax_normalize
+import torch
+from torchmetrics import ROC
+
 
 def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_class).ravel() #CM
@@ -113,3 +116,26 @@ def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
     perf_df = compute_performance_each_label([outcome], pred_df, "SAMPLE_LEVEL")
 
     return pred_df, perf_df
+
+
+
+
+
+def plot_roc_curve(y_pred, y_true):
+    # Initialize ROC metric for binary classification
+    roc = ROC(task='binary')
+    
+    # Compute FPR, TPR, and thresholds
+    fpr, tpr, thresholds = roc(torch.tensor(y_pred), torch.tensor(y_true))
+    
+    # Plot ROC curve
+    plt.figure()
+    plt.plot(fpr, tpr, color='blue', lw=2, label='ROC curve')
+    plt.plot([0, 1], [0, 1], color='gray', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend(loc="lower right")
+    plt.show()
