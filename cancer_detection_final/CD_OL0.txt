@@ -3405,3 +3405,930 @@ starting inference
 1500
 2000
 2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_321/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_321/ft_model/' created.
+NOT PROCESSED: index: 315, ID: OPX_321, n_files: 0
+(1131, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_322/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_322/ft_model/' created.
+NOT PROCESSED: index: 316, ID: OPX_322, n_files: 0
+(2598, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_323/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_323/ft_model/' created.
+NOT PROCESSED: index: 317, ID: OPX_323, n_files: 0
+(24426, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+16500
+17000
+17500
+18000
+18500
+19000
+19500
+20000
+20500
+21000
+21500
+22000
+22500
+23000
+23500
+24000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+pred_union is invalid, buffering...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_324/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_324/ft_model/' created.
+NOT PROCESSED: index: 318, ID: OPX_324, n_files: 0
+(2124, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_325/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_325/ft_model/' created.
+NOT PROCESSED: index: 319, ID: OPX_325, n_files: 0
+(1291, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_326/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_326/ft_model/' created.
+NOT PROCESSED: index: 320, ID: OPX_326, n_files: 0
+(22747, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+16500
+17000
+17500
+18000
+18500
+19000
+19500
+20000
+20500
+21000
+21500
+22000
+22500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_327/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_327/ft_model/' created.
+NOT PROCESSED: index: 321, ID: OPX_327, n_files: 0
+(321, 9)
+True
+starting inference
+0
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_328_1/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_328_1/ft_model/' created.
+NOT PROCESSED: index: 322, ID: OPX_328_1, n_files: 0
+(967, 9)
+True
+starting inference
+0
+500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_328_2/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_328_2/ft_model/' created.
+NOT PROCESSED: index: 323, ID: OPX_328_2, n_files: 0
+(881, 9)
+True
+starting inference
+0
+500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_329/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_329/ft_model/' created.
+NOT PROCESSED: index: 324, ID: OPX_329, n_files: 0
+(15330, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_330/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_330/ft_model/' created.
+NOT PROCESSED: index: 325, ID: OPX_330, n_files: 0
+(405, 9)
+True
+starting inference
+0
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_331/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_331/ft_model/' created.
+NOT PROCESSED: index: 326, ID: OPX_331, n_files: 0
+(3214, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_332/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_332/ft_model/' created.
+NOT PROCESSED: index: 327, ID: OPX_332, n_files: 0
+(1459, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_333/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_333/ft_model/' created.
+NOT PROCESSED: index: 328, ID: OPX_333, n_files: 0
+(16857, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+16500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_334/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_334/ft_model/' created.
+NOT PROCESSED: index: 329, ID: OPX_334, n_files: 0
+(2157, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_335/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_335/ft_model/' created.
+NOT PROCESSED: index: 330, ID: OPX_335, n_files: 0
+(7402, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_336/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_336/ft_model/' created.
+NOT PROCESSED: index: 331, ID: OPX_336, n_files: 0
+(425, 9)
+True
+starting inference
+0
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_337/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_337/ft_model/' created.
+NOT PROCESSED: index: 332, ID: OPX_337, n_files: 0
+(1002, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_338/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_338/ft_model/' created.
+NOT PROCESSED: index: 333, ID: OPX_338, n_files: 0
+(675, 9)
+True
+starting inference
+0
+500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_339/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_339/ft_model/' created.
+NOT PROCESSED: index: 334, ID: OPX_339, n_files: 0
+(24354, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+16500
+17000
+17500
+18000
+18500
+19000
+19500
+20000
+20500
+21000
+21500
+22000
+22500
+23000
+23500
+24000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_340/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_340/ft_model/' created.
+NOT PROCESSED: index: 335, ID: OPX_340, n_files: 0
+(837, 9)
+True
+starting inference
+0
+500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_341/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_341/ft_model/' created.
+NOT PROCESSED: index: 336, ID: OPX_341, n_files: 0
+(16471, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_342/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_342/ft_model/' created.
+NOT PROCESSED: index: 337, ID: OPX_342, n_files: 0
+(3016, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_343/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_343/ft_model/' created.
+NOT PROCESSED: index: 338, ID: OPX_343, n_files: 0
+(237, 9)
+True
+starting inference
+0
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_344/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_344/ft_model/' created.
+NOT PROCESSED: index: 339, ID: OPX_344, n_files: 0
+(19743, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+16500
+17000
+17500
+18000
+18500
+19000
+19500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_345/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_345/ft_model/' created.
+NOT PROCESSED: index: 340, ID: OPX_345, n_files: 0
+(2297, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_346/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_346/ft_model/' created.
+NOT PROCESSED: index: 341, ID: OPX_346, n_files: 0
+(1440, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_347/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_347/ft_model/' created.
+NOT PROCESSED: index: 342, ID: OPX_347, n_files: 0
+(3336, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_348/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_348/ft_model/' created.
+NOT PROCESSED: index: 343, ID: OPX_348, n_files: 0
+(1220, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_349/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_349/ft_model/' created.
+NOT PROCESSED: index: 344, ID: OPX_349, n_files: 0
+(2366, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_350/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_350/ft_model/' created.
+NOT PROCESSED: index: 345, ID: OPX_350, n_files: 0
+(565, 9)
+True
+starting inference
+0
+500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_351/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_351/ft_model/' created.
+NOT PROCESSED: index: 346, ID: OPX_351, n_files: 0
+(2682, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_352/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_352/ft_model/' created.
+NOT PROCESSED: index: 347, ID: OPX_352, n_files: 0
+(1715, 9)
+True
+starting inference
+0
+500
+1000
+1500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_353/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_353/ft_model/' created.
+NOT PROCESSED: index: 348, ID: OPX_353, n_files: 0
+(4645, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_354/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_354/ft_model/' created.
+NOT PROCESSED: index: 349, ID: OPX_354, n_files: 0
+(11731, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_355/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_355/ft_model/' created.
+NOT PROCESSED: index: 350, ID: OPX_355, n_files: 0
+(1134, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+350
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_356/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_356/ft_model/' created.
+NOT PROCESSED: index: 351, ID: OPX_356, n_files: 0
+(1293, 9)
+True
+starting inference
+0
+500
+1000
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_357/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_357/ft_model/' created.
+NOT PROCESSED: index: 352, ID: OPX_357, n_files: 0
+(807, 9)
+True
+starting inference
+0
+500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_358/' created.
+Directory '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/OPX/IMSIZE250_OL0/OPX_358/ft_model/' created.
+NOT PROCESSED: index: 353, ID: OPX_358, n_files: 0
+(24765, 9)
+True
+starting inference
+0
+500
+1000
+1500
+2000
+2500
+3000
+3500
+4000
+4500
+5000
+5500
+6000
+6500
+7000
+7500
+8000
+8500
+9000
+9500
+10000
+10500
+11000
+11500
+12000
+12500
+13000
+13500
+14000
+14500
+15000
+15500
+16000
+16500
+17000
+17500
+18000
+18500
+19000
+19500
+20000
+20500
+21000
+21500
+22000
+22500
+23000
+23500
+24000
+24500
+post-processing
+Cancer Prob generation
+Get cancer binary mask...
+Output json annotation...
+Plot top predicted  tiles...
