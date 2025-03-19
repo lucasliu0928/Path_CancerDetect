@@ -119,8 +119,6 @@ def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
 
 
 
-
-
 def plot_roc_curve(y_pred, y_true):
     # Initialize ROC metric for binary classification
     roc = ROC(task='binary')

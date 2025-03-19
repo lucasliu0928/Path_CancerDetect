@@ -429,7 +429,42 @@ class ModelReadyData_diffdim_withclusterinfo(Dataset):
         
         return x, y, tf,c
 
+class ModelReadyData_Instance_based(Dataset):
+    def __init__(self,
+                 feature_data,
+                 label_data,
+                ):
+            
+        self.x = feature_data
+        
+        # Get the Y labels
+        self.y = label_data
+        
+    def __len__(self): 
+        return len(self.x)
+    
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x = self.x[index]
+        y = self.y[index]
+        
+        return x, y
 
+def modify_to_instance_based(indata):
+    feature_list = []
+    label_list = []
+    for data_it, data in enumerate(indata):
+        cur_labels = data[1]
+        label_list.append(cur_labels.repeat(data[0].shape[0], 1))
+        feature_list.append(data[0].squeeze())
+    
+    feature_data = torch.concat(feature_list, dim = 0) #torch.Size([N_TILES, 1536])
+    label_data = torch.concat(label_list, dim = 0) #torch.Size([N_TILES, 7])
+
+    indata_instance_based = ModelReadyData_Instance_based(feature_data, label_data)
+
+    return indata_instance_based
+    
 class add_tile_xy(Dataset):
     def __init__(self, original_dataset, additional_component):
         self.original_dataset = original_dataset

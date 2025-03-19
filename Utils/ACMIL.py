@@ -40,7 +40,8 @@ class Classifier_multitask(nn.Module):
             out.append(self.fc[i](x))
             
         return out
-        
+
+    
 class Attention_Gated(nn.Module):
     def __init__(self, L=512, D=128, K=1):
         super(Attention_Gated, self).__init__()
@@ -292,15 +293,17 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
                     diff_loss += torch.cosine_similarity(attn[:, i], attn[:, j], dim=-1).mean() / (
                                 conf.n_token * (conf.n_token - 1) / 2)
 
+            #ATT loss
+            #Take the AVG of each branch attention
+            avg_attn = attn.mean(dim = 1) #Across branches
+            att_loss = F.mse_loss(avg_attn, tf) #different in avg att to the tumor fraction
+            # #Sum of att loss for each branch
+            # att_loss = torch.tensor(0).to(device, dtype=torch.float)
+            # for i in range(conf.n_token):
+            #     att_loss += F.mse_loss(attn[:,i,:], tf)
+    
             if loss_method == 'ATTLOSS': #ATTLOSS
-                #ATT loss
-                # avg_attn = attn.mean(dim = 1) #Across tokens
-                # loss2 = F.mse_loss(avg_attn, tf)
-                #for each token
-                loss2 = 0
-                for i in range(conf.n_token):
-                    loss2 += F.mse_loss(attn[:,i,:], tf)
-                loss += diff_loss + loss0 + loss1 + loss2
+                loss += diff_loss + loss0 + loss1 + att_loss
             else:
                 loss += diff_loss + loss0 + loss1 
 
@@ -314,6 +317,8 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
         metric_logger.update(sub_loss=loss0.item())
         metric_logger.update(diff_loss=diff_loss.item())
         metric_logger.update(slide_loss=loss1.item())
+        metric_logger.update(att_loss=att_loss.item())
+        metric_logger.update(total_loss=loss.item())
 
         if conf.wandb_mode != 'disabled':
             """ We use epoch_1000x as the x-axis in tensorboard.
@@ -322,7 +327,6 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
             wandb.log({'sub_loss': loss0}, commit=False)
             wandb.log({'diff_loss': diff_loss}, commit=False)
             wandb.log({'slide_loss': loss1})
-            #wandb.log({'att_loss': loss2})
 
 # Disable gradient calculation during evaluation
 @torch.no_grad()
