@@ -370,11 +370,8 @@ def convert_img(in_img):
     return converted_img
 
 
-def count_label(label_list, selected_label_names, cohort_name):
+def count_label(label_df, selected_label_names, cohort_name):
     
-    label_df = pd.DataFrame(np.concatenate(label_list))
-    label_df.columns = selected_label_names
-
     count_list = []
     for l in selected_label_names:
         cur_count = pd.DataFrame(label_df[l].value_counts()).T

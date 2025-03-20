@@ -17,6 +17,20 @@ from Utils import convert_img
 import torch.nn as nn
 import torch.nn.functional as F
 
+def get_feature_idexes(method, include_tumor_fraction = True):
+    
+    if method == 'retccl':
+        selected_feature = [str(i) for i in range(0,2048)] 
+    elif method == 'uni1': 
+        selected_feature = [str(i) for i in range(0,1024)] 
+    elif method == 'uni2' or method == 'prov_gigapath':
+        selected_feature = [str(i) for i in range(0,1536)] 
+
+    if include_tumor_fraction == True:
+        selected_feature = selected_feature + ['TUMOR_PIXEL_PERC'] 
+        
+    return selected_feature
+    
 class pull_tiles(Dataset):
     def __init__(self, tile_info, deepzoom_tiles, tile_levels):
         super().__init__()
@@ -105,89 +119,97 @@ def get_feature_label_array(input_path, feature_folder, selected_ids,selected_la
     return feature_3d, label_array
 
 
-
-
-def combine_feature_label_tumorinfo(patient_id, feature_path, tumor_info_path, input_file_name):
-
+def get_sample_feature(patient_id, feature_path, input_file_name):
     #Input dir
-    input_dir = feature_path + patient_id + '/' + 'features/' + input_file_name + '.h5'
-
+    input_dir = os.path.join(feature_path, patient_id, 'features', 'features_alltiles_' + input_file_name + '.h5')
+    
     #feature
     feature_df = pd.read_hdf(input_dir, key='feature')
     feature_df.columns = feature_df.columns.astype(str)
+    feature_df.reset_index(drop = True, inplace = True)
+
+    #Tile ID (Do not use the labels in this, only use the tile info, because the label has been updated in all_tile_info_df from 3_otherinfo)
+    cols_to_keep = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
+                    'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
+                    'WHITE_SPACE','TISSUE_COVERAGE']
+    id_df = pd.read_hdf(input_dir, key='tile_info')[cols_to_keep]
+    id_df.reset_index(drop = True, inplace = True)
+
+    #Combine feature and IDs
+    feature_df = pd.concat([id_df,feature_df], axis = 1)
+
+    return feature_df
     
-    #Label
-    label_df = pd.read_hdf(input_dir, key='tile_info')
+def get_sample_label(patient_id, all_label_data):
+    label_df = all_label_data.loc[all_label_data['SAMPLE_ID'] == patient_id]
     label_df.reset_index(drop = True, inplace = True)
-    
-    
-    #Add tumor info to label
-    tumor_info_df = pd.read_csv(os.path.join(tumor_info_path, patient_id, "ft_model/", patient_id + "_TILE_TUMOR_PERC.csv"))
-    tumor_info_df.reset_index(drop = True, inplace = True)
-    label_df = label_df.merge(tumor_info_df, on = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP',
-                                                   'LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE',
-                                                   'TISSUE_COVERAGE'])
-    
-    #Combine feature and label and tumor info
-    comb_df = pd.concat([feature_df,label_df], axis = 1)
+    return label_df
+
+def combine_feature_and_label(feature_df,label_df):
+    cols_to_map = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
+                'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
+                'WHITE_SPACE','TISSUE_COVERAGE']
+    if feature_df.shape[0] == label_df.shape[0]:
+        comb_df = feature_df.merge(label_df, on = cols_to_map)
+    else:
+        print("N Tiles does not match")
 
     return comb_df
 
+# def extract_feature_label_tumorinfo_np(selected_df, selected_feature, selected_labels):
+#     #Extract feature, label and tumor info
+#     feature_np = selected_df[selected_feature].values #np array
+#     label_np   = selected_df[selected_labels].drop_duplicates().values.astype('float32') #numpy array
+#     info_np    = selected_df[['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP', 'LIMIT_BOUNDS', 
+#                                'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE', 'TISSUE_COVERAGE',
+#                               'SITE_LOCAL', 'pred_map_location', 'TUMOR_PIXEL_PERC']]
+#     tf_info_np = selected_df['TUMOR_PIXEL_PERC'].values
+
+#     return feature_np, label_np, info_np, tf_info_np
 
 
-def extract_feature_label_tumorinfo_np(selected_df, selected_feature, selected_labels):
-    #Extract feature, label and tumor info
-    feature_np = selected_df[selected_feature].values #np array
-    label_np   = selected_df[selected_labels].drop_duplicates().values.astype('float32') #numpy array
-    info_np    = selected_df[['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 'PIXEL_OVERLAP', 'LIMIT_BOUNDS', 
-                               'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 'WHITE_SPACE', 'TISSUE_COVERAGE',
-                               'Bx Type', 'Anatomic site', 'Notes', 'SITE_LOCAL', 'pred_map_location', 'TUMOR_PIXEL_PERC']]
-    tf_info_np = selected_df['TUMOR_PIXEL_PERC'].values
+# def get_feature_label_array_dynamic(feature_path, tumor_info_path, feature_name, selected_ids,selected_labels, selected_feature, tumor_fraction_thres = 0):
+#     r'''
+#     #if test, no tumor tiles, select all other tiles
+#     #if train, no tumor tiles, do not include in the train list
+#     '''
+#     feature_list = []
+#     label_list = []
+#     info_list = []
+#     tumor_info_list = []
+#     id_list = []
+#     ct = 0 
+#     for pt in selected_ids:
+#         if ct % 10 == 0 : print(ct)
 
-    return feature_np, label_np, info_np, tf_info_np
-
-
-def get_feature_label_array_dynamic(feature_path, tumor_info_path, feature_name, selected_ids,selected_labels, selected_feature, tumor_fraction_thres = 0):
-    r'''
-    #if test, no tumor tiles, select all other tiles
-    #if train, no tumor tiles, do not include in the train list
-    '''
-    feature_list = []
-    label_list = []
-    info_list = []
-    tumor_info_list = []
-    id_list = []
-    ct = 0 
-    for pt in selected_ids:
-        if ct % 10 == 0 : print(ct)
-
-        #Combined feature label and tumor info
-        cur_comb_df = combine_feature_label_tumorinfo(pt, feature_path, tumor_info_path, feature_name)
+#         #Combined feature label and tumor info
+#         #TODELETE
+#         cur_comb_df = combine_feature_label_tumorinfo(pt, feature_path, tumor_info_path, feature_name)
         
-        #Select tumor fraction > X tiles
-        cur_comb_df_tumor = cur_comb_df.loc[cur_comb_df['TUMOR_PIXEL_PERC'] >= tumor_fraction_thres].copy()
-        cur_comb_df_tumor = cur_comb_df_tumor.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
-        cur_n_tumor_tiles = cur_comb_df_tumor.shape[0] # N of tumor tiles
+#         #Select tumor fraction > X tiles
+#         cur_comb_df_tumor = cur_comb_df.loc[cur_comb_df['TUMOR_PIXEL_PERC'] >= tumor_fraction_thres].copy()
+#         cur_comb_df_tumor = cur_comb_df_tumor.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
+#         cur_n_tumor_tiles = cur_comb_df_tumor.shape[0] # N of tumor tiles
         
 
 
-        if tumor_fraction_thres == 0: #select all tiles
-            cur_selected_df =  cur_comb_df 
-        elif tumor_fraction_thres > 0: #select tumor tiles based on the threshold
-            cur_selected_df =  cur_comb_df_tumor 
-        cur_selected_df = cur_selected_df.reset_index(drop = True)
+#         if tumor_fraction_thres == 0: #select all tiles
+#             cur_selected_df =  cur_comb_df 
+#         elif tumor_fraction_thres > 0: #select tumor tiles based on the threshold
+#             cur_selected_df =  cur_comb_df_tumor 
+#         cur_selected_df = cur_selected_df.reset_index(drop = True)
         
-        if cur_selected_df is not None :
-            #Extract feature, label and tumor info
-            cur_feature, cur_label, cur_info, cur_tf_info =  extract_feature_label_tumorinfo_np(cur_selected_df, selected_feature, selected_labels)
-            feature_list.append(cur_feature)
-            label_list.append(cur_label)
-            info_list.append(cur_info)
-            tumor_info_list.append(cur_tf_info)
-            id_list.append(pt)
-            ct += 1
+#         if cur_selected_df is not None :
+#             #Extract feature, label and tumor info
+#             cur_feature, cur_label, cur_info, cur_tf_info =  extract_feature_label_tumorinfo_np(cur_selected_df, selected_feature, selected_labels)
+#             feature_list.append(cur_feature)
+#             label_list.append(cur_label)
+#             info_list.append(cur_info)
+#             tumor_info_list.append(cur_tf_info)
+#             id_list.append(pt)
+#             ct += 1
             
-    return feature_list, label_list, info_list, tumor_info_list, id_list
+#     return feature_list, label_list, info_list, tumor_info_list, id_list
 
 
 
@@ -351,54 +373,87 @@ def get_feature_label_array_dynamic_TCGA(feature_path, label_dict, tumor_info_pa
             ct += 1
             
     return feature_list, label_list, info_list, tumor_info_list, id_list
-    
-class ModelReadyData_diffdim(Dataset):
+
+class ModelReadyData_diffdim_V2(Dataset):
     def __init__(self,
-                 feature_list,
-                 label_list,
-                 tumor_info_list,
-                 include_tumor_fraction = False,
-                 include_cluster = False,
-                 feature_name = 'retccl',
+                 tile_info_list,
+                 selected_features,
+                 selected_labels,
                 ):
 
-        #Feature order: list(range(0,2048)) + ['TUMOR_PIXEL_PERC','Cluster']
-
-        if feature_name == 'retccl':
-            n_total_f = 2048 + 2
-        elif feature_name == 'uni1':
-            n_total_f = 1024 + 2 
-        elif feature_name == 'uni2':
-            n_total_f = 1536 + 2 
-            
-        feature_indexes = list(range(0,n_total_f))
-        if include_tumor_fraction == False and include_cluster == False:
-            feature_indexes.remove(n_total_f - 2)
-            feature_indexes.remove(n_total_f - 1)
-        elif include_tumor_fraction == True and include_cluster == False:
-            feature_indexes.remove(n_total_f -1)
-        elif include_tumor_fraction == False and include_cluster == True:
-            feature_indexes.remove(n_total_f - 2)
-        elif include_tumor_fraction == True and include_cluster == True:
-            feature_indexes = feature_indexes
-            
-        self.x =[torch.FloatTensor(feature[:,feature_indexes]) for feature in feature_list] 
+        #Get feature
+        self.x =  [torch.FloatTensor(df[selected_features].to_numpy()) for df in tile_info_list]
         
         # Get the Y labels
-        self.y = [torch.FloatTensor(label) for label in label_list] 
+        self.y =  [torch.FloatTensor(df[selected_labels].drop_duplicates().to_numpy()) for df in tile_info_list]
 
-        self.tf = [torch.FloatTensor(tf) for tf in tumor_info_list] 
+        #Get tumor fraction
+        self.tf = [torch.FloatTensor(df['TUMOR_PIXEL_PERC'].to_numpy()) for df in tile_info_list]
+
+        #Get other info
+        self.other_info = [df.drop(columns = SELECTED_FEATURE + SELECTED_LABEL + ['TUMOR_PIXEL_PERC']) for df in tile_info_list]
         
     def __len__(self): 
         return len(self.x)
     
     def __getitem__(self,index):
         # Given an index, return a tuple of an X with it's associated Y
-        x = self.x[index]
-        y = self.y[index]
-        tf= self.tf[index]
+        x  = self.x[index]
+        y  = self.y[index]
+        tf = self.tf[index]
+        of = self.other_info[index]
+        sp_id = of['SAMPLE_ID'].unique().item()
+        pt_id = of['PATIENT_ID'].unique().item()
         
-        return x, y, tf
+        return x, y, tf, of, sp_id, pt_id
+        
+# class ModelReadyData_diffdim(Dataset):
+#     def __init__(self,
+#                  feature_list,
+#                  label_list,
+#                  tumor_info_list,
+#                  include_tumor_fraction = False,
+#                  include_cluster = False,
+#                  feature_name = 'retccl',
+#                 ):
+
+#         #Feature order: list(range(0,2048)) + ['TUMOR_PIXEL_PERC','Cluster']
+
+#         if feature_name == 'retccl':
+#             n_total_f = 2048 + 2
+#         elif feature_name == 'uni1':
+#             n_total_f = 1024 + 2 
+#         elif feature_name == 'uni2':
+#             n_total_f = 1536 + 2 
+            
+#         feature_indexes = list(range(0,n_total_f))
+#         if include_tumor_fraction == False and include_cluster == False:
+#             feature_indexes.remove(n_total_f - 2)
+#             feature_indexes.remove(n_total_f - 1)
+#         elif include_tumor_fraction == True and include_cluster == False:
+#             feature_indexes.remove(n_total_f -1)
+#         elif include_tumor_fraction == False and include_cluster == True:
+#             feature_indexes.remove(n_total_f - 2)
+#         elif include_tumor_fraction == True and include_cluster == True:
+#             feature_indexes = feature_indexes
+            
+#         self.x =[torch.FloatTensor(feature[:,feature_indexes]) for feature in feature_list] 
+        
+#         # Get the Y labels
+#         self.y = [torch.FloatTensor(label) for label in label_list] 
+
+#         self.tf = [torch.FloatTensor(tf) for tf in tumor_info_list] 
+        
+#     def __len__(self): 
+#         return len(self.x)
+    
+#     def __getitem__(self,index):
+#         # Given an index, return a tuple of an X with it's associated Y
+#         x = self.x[index]
+#         y = self.y[index]
+#         tf= self.tf[index]
+        
+#         return x, y, tf
 
 class ModelReadyData_diffdim_withclusterinfo(Dataset):
     def __init__(self,
