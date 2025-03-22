@@ -54,7 +54,7 @@ if __name__ == '__main__':
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
     wsi_location_tcga = proj_dir + '/data/TCGA_PRAD/'
-    info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', cohort_name)
+    info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', cohort_name, folder_name)
     model_path = os.path.join(proj_dir,'models','feature_extraction_models', feature_extraction_method)
     
     out_location = os.path.join(proj_dir,'intermediate_data','4_tile_feature', cohort_name, folder_name)
@@ -116,6 +116,7 @@ if __name__ == '__main__':
         save_name = os.path.join(save_location, 'features_alltiles_' + feature_extraction_method + '.h5')
         
         if os.path.exists(save_name) == False: #check if processed
+        #if os.path.exists(save_name) == True: #updates
             if cohort_name == "OPX":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     
     
             #Get tile info
-            cur_tile_info_df = pd.read_csv(os.path.join(info_path,'IMSIZE250_OL0', cur_id ,'ft_model', slides_name + "_TILE_TUMOR_PERC.csv"))
+            cur_tile_info_df = pd.read_csv(os.path.join(info_path, cur_id ,'ft_model', slides_name + "_TILE_TUMOR_PERC.csv"))
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    

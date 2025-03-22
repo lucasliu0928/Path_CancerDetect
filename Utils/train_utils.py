@@ -391,7 +391,7 @@ class ModelReadyData_diffdim_V2(Dataset):
         self.tf = [torch.FloatTensor(df['TUMOR_PIXEL_PERC'].to_numpy()) for df in tile_info_list]
 
         #Get other info
-        self.other_info = [df.drop(columns = SELECTED_FEATURE + SELECTED_LABEL + ['TUMOR_PIXEL_PERC']) for df in tile_info_list]
+        self.other_info = [df.drop(columns = selected_features + selected_labels + ['TUMOR_PIXEL_PERC']) for df in tile_info_list]
         
     def __len__(self): 
         return len(self.x)
@@ -407,53 +407,53 @@ class ModelReadyData_diffdim_V2(Dataset):
         
         return x, y, tf, of, sp_id, pt_id
         
-# class ModelReadyData_diffdim(Dataset):
-#     def __init__(self,
-#                  feature_list,
-#                  label_list,
-#                  tumor_info_list,
-#                  include_tumor_fraction = False,
-#                  include_cluster = False,
-#                  feature_name = 'retccl',
-#                 ):
+class ModelReadyData_diffdim(Dataset):
+    def __init__(self,
+                 feature_list,
+                 label_list,
+                 tumor_info_list,
+                 include_tumor_fraction = False,
+                 include_cluster = False,
+                 feature_name = 'retccl',
+                ):
 
-#         #Feature order: list(range(0,2048)) + ['TUMOR_PIXEL_PERC','Cluster']
+        #Feature order: list(range(0,2048)) + ['TUMOR_PIXEL_PERC','Cluster']
 
-#         if feature_name == 'retccl':
-#             n_total_f = 2048 + 2
-#         elif feature_name == 'uni1':
-#             n_total_f = 1024 + 2 
-#         elif feature_name == 'uni2':
-#             n_total_f = 1536 + 2 
+        if feature_name == 'retccl':
+            n_total_f = 2048 + 2
+        elif feature_name == 'uni1':
+            n_total_f = 1024 + 2 
+        elif feature_name == 'uni2':
+            n_total_f = 1536 + 2 
             
-#         feature_indexes = list(range(0,n_total_f))
-#         if include_tumor_fraction == False and include_cluster == False:
-#             feature_indexes.remove(n_total_f - 2)
-#             feature_indexes.remove(n_total_f - 1)
-#         elif include_tumor_fraction == True and include_cluster == False:
-#             feature_indexes.remove(n_total_f -1)
-#         elif include_tumor_fraction == False and include_cluster == True:
-#             feature_indexes.remove(n_total_f - 2)
-#         elif include_tumor_fraction == True and include_cluster == True:
-#             feature_indexes = feature_indexes
+        feature_indexes = list(range(0,n_total_f))
+        if include_tumor_fraction == False and include_cluster == False:
+            feature_indexes.remove(n_total_f - 2)
+            feature_indexes.remove(n_total_f - 1)
+        elif include_tumor_fraction == True and include_cluster == False:
+            feature_indexes.remove(n_total_f -1)
+        elif include_tumor_fraction == False and include_cluster == True:
+            feature_indexes.remove(n_total_f - 2)
+        elif include_tumor_fraction == True and include_cluster == True:
+            feature_indexes = feature_indexes
             
-#         self.x =[torch.FloatTensor(feature[:,feature_indexes]) for feature in feature_list] 
+        self.x =[torch.FloatTensor(feature[:,feature_indexes]) for feature in feature_list] 
         
-#         # Get the Y labels
-#         self.y = [torch.FloatTensor(label) for label in label_list] 
+        # Get the Y labels
+        self.y = [torch.FloatTensor(label) for label in label_list] 
 
-#         self.tf = [torch.FloatTensor(tf) for tf in tumor_info_list] 
+        self.tf = [torch.FloatTensor(tf) for tf in tumor_info_list] 
         
-#     def __len__(self): 
-#         return len(self.x)
+    def __len__(self): 
+        return len(self.x)
     
-#     def __getitem__(self,index):
-#         # Given an index, return a tuple of an X with it's associated Y
-#         x = self.x[index]
-#         y = self.y[index]
-#         tf= self.tf[index]
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x = self.x[index]
+        y = self.y[index]
+        tf= self.tf[index]
         
-#         return x, y, tf
+        return x, y, tf
 
 class ModelReadyData_diffdim_withclusterinfo(Dataset):
     def __init__(self,
