@@ -12,3 +12,7 @@
 
 #Ignore sbatch logs
 *.out
+
+#Ignore sh
+*.sh
+*.txt
