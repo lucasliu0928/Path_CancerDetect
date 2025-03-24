@@ -41,7 +41,6 @@ from train_utils import convert_to_dict, prediction_sepatt, BCE_Weighted_Reg, BC
 from ACMIL import ACMIL_GA_MultiTask, predict_v2, train_one_epoch_multitask_V2, evaluate_multitask_V2
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic
 warnings.filterwarnings("ignore")
-%matplotlib inline
 
 
 #FOR ACMIL
@@ -77,7 +76,7 @@ feature_extraction_method = 'uni2' #retccl, uni1, prov_gigapath
 learning_method = "acmil"
 SELECTED_FEATURE = get_feature_idexes(feature_extraction_method, include_tumor_fraction = False)
 N_FEATURE = len(SELECTED_FEATURE)
-pred_path = 'pred_out032025_ACMIL_noATTLOSS'
+pred_path = 'pred_out032425_ACMIL_noATTLOSS'
 
 
 #For RB1: gamma = 2, focal_alpha = 0.1
