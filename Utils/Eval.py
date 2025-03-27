@@ -101,7 +101,6 @@ def get_attention_and_tileinfo(pt_label_df, patient_att_score):
     return cur_att_df
 
 
-
 def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
 
     #Prediction df
@@ -222,3 +221,8 @@ def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=No
     ci_df = pd.DataFrame.from_dict(formatted_results, orient="index", columns=["Mean [CI Low, CI High]"])
 
     return ci_df.T
+
+
+
+
+

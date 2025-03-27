@@ -7,6 +7,7 @@ Created on Sat Nov 16 19:41:17 2024
 """
 
 from torch.utils.data import Dataset
+from torch.utils.data import Subset
 import PIL
 import torch
 import pandas as pd
@@ -17,6 +18,9 @@ from Utils import convert_img
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+
+        
 def get_feature_idexes(method, include_tumor_fraction = True):
     
     if method == 'retccl':
@@ -905,7 +909,7 @@ class FocalLoss(nn.Module):
     def forward(self, pred_logits, target):
         
         if not (0 <= self.alpha <= 1) and self.alpha != -1:
-            raise ValueError(f"Invalid alpha value: {alpha}. alpha must be in the range [0,1] or -1 for ignore.")
+            raise ValueError(f"Invalid alpha value: {self.alpha}. alpha must be in the range [0,1] or -1 for ignore.")
 
         ce_loss = F.binary_cross_entropy_with_logits(pred_logits, target, reduction='none')
         pred = pred_logits.sigmoid()
@@ -924,3 +928,49 @@ class FocalLoss(nn.Module):
             return loss
 
 
+def get_partial_data(indata, selected_ids):
+    r'''
+    Input:   Model Ready data pool, List of selected_ids
+    Returns: Model ready data for selected Ids
+    -------
+    '''
+    #Get ordered sample IDs in indata
+    ids_pool  = [x[-2] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID
+
+    #Find index of the selected ids
+    inc_idx = [ids_pool.index(x) for x in selected_ids]
+    
+    #Subsets
+    indata_subset = Subset(indata, inc_idx)
+    
+    #Final IDs
+    ids_order =  [x[-2] for x in indata_subset]
+    
+    return indata_subset,ids_order
+
+
+
+def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold):
+
+    #Get train, test IDs
+    train_ids = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TRAIN', 'SAMPLE_ID'])
+    test_ids  = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TEST', 'SAMPLE_ID'])
+    val_ids   = list(id_df.loc[id_df['FOLD' + str(fold)] == 'VALID', 'SAMPLE_ID'])
+   
+    train_data, train_ids_final = get_partial_data(data_pool_train, train_ids)
+    val_data, val_ids_final = get_partial_data(data_pool_train, val_ids)
+    test_data, test_ids_final = get_partial_data(data_pool_test, test_ids)
+    
+
+
+    #Exclude tile info data, sample ID, patient ID, do not needed it for training
+    train_data_final = [item[:-3] for item in train_data] 
+    test_data_final  = [item[:-3] for item in test_data] 
+    val_data_final   = [item[:-3] for item in val_data] 
+
+    print(f'Train N: {len(train_ids_final)}; Test N: {len(test_ids_final)}; Val N: {len(val_ids_final)}')
+    print(f'Train DS: {len(train_data_final)}; Test DS: {len(test_data_final)}; Val DS: {len(val_data_final)}')
+
+
+    return (train_data_final, train_ids_final), (val_data_final, val_ids_final), (test_data_final, test_ids_final)
+    
