@@ -1,10 +1,8 @@
 # Project Title
 
-Simple overview of use/purpose.
+Predict Gene Mutation from H&E WSI Image for Prostate Cancer
 
 ## Description
-
-An in-depth paragraph about your project and overview of use.
 
 ## Getting Started
 
@@ -13,9 +11,6 @@ An in-depth paragraph about your project and overview of use.
 * Python 3.11.11 [GCC 13.3.0]
 
 ### Installing
-
-* How/where to download your program
-* Any modifications needed to be made to files/folders
 
 ### Executing program
 
