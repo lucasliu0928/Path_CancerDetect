@@ -1,32 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 #NOTE: use paimg9 env
 import sys
 import os
-import numpy as np
-import openslide
 import pandas as pd
 import warnings
 import torch
-import torch.nn as nn
 
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists, count_label, set_seed
 from train_utils import ModelReadyData_diffdim_V2, get_feature_idexes, get_sample_feature, get_sample_label, combine_feature_and_label
 warnings.filterwarnings("ignore")
 
-
-# In[2]:
-
-
 ####################################
 ######      USERINPUT       ########
 ####################################
-pixel_overlap = 100    
+pixel_overlap = 0    
 save_image_size = 250
 TUMOR_FRAC_THRES = 0.9
 cohort_name = "OPX"  
@@ -62,9 +52,6 @@ print(device)
 set_seed(0)
 
 
-# In[3]:
-
-
 ############################################################################################################
 #Load all tile info df
 #This file contains all tiles without cancer fraction exclusion and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
@@ -72,9 +59,6 @@ set_seed(0)
 all_tile_info_df = pd.read_csv(os.path.join(info_path, "all_tile_info.csv"))
 selected_ids = list(all_tile_info_df['SAMPLE_ID'].unique())
 selected_ids.sort()
-
-
-# In[4]:
 
 
 ############################################################################################################
@@ -101,13 +85,11 @@ for pt in selected_ids:
     ct += 1
 
 all_comb_df = pd.concat(comb_df_list)
+all_comb_df.shape
 
 #Get model ready data
 data = ModelReadyData_diffdim_V2(comb_df_list, SELECTED_FEATURE, SELECTED_LABEL)
 torch.save(data, os.path.join(outdir, cohort_name + '_data.pth'))
-
-
-# In[5]:
 
 
 ############################################################################################################
@@ -121,9 +103,6 @@ counts2 = count_label(patient_level_comb_df, SELECTED_LABEL, cohort_name + "_SAM
 #print(counts2)
 counts = counts2.merge(counts1, left_index = True, right_index = True)
 counts.to_csv(os.path.join(outdir, cohort_name + '_counts.csv'))
-
-
-# In[6]:
 
 
 all_comb_df.shape

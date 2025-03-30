@@ -16,3 +16,4 @@
 #Ignore sh
 *.sh
 *.txt
+*/venv_*/

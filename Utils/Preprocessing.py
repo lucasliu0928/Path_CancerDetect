@@ -18,7 +18,8 @@ def preprocess_mutation_data(indata, select_labels, hr_gene_list = ['BRCA1','BRC
     indata.rename(columns = {id_col: 'SAMPLE_ID'}, inplace = True)
     
     #Add Patient ID
-    indata['PATIENT_ID'] = indata['SAMPLE_ID'].apply(extract_before_second_underscore)
+    if id_col == 'OPX_Number':
+        indata['PATIENT_ID'] = indata['SAMPLE_ID'].apply(extract_before_second_underscore)
     
     #Recode HR
     ori_hr_col = 'HR/DDR (BRCA1, BRCA2, ATM, CHEK2, PALB2, BAP1, BARD1, RAD51C, RAD51D, FANCA, FANCD2, MRE11A, ATR, NBN, FANCM, FANCG)'
