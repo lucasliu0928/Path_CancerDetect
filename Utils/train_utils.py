@@ -160,6 +160,29 @@ def combine_feature_and_label(feature_df,label_df):
 
     return comb_df
 
+def compare_modelreadydata(d1, d2):
+    if len(d1) != len(d2):
+        print(f"Different lengths: {len(d1)} vs {len(d2)}")
+        return False
+
+    all_match = True
+
+    for i in range(len(d1)):
+        if not torch.equal(d1.x[i], d2.x[i]):
+            print(f"[x] mismatch at index {i}")
+            all_match = False
+        if not torch.equal(d1.y[i], d2.y[i]):
+            print(f"[y] mismatch at index {i}")
+            all_match = False
+        if not torch.equal(d1.tf[i], d2.tf[i]):
+            print(f"[tf] mismatch at index {i}")
+            all_match = False
+        if not d1.other_info[i].equals(d2.other_info[i]):
+            print(f"[other_info] mismatch at index {i}")
+            all_match = False
+
+    return all_match
+
 # def extract_feature_label_tumorinfo_np(selected_df, selected_feature, selected_labels):
 #     #Extract feature, label and tumor info
 #     feature_np = selected_df[selected_feature].values #np array
