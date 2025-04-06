@@ -4,7 +4,6 @@
 
 import sys
 import os
-#from fastai.vision.all import *
 import torch
 import pandas as pd
 import warnings
@@ -21,7 +20,7 @@ warnings.filterwarnings("ignore")
 pixel_overlap = 0      # specify the level of pixel overlap in your saved images
 save_image_size = 250
 TUMOR_FRAC_THRES = 0.9
-cohort_name = "TCGA_PRAD"  #TAN_TMA_Cores, OPX, TCGA_PRAD
+cohort_name = "TAN_TMA_Cores"  #TAN_TMA_Cores, OPX, TCGA_PRAD
 folder_name = "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap)
 select_labels = ["AR",
                  "HR",
@@ -30,6 +29,8 @@ select_labels = ["AR",
                  "TP53",
                  "TMB_HIGHorINTERMEDITATE",
                  "MSI_POS"]
+#Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D' 
+selected_hr_genes = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D']
 
 ############################################################################################################
 #DIR
@@ -98,21 +99,8 @@ if cohort_name == "OPX":
     ################################################
     #Preprocess label, site info and tile info
     ################################################
-    label_df = preprocess_mutation_data(label_df, select_labels, hr_gene_list = ['BRCA1','BRCA2','PALB2'], id_col = 'OPX_Number')
-    
-    #TODO
-    # label_df['HR/DDR (BRCA1, BRCA2, ATM, CHEK2, PALB2, BAP1, BARD1, RAD51C, RAD51D, FANCA, FANCD2, MRE11A, ATR, NBN, FANCM, FANCG)'].unique()
-    # 'MRE11A', 'BRCA2', 'NBN', 'ATM', 'CHEK2', 'FANCA',
-    #        'FANCA, ATM', 'BAP1', 'BRCA1', 'ATR', 'ATM ', 'FANCM',
-    #        'PALB2, ATM', 'PALB2'
-           
-    # check = pd.read_excel("/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/data/MutationCalls/TCGA_PRAD/Digital_pathology_TCGA_Mutation_Check_Pritchard.xlsx")
-    # check = check.loc[check['Colin Recommends Keep vs. Exclude'] =='Keep']
-    # check = check.loc[check['Pathway'] == 'HR']
-    # check['Track_name'].unique()
-    #Intersection with OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D' 
-    #TCAGA has intersection + 'BRIP1' 
-           
+    label_df = preprocess_mutation_data(label_df, select_labels, hr_gene_list = selected_hr_genes, id_col = 'OPX_Number')
+               
     ############################################################################################################
     #Combine site and label info and tile info
     ############################################################################################################     
@@ -120,7 +108,6 @@ if cohort_name == "OPX":
     for cur_id in selected_ids:
         cur_info_df = pd.read_csv(os.path.join(info_path, cur_id, 'ft_model',cur_id + "_TILE_TUMOR_PERC.csv"))
         cur_label_df = label_df.loc[label_df['SAMPLE_ID'] == cur_id]
-        #TODO, the following why label_df, but not cur_label_df
         cur_comb_df = cur_info_df.merge(cur_label_df, on = ['SAMPLE_ID'],how = 'left') #add label
         tile_info_list.append(cur_comb_df)
     all_tile_info_df = pd.concat(tile_info_list)
@@ -134,72 +121,90 @@ if cohort_name == "OPX":
     print("Median # tile/per pt:", tile_counts.median()) #1809.5,5011
 
 elif cohort_name == 'TAN_TMA_Cores':
-    #TODO
-    pass
-    # # #All available IDs
-    # # tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
+    #All Aval IDs
+    tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
     
-    # ################################################
-    # #Load TAN_TMA mutation label data
-    # ################################################
-    # label_df1 = pd.read_excel(label_path + "TAN97_core_mappings.xlsx") #These Ids not in label_df2: ['18-018', '18-087', '18-064', '18-077', '08-016', '06-131']
-    # label_df1.rename(columns = {'AR': 'AR_inMappingFile'}, inplace = True)
-    # label_df1.loc[pd.isna(label_df1['AR pos']),'AR pos'] = 0
-    # label_df1.loc[pd.isna(label_df1['NE pos']),'NE pos'] = 0
-    
-    # label_df2 = pd.read_excel(label_path + "TAN_coded mutation_for Roman.xlsx") 
-    # #Rename as OPX annotation 
-    # label_df2.rename(columns = {'AR coded': 'AR',
-    #                            'CHD1 coded': 'CHD1',
-    #                            'PTEN coded': 'PTEN',
-    #                            'RB1 coded': 'RB1',
-    #                            'TP53 coded': 'TP53', 
-    #                            'BRCA2 coded':'BRCA2'}, inplace = True)
-    
-    
-    # #Combine
-    # #Only keep the ids in TAN_coded mutation_for Roman.xlsx, because no mutation labels are aviabale , cannot say it is negative
-    # label_df = label_df1.merge(label_df2, left_on = ['ptid'], right_on = ['Sample'], how = 'right')
-    # label_df.reset_index(drop=True, inplace=True)
-    
+    #Load TAN_TMA mutation label data
+    label_df1 = pd.read_excel(os.path.join(label_path, "TAN97_core_mappings.xlsx")) #These Ids not in label_df2: ['18-018', '18-087', '18-064', '18-077', '08-016', '06-131']
+    label_df1.rename(columns = {'AR': 'AR_inMappingFile'}, inplace = True)
+    label_df1.loc[pd.isna(label_df1['AR pos']),'AR pos'] = 0
+    label_df1.loc[pd.isna(label_df1['NE pos']),'NE pos'] = 0
+    label_df2 = pd.read_excel(os.path.join(label_path, "TAN_coded mutation_for Roman.xlsx"))
+    label_df2.rename(columns = {'AR coded': 'AR',
+                               'CHD1 coded': 'CHD1',
+                               'PTEN coded': 'PTEN',
+                               'RB1 coded': 'RB1',
+                               'TP53 coded': 'TP53', 
+                               'BRCA2 coded':'BRCA2'}, inplace = True)
+    #Combine to get core ids
+    #Only keep the ids in TAN_coded mutation_for Roman.xlsx, because no mutation labels are aviabale , cannot say it is negative
+    label_df = label_df1.merge(label_df2, left_on = ['ptid'], right_on = ['Sample'], how = 'right')
+    label_df.reset_index(drop=True, inplace=True)
+        
     # #There 40 sample IDs does not have matched AR status
     # checkAR = label_df.loc[label_df['AR pos'] != label_df['AR'],]
     # print(len(set(checkAR['Sample'])))
     # checkAR.to_csv(out_location + "AR_notmatch.csv", index = False)
     
     
-    # #Recode SITE info
-    # label_df['SITE_LOCAL'] = pd.NA
-    # cond = label_df['ORGAN SITE'] == 'PROSTATE'
-    # label_df.loc[cond,'SITE_LOCAL'] = 1
-    # label_df.loc[~cond,'SITE_LOCAL'] = 0
+    #Recode SITE info
+    label_df['SITE_LOCAL'] = pd.NA
+    cond = label_df['ORGAN SITE'] == 'PROSTATE'
+    label_df.loc[cond,'SITE_LOCAL'] = 1
+    label_df.loc[~cond,'SITE_LOCAL'] = 0
     
-    # label_df.rename(columns = {'TMA-row-col': 'SAMPLE_ID'}, inplace= True)
+    #Rename sample id column
+    label_df.rename(columns = {'TMA-row-col': 'SAMPLE_ID'}, inplace= True)
     
-    # ############################################################################################################
-    # #Add site and label info into tile info
-    # ############################################################################################################
-    # tile_info_list = []
-    # for cur_id in selected_ids:
-    #     cur_tile_info_df = pd.read_csv(os.path.join(tile_info_path, cur_id, cur_id + "_tiles.csv"))
-    #     cur_comb_df = cur_tile_info_df.merge(label_df, on = ['SAMPLE_ID'],how = 'left') #add label
-    #     tile_info_list.append(cur_comb_df)
-    # all_tile_info_df = pd.concat(tile_info_list)
-    # print(all_tile_info_df.shape) #146888 tiles overlap0
+    #Only select ID that is in label file
+    selected_ids = [x for x in tan_ids if x in list(label_df['SAMPLE_ID'].unique())] #596
     
-    # #Print stats
-    # tile_counts = all_tile_info_df['SAMPLE_ID'].value_counts()
-    # print("Total IDs in tile path: ", len(set(all_tile_info_df['SAMPLE_ID']))) #3375102 tiles in total
-    # print("Max # tile/per pt:", tile_counts.max()) #311
-    # print("Min # tile/per pt:", tile_counts.min()) #5
-    # print("Median # tile/per pt:", tile_counts.median()) #233.0
+    #Exclude IDs has no cancer detected
+    cd_aval_ids = [x for x in os.listdir(info_path) if x != '.DS_Store'] #677
+    cancer_detect_list = []
+    for cur_id in cd_aval_ids:
+        cur_info_df = pd.read_csv(os.path.join(info_path, cur_id, 'ft_model',cur_id + "_TILE_TUMOR_PERC.csv"))
+        cancer_detect_list.append(cur_info_df)
+    all_cd_df = pd.concat(cancer_detect_list) #146888
+    
+    
+    #Filter for Cancer detected tiles > threshod
+    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES] #19098
+
+    #No Cancer IDs 
+    cancer_ids = list(set(all_cd_df['SAMPLE_ID']))
+    nocancer_ids = [x for x in cd_aval_ids if x not in cancer_ids] #299
+    print("No Cancer detected (n = ", len(nocancer_ids), ")") 
+    selected_ids = [x for x in selected_ids if x not in  nocancer_ids] 
+    selected_ids.sort()
+    print("Final TCGA IDs (n = ", len(selected_ids), ")") #355
+    
+
+    ############################################################################################################
+    #Combine site and label info and tile info
+    ############################################################################################################     
+    tile_info_list = []
+    for cur_id in selected_ids:
+        cur_info_df = pd.read_csv(os.path.join(info_path, cur_id, 'ft_model',cur_id + "_TILE_TUMOR_PERC.csv"))
+        cur_label_df = label_df.loc[label_df['SAMPLE_ID'] == cur_id]
+        cur_comb_df = cur_info_df.merge(cur_label_df, on = ['SAMPLE_ID'],how = 'left') #add label
+        tile_info_list.append(cur_comb_df)
+    all_tile_info_df = pd.concat(tile_info_list)
+    print(all_tile_info_df.shape) #80630 tiles overlap0
+    
+    #Print stats
+    tile_counts = all_tile_info_df['SAMPLE_ID'].value_counts()
+    print("Total OPX IDs in tile path: ", len(set(all_tile_info_df['SAMPLE_ID']))) #355
+    print("Max # tile/per pt:", tile_counts.max()) #279
+    print("Min # tile/per pt:", tile_counts.min()) #54
+    print("Median # tile/per pt:", tile_counts.median()) #236
+
 
 elif cohort_name == "TCGA_PRAD":
     ################################################
     #Get TCGA IDs 
     ################################################
-    tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
-    selected_ids = tcga_ids #449
+    selected_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     
     #Exclude tissue issue
     issue_ids = ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5']
@@ -235,6 +240,7 @@ elif cohort_name == "TCGA_PRAD":
     HRMSI_df = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_HR_MSI_Pritchard_OtherInfoAdded.csv")) 
     HRMSI_df = HRMSI_df.loc[HRMSI_df['Colin Recommends Keep vs. Exclude'] == 'Keep']
     HRMSI_df = HRMSI_df[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
+    HRMSI_df = HRMSI_df.loc[HRMSI_df['Track_name'].isin(selected_hr_genes + ['MSH2', 'MSH6', 'PMS2', 'MLH1'])]
     other_df = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_AR_PTEN_RB1_TP53_OtherInfoAdded.csv")) 
     other_df = other_df[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
     all_mutation_df = pd.concat([HRMSI_df,other_df])
@@ -321,10 +327,12 @@ elif cohort_name == "TCGA_PRAD":
 #This file contains all tiles without cancer fraction exclusion and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
 #OPX:   4843073 for overlap0, 1743458 #for overlap100,   
 #TCGA:  5964499 for overlap0, 16570195 #for overlap100,
+#TMA: 80630 for oeverlap0
 all_tile_info_df.to_csv(os.path.join(out_location, "all_tile_info.csv"), index = False)
 
 
 #Jsut check tumor tile numbers:
 #OPX    555533 for overlap0,   1389408 for overlap100
 #TCGA  1307688 for overlap0,   3335532 for overlap100
+#TMA    18328 for overlap0
 print(all_tile_info_df[all_tile_info_df['TUMOR_PIXEL_PERC']>=0.9].shape)

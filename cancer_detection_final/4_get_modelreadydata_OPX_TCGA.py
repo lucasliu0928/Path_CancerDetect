@@ -10,16 +10,16 @@ import torch
 
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists, count_label, set_seed
-from train_utils import ModelReadyData_diffdim_V2, get_feature_idexes, get_sample_feature, get_sample_label, combine_feature_and_label, compare_modelreadydata
+from train_utils import ModelReadyData_diffdim_V2, get_feature_idexes, get_sample_feature, get_sample_label, combine_feature_and_label
 warnings.filterwarnings("ignore")
 
 ####################################
 ######      USERINPUT       ########
 ####################################
-pixel_overlap = 0    
+pixel_overlap = 100   
 save_image_size = 250
 TUMOR_FRAC_THRES = 0.9
-cohort_name = "TCGA_PRAD"  
+cohort_name = "OPX"  
 feature_extraction_method = 'uni2' #retccl, uni1, prov_gigapath,uni2
 SELECTED_LABEL = ["AR","HR","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
 SELECTED_FEATURE = get_feature_idexes(feature_extraction_method, include_tumor_fraction = False)
@@ -59,10 +59,11 @@ set_seed(0)
 all_tile_info_df = pd.read_csv(os.path.join(info_path, "all_tile_info.csv"))
 
 if cohort_name == 'OPX':
-    selected_ids = list(all_tile_info_df['SAMPLE_ID'].unique())
+    id_col = 'SAMPLE_ID'
 elif cohort_name == 'TCGA_PRAD':
-    selected_ids = list(all_tile_info_df['TCGA_FOLDER_ID'].unique())
-    
+    id_col = 'TCGA_FOLDER_ID'
+
+selected_ids = list(all_tile_info_df[id_col].unique())    
 selected_ids.sort()
 
 # info_path2 =   os.path.join(proj_dir,'intermediate_data','Old_5_model_ready_data', cohort_name, folder_name, "feature_retccl", "TFT0.9")
@@ -93,7 +94,7 @@ for pt in selected_ids:
     feature_df = get_sample_feature(pt, feature_path, feature_extraction_method)
     
     #Get label
-    label_df = get_sample_label(pt,all_tile_info_df, id_col = 'TCGA_FOLDER_ID')
+    label_df = get_sample_label(pt,all_tile_info_df, id_col = id_col)
     
     #Merge feature and label
     comb_df = combine_feature_and_label(feature_df,label_df)
