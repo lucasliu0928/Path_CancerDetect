@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 #NOTE: use paimg9 env
 import sys
@@ -16,10 +16,10 @@ warnings.filterwarnings("ignore")
 ####################################
 ######      USERINPUT       ########
 ####################################
-pixel_overlap = 100    
+pixel_overlap = 0    
 save_image_size = 250
 TUMOR_FRAC_THRES = 0.9
-cohort_name = "OPX"  
+cohort_name = "TCGA_PRAD"  
 feature_extraction_method = 'uni2' #retccl, uni1, prov_gigapath,uni2
 SELECTED_LABEL = ["AR","HR","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
 SELECTED_FEATURE = get_feature_idexes(feature_extraction_method, include_tumor_fraction = False)
@@ -57,7 +57,12 @@ set_seed(0)
 #and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
 ############################################################################################################
 all_tile_info_df = pd.read_csv(os.path.join(info_path, "all_tile_info.csv"))
-selected_ids = list(all_tile_info_df['SAMPLE_ID'].unique())
+
+if cohort_name == 'OPX':
+    selected_ids = list(all_tile_info_df['SAMPLE_ID'].unique())
+elif cohort_name == 'TCGA_PRAD':
+    selected_ids = list(all_tile_info_df['TCGA_FOLDER_ID'].unique())
+    
 selected_ids.sort()
 
 # info_path2 =   os.path.join(proj_dir,'intermediate_data','Old_5_model_ready_data', cohort_name, folder_name, "feature_retccl", "TFT0.9")
@@ -71,6 +76,12 @@ selected_ids.sort()
 
 # check_df2 = check_df2.loc[check_df2['TUMOR_PIXEL_PERC'] > 0.9] #306566
 
+#Check why the prior results does not match
+#TODO: Double check this two, why not match
+# print(all_tile_info_thres.shape) #930297 #This
+# check = np.concatenate(info)     #927717 #tumor info list
+# check.shape
+
 ############################################################################################################
 #Get model ready data
 ############################################################################################################
@@ -82,7 +93,7 @@ for pt in selected_ids:
     feature_df = get_sample_feature(pt, feature_path, feature_extraction_method)
     
     #Get label
-    label_df = get_sample_label(pt,all_tile_info_df)
+    label_df = get_sample_label(pt,all_tile_info_df, id_col = 'TCGA_FOLDER_ID')
     
     #Merge feature and label
     comb_df = combine_feature_and_label(feature_df,label_df)
@@ -90,7 +101,7 @@ for pt in selected_ids:
     #Select tumor fraction > X tiles
     comb_df = comb_df.loc[comb_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES].copy()
     comb_df = comb_df.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False)
-    comb_df.sort_values(by="TILE_XY_INDEXES",inplace = True, ascending = True)
+    comb_df = comb_df.sort_values(by = ['TILE_XY_INDEXES'], ascending = True)
     comb_df.reset_index(inplace = True, drop = True)
     comb_df_list.append(comb_df)
     ct += 1
@@ -115,4 +126,5 @@ counts = counts2.merge(counts1, left_index = True, right_index = True)
 counts.to_csv(os.path.join(outdir, cohort_name + '_counts.csv'))
 
 
-all_comb_df.shape
+print(all_comb_df['TUMOR_PIXEL_PERC'].min())
+all_comb_df['TUMOR_PIXEL_PERC'].shape

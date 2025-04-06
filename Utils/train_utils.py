@@ -144,8 +144,8 @@ def get_sample_feature(patient_id, feature_path, input_file_name):
 
     return feature_df
     
-def get_sample_label(patient_id, all_label_data):
-    label_df = all_label_data.loc[all_label_data['SAMPLE_ID'] == patient_id]
+def get_sample_label(patient_id, all_label_data, id_col = 'SAMPLE_ID'):
+    label_df = all_label_data.loc[all_label_data[id_col] == patient_id]
     label_df.reset_index(drop = True, inplace = True)
     return label_df
 
