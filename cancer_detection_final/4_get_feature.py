@@ -18,7 +18,7 @@ from FeatureExtractor import PretrainedModelLoader, TileEmbeddingExtractor
 warnings.filterwarnings("ignore")
 
 
-#Run: python3 -u 3B_get_feature.py --select_idx_start 80 --select_idx_end 120 --cuda_device 'cuda' --pixel_overlap 0 --save_image_size 250 --cohort_name OPX --feature_extraction_method uni2 
+#Run: python3 -u 4_get_feature.py --select_idx_start 80 --select_idx_end 120 --cuda_device 'cuda' --pixel_overlap 0 --save_image_size 250 --cohort_name OPX --feature_extraction_method uni2 
 
 
 ############################################################################################################
@@ -30,6 +30,7 @@ parser.add_argument('--save_image_size', default='250', type=int, help='the size
 parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--feature_extraction_method', default='uni1', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
+parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
 parser.add_argument('--select_idx_start', type=int)
 parser.add_argument('--select_idx_end', type=int)
 
@@ -38,12 +39,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     ############################################################################################################
     #USER INPUT 
-    ############################################################################################################
-    pixel_overlap = args.pixel_overlap      
-    save_image_size = args.save_image_size   
-    cohort_name = args.cohort_name   
-    feature_extraction_method = args.feature_extraction_method
-    folder_name = "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap)
+    ############################################################################################################ 
+    folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
 
     
     ############################################################################################################
@@ -54,10 +51,10 @@ if __name__ == '__main__':
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
     wsi_location_tcga = proj_dir + '/data/TCGA_PRAD/'
-    info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', cohort_name, folder_name)
-    model_path = os.path.join(proj_dir,'models','feature_extraction_models', feature_extraction_method)
+    info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name)
+    model_path = os.path.join(proj_dir,'models','feature_extraction_models', args.feature_extraction_method)
     
-    out_location = os.path.join(proj_dir,'intermediate_data','4_tile_feature', cohort_name, folder_name)
+    out_location = os.path.join(proj_dir,'intermediate_data', args.out_folder, args.cohort_name, folder_name)
     create_dir_if_not_exists(out_location)
     
 
@@ -81,15 +78,15 @@ if __name__ == '__main__':
     tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     
-    if cohort_name == "OPX":
+    if args.cohort_name == "OPX":
         all_ids = opx_ids
-    elif cohort_name == "ccola":
+    elif args.cohort_name == "ccola":
         all_ids = ccola_ids
-    elif cohort_name == "TAN_TMA_Cores":
+    elif args.cohort_name == "TAN_TMA_Cores":
         all_ids = tan_ids
-    elif cohort_name == 'TCGA_PRAD':
+    elif args.cohort_name == 'TCGA_PRAD':
         all_ids = tcga_ids
-    elif cohort_name == "all":
+    elif args.cohort_name == "all":
         all_ids = opx_ids + ccola_ids + tan_ids + tcga_ids
         
     #Exclude ids in ft_train or processed
@@ -101,7 +98,7 @@ if __name__ == '__main__':
     ############################################################################################################
     # Load Pretrained representation model
     ############################################################################################################
-    modelloader = PretrainedModelLoader(feature_extraction_method, model_path, device='cuda')
+    modelloader = PretrainedModelLoader(args.feature_extraction_method, model_path, device='cuda')
     model = modelloader.model
 
     ############################################################################################################
@@ -113,20 +110,20 @@ if __name__ == '__main__':
     
         save_location = os.path.join(out_location, cur_id , 'features')
         create_dir_if_not_exists(save_location)
-        save_name = os.path.join(save_location, 'features_alltiles_' + feature_extraction_method + '.h5')
+        save_name = os.path.join(save_location, 'features_alltiles_' + args.feature_extraction_method + '.h5')
         
         if os.path.exists(save_name) == False: #check if processed
         #if os.path.exists(save_name) == True: #updates
-            if cohort_name == "OPX":
+            if args.cohort_name == "OPX":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
-            elif cohort_name == "ccola":
+            elif args.cohort_name == "ccola":
                 slides_name = cur_id
                 _file = wsi_location_ccola + slides_name + '.svs'
-            elif cohort_name == "TAN_TMA_Cores":
+            elif args.cohort_name == "TAN_TMA_Cores":
                 slides_name = cur_id
                 _file = wsi_location_tan + slides_name + '.tif'
-            elif cohort_name == 'TCGA_PRAD':
+            elif args.cohort_name == 'TCGA_PRAD':
                 slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
                 _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
     
@@ -136,13 +133,13 @@ if __name__ == '__main__':
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
-            if cohort_name == "OPX" or cohort_name == 'TCGA_PRAD':
+            if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD':
                 oslide = openslide.OpenSlide(_file) 
-                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, feature_extraction_method, model, device, image_type = 'WSI')             
+                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, image_type = 'WSI')             
                 
-            elif cohort_name == "TAN_TMA_Cores":      
+            elif args.cohort_name == "TAN_TMA_Cores":      
                 tma = PIL.Image.open(_file)
-                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, feature_extraction_method, model, device, image_type = 'TMA')
+                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, args.feature_extraction_method, model, device, image_type = 'TMA')
     
             #Get feature
             start_time = time.time()

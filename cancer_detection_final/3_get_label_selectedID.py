@@ -12,36 +12,35 @@ from Preprocessing import preprocess_mutation_data
 from train_utils import extract_before_third_hyphen
 from Utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
-
+import argparse
 
 ############################################################################################################
 #USER INPUT 
 ############################################################################################################
-pixel_overlap = 0      # specify the level of pixel overlap in your saved images
-save_image_size = 250
-TUMOR_FRAC_THRES = 0.9
-cohort_name = "TAN_TMA_Cores"  #TAN_TMA_Cores, OPX, TCGA_PRAD
-folder_name = "IMSIZE" + str(save_image_size) + "_OL" + str(pixel_overlap)
-select_labels = ["AR",
-                 "HR",
-                 "PTEN",
-                 "RB1",
-                 "TP53",
-                 "TMB_HIGHorINTERMEDITATE",
-                 "MSI_POS"]
-#Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D' 
-selected_hr_genes = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D']
+parser = argparse.ArgumentParser("Tile feature extraction")
+parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--out_folder', default= '3_otherinfo', type=str, help='out folder name')
+
+args = parser.parse_args()
+
+############################################################################################################
+#USER INPUT 
+############################################################################################################
+folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
+select_labels = ["AR","HR","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
+selected_hr_genes = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'] #Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'
 
 ############################################################################################################
 #DIR
 ############################################################################################################
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-wsi_location_opx = proj_dir + '/data/OPX/'
-wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
-wsi_location_tcga = proj_dir + 'data/TCGA_PRAD/'
-info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', cohort_name, folder_name) #Old in cancer_prediction_results110224
-label_path = os.path.join(proj_dir,'data','MutationCalls', cohort_name)
-out_location = os.path.join(proj_dir,'intermediate_data','3_otherinfo', cohort_name, folder_name)
+wsi_location = proj_dir +  'data/' + args.cohort_name + "/"
+info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name) #Old in cancer_prediction_results110224
+label_path = os.path.join(proj_dir,'data','MutationCalls', args.cohort_name)
+out_location = os.path.join(proj_dir,'intermediate_data',args.out_folder, args.cohort_name, folder_name)
 create_dir_if_not_exists(out_location)
 
 
@@ -52,7 +51,7 @@ create_dir_if_not_exists(out_location)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-if cohort_name == "OPX":
+if args.cohort_name == "OPX":
     ############################################################################################################
     #Load IDs that are used for finetune
     ############################################################################################################
@@ -64,7 +63,7 @@ if cohort_name == "OPX":
     #Get OPX IDs 
     ################################################
     #All Aval IDs
-    opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #360
+    opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location)] #360
 
     #Only Include IDs are high quality
     label_df = pd.read_excel(os.path.join(label_path, "UWMC_OPX_Master Spreadsheet_Lucas.xlsx")) #274 Samples, 272 patient, #New data (there are some ids in old data exclude due to bad quality)
@@ -86,7 +85,7 @@ if cohort_name == "OPX":
     all_cd_df = pd.concat(cancer_detect_list)
 
     #Filter for Cancer detected tiles > threshod
-    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES] #555,533
+    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= args.TUMOR_FRAC_THRES] #555,533
 
     #No Cancer IDs from high quality:
     cancer_ids = list(set(all_cd_df['SAMPLE_ID']))
@@ -120,9 +119,9 @@ if cohort_name == "OPX":
     print("Min # tile/per pt:", tile_counts.min()) #98, 285
     print("Median # tile/per pt:", tile_counts.median()) #1809.5,5011
 
-elif cohort_name == 'TAN_TMA_Cores':
+elif args.cohort_name == 'TAN_TMA_Cores':
     #All Aval IDs
-    tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
+    tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location)] #677
     
     #Load TAN_TMA mutation label data
     label_df1 = pd.read_excel(os.path.join(label_path, "TAN97_core_mappings.xlsx")) #These Ids not in label_df2: ['18-018', '18-087', '18-064', '18-077', '08-016', '06-131']
@@ -169,7 +168,7 @@ elif cohort_name == 'TAN_TMA_Cores':
     
     
     #Filter for Cancer detected tiles > threshod
-    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES] #19098
+    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= args.TUMOR_FRAC_THRES] #19098
 
     #No Cancer IDs 
     cancer_ids = list(set(all_cd_df['SAMPLE_ID']))
@@ -200,11 +199,11 @@ elif cohort_name == 'TAN_TMA_Cores':
     print("Median # tile/per pt:", tile_counts.median()) #236
 
 
-elif cohort_name == "TCGA_PRAD":
+elif args.cohort_name == "TCGA_PRAD":
     ################################################
     #Get TCGA IDs 
     ################################################
-    selected_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
+    selected_ids = [x.replace('.svs','') for x in os.listdir(wsi_location) if x != '.DS_Store'] #449
     
     #Exclude tissue issue
     issue_ids = ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5']
@@ -221,7 +220,7 @@ elif cohort_name == "TCGA_PRAD":
     all_cd_df = pd.concat(cancer_detect_list)
 
     #Filter for Cancer detected tiles > threshod
-    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES] #3335532
+    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= args.TUMOR_FRAC_THRES] #3335532
 
     #No Cancer IDs 
     cancer_ids = list(set(all_cd_df['TCGA_FOLDER_ID']))
