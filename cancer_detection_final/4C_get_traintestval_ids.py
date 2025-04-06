@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
 #NOTE: use paimg9 env
 import sys
 import os
@@ -28,10 +24,6 @@ from pathlib import Path
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
-get_ipython().run_line_magic('matplotlib', 'inline')
-
-
-# In[2]:
 
 
 ####################################
@@ -69,16 +61,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
 
-# In[3]:
-
-
 ################################################
 #    Load OPX IDs
 ################################################
 opx_ids_ol0 = torch.load(os.path.join(feature_path_opx_test,'OPX_data.pth'))
 
-
-# In[4]:
 
 
 opx_pt_ids = [x[-1] for x in opx_ids_ol0]
@@ -93,8 +80,6 @@ labels_df.columns = SELECTED_LABEL
 labels_df['SAMPLE_ID'] = opx_sp_ids
 labels_df['PATIENT_ID'] = opx_pt_ids
 
-
-# In[5]:
 
 
 #All unique pateint IDS
@@ -121,9 +106,6 @@ train_ids_full = train_ids_nomsi + train_ids_msi
 test_ids = test_ids_nomsi + test_ids_msi
 
 
-# In[6]:
-
-
 #For train_ids_full, then k-fold validation
 n_splits = 5 
 kf = KFold(n_splits=n_splits, shuffle=True, random_state=42) #Initialize KFold
@@ -132,9 +114,6 @@ for fold, (train_index, val_index) in enumerate(kf.split(train_ids_full)):
     train_ids = [train_ids_full[i] for i in train_index]  # Get train IDs
     val_ids = [train_ids_full[i] for i in val_index]  # Get val IDs
     fold_ids[fold] = {'Train': train_ids, 'Val' :val_ids}  # Store as lists
-
-
-# In[7]:
 
 
 #Inital df
@@ -156,13 +135,8 @@ for k in range(n_splits):
 train_test_valid_df.to_csv(os.path.join(outdir, 'train_test_split.csv'))
 
 
-# In[8]:
-
 
 train_test_valid_df['TRAIN_OR_TEST'].value_counts()
-
-
-# In[9]:
 
 
 # Compute N (count) for each mutation per TRAIN/TEST group
@@ -179,9 +153,6 @@ summary_combined = summary_N.astype(int).astype(str) + " (" + summary_percentage
 summary_combined = summary_combined.T
 
 summary_combined.to_csv(os.path.join(outdir, 'label_count.csv'))
-
-
-# In[ ]:
 
 
 # #This new added OPX must in train or test, because at this point, we want to have more MSI to test
