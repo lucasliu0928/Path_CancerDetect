@@ -22,7 +22,7 @@ parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the 
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--out_folder', default= '3_otherinfo', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
 args = parser.parse_args()
 
