@@ -243,9 +243,11 @@ def predict_v2(net, data_loader, device, conf, header):
     
     return y_pred_tasks, y_predprob_task, y_true_tasks
 
-def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none'):
+def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none', use_sep_criterion = False):
     """
     Trains the given network for one epoch according to given criterions (loss functions)
+
+    use_sep_criterion: use differnt focal paratermeters for each mutation outcome
     """
 
     # Set the network to training mode
@@ -278,12 +280,19 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
             slide_preds = slide_preds_list[k]
             attn = attn_list[k]
             labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
-                    
-            if conf.n_token > 1:
-                loss0 = criterion(sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
+            
+            if use_sep_criterion == False:      
+                if conf.n_token > 1:
+                    loss0 = criterion(sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
+                else:
+                    loss0 = torch.tensor(0.)
+                loss1 = criterion(slide_preds, labels.unsqueeze(1))
             else:
-                loss0 = torch.tensor(0.)
-            loss1 = criterion(slide_preds, labels.unsqueeze(1))
+                if conf.n_token > 1:
+                    loss0 = criterion[k](sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
+                else:
+                    loss0 = torch.tensor(0.)
+                loss1 = criterion[k](slide_preds, labels.unsqueeze(1))
 
             diff_loss = torch.tensor(0).to(device, dtype=torch.float)
             attn = torch.softmax(attn, dim=-1)
@@ -328,96 +337,9 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
             wandb.log({'diff_loss': diff_loss}, commit=False)
             wandb.log({'slide_loss': loss1})
 
-
-def train_one_epoch_multitask_V2(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none'):
-    """
-    Trains the given network for one epoch according to given criterions (loss functions)
-    """
-
-    # Set the network to training mode
-    model.train()
-
-    metric_logger = MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 100
-
-
-    for data_it, data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        # for data_it, data in enumerate(data_loader, start=epoch * len(data_loader)):
-        # Move input batch onto GPU if eager execution is enabled (default), else leave it on CPU
-        # Data is a dict with keys `input` (patches) and `{task_name}` (labels for given task)
-        image_patches = data[0].to(device, dtype=torch.float32)
-        label_lists = data[1][0]
-        tf = data[2].to(device, dtype=torch.float32)
-
-        # # Calculate and set new learning rate
-        adjust_learning_rate(optimizer0, epoch + data_it/len(data_loader), conf)
-
-        # Compute loss
-        sub_preds_list, slide_preds_list, attn_list = model(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
-        
-        #Compute loss for each task, then sum
-        loss = 0
-        for k in range(conf.n_task):
-            sub_preds = sub_preds_list[k]
-            slide_preds = slide_preds_list[k]
-            attn = attn_list[k]
-            labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
-                    
-            if conf.n_token > 1:
-                loss0 = criterion[k](sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
-            else:
-                loss0 = torch.tensor(0.)
-            loss1 = criterion[k](slide_preds, labels.unsqueeze(1))
-
-            diff_loss = torch.tensor(0).to(device, dtype=torch.float)
-            attn = torch.softmax(attn, dim=-1)
-            
-            for i in range(conf.n_token):
-                for j in range(i + 1, conf.n_token):
-                    diff_loss += torch.cosine_similarity(attn[:, i], attn[:, j], dim=-1).mean() / (
-                                conf.n_token * (conf.n_token - 1) / 2)
-
-            #ATT loss
-            #Take the AVG of each branch attention
-            avg_attn = attn.mean(dim = 1) #Across branches
-            att_loss = F.mse_loss(avg_attn, tf) #different in avg att to the tumor fraction
-            # #Sum of att loss for each branch
-            # att_loss = torch.tensor(0).to(device, dtype=torch.float)
-            # for i in range(conf.n_token):
-            #     att_loss += F.mse_loss(attn[:,i,:], tf)
-    
-            if loss_method == 'ATTLOSS': #ATTLOSS
-                loss += diff_loss + loss0 + loss1 + att_loss
-            else:
-                loss += diff_loss + loss0 + loss1 
-
-        optimizer0.zero_grad()
-        # Backpropagate error and update parameters
-        loss.backward()
-        optimizer0.step()
-
-
-        metric_logger.update(lr=optimizer0.param_groups[0]['lr'])
-        metric_logger.update(sub_loss=loss0.item())
-        metric_logger.update(diff_loss=diff_loss.item())
-        metric_logger.update(slide_loss=loss1.item())
-        metric_logger.update(att_loss=att_loss.item())
-        metric_logger.update(total_loss=loss.item())
-
-        if conf.wandb_mode != 'disabled':
-            """ We use epoch_1000x as the x-axis in tensorboard.
-            This calibrates different curves when batch size changes.
-            """
-            wandb.log({'sub_loss': loss0}, commit=False)
-            wandb.log({'diff_loss': diff_loss}, commit=False)
-            wandb.log({'slide_loss': loss1})
-
-
 # Disable gradient calculation during evaluation
 @torch.no_grad()
-def evaluate_multitask(net, criterion, data_loader, device, conf, header):
+def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_sep_criterion = False):
 
     # Set the network to evaluation mode
     net.eval()
@@ -447,88 +369,12 @@ def evaluate_multitask(net, criterion, data_loader, device, conf, header):
             labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
             
             div_loss += torch.sum(F.softmax(attn, dim=-1) * F.log_softmax(attn, dim=-1)) / attn.shape[1]
-            loss += criterion(slide_preds, labels.unsqueeze(1))
-            pred = torch.sigmoid(slide_preds)
-            acc1 = accuracy(pred, labels, topk=(1,))[0]
 
-            pred_list.append(pred)
-            acc1_list.append(acc1)
-            
-        avg_acc = sum(acc1_list)/conf.n_task
+            if use_sep_criterion == False: 
+                loss += criterion(slide_preds, labels.unsqueeze(1))
+            else:
+                loss += criterion[k](slide_preds, labels.unsqueeze(1))
 
-        metric_logger.update(loss=loss.item())
-        metric_logger.update(div_loss=div_loss.item())
-        metric_logger.meters['acc1'].update(avg_acc.item(), n=labels.shape[0])
-
-        y_pred.append(pred_list)
-        y_true.append(label_lists)
-
-    #Get prediction for each task
-    y_pred_tasks = []
-    y_true_tasks = []
-    for k in range(conf.n_task):
-        y_pred_tasks.append([p[k] for p in y_pred])
-        y_true_tasks.append([t[:,k].to(device, dtype = torch.int64) for t in y_true])
-    
-    #get performance for each calss
-    auroc_each = 0
-    f1_score_each = 0
-    for k in range(conf.n_task):
-        y_pred_each = torch.cat(y_pred_tasks[k], dim=0)
-        y_true_each = torch.cat(y_true_tasks[k], dim=0)
-    
-        AUROC_metric = torchmetrics.AUROC(num_classes = conf.n_class, task='binary').to(device)
-        AUROC_metric(y_pred_each, y_true_each)
-        auroc_each += AUROC_metric.compute().item()
-    
-        F1_metric = torchmetrics.F1Score(num_classes = conf.n_class, task='binary').to(device)
-        F1_metric(y_pred_each, y_true_each.unsqueeze(1))
-        f1_score_each += F1_metric.compute().item()
-        print("AUROC",str(k),":",AUROC_metric.compute().item())
-    auroc = auroc_each/conf.n_task
-    f1_score = f1_score_each/conf.n_task
-
-    print('* Acc@1 {top1.global_avg:.3f} loss {losses.global_avg:.3f} auroc {AUROC:.3f} f1_score {F1:.3f}'
-          .format(top1=metric_logger.acc1, losses=metric_logger.loss, AUROC=auroc, F1=f1_score))
-
-    return auroc, metric_logger.acc1.global_avg, f1_score, metric_logger.loss.global_avg
-
-
-
-
-# Disable gradient calculation during evaluation
-@torch.no_grad()
-def evaluate_multitask_V2(net, criterion, data_loader, device, conf, header):
-
-    # Set the network to evaluation mode
-    net.eval()
-
-    y_pred = []
-    y_true = []
-
-    metric_logger = MetricLogger(delimiter="  ")
-
-    for data in metric_logger.log_every(data_loader, 100, header):
-        image_patches = data[0].to(device, dtype=torch.float32)
-        label_lists = data[1][0]
-        tf = data[2].to(device, dtype=torch.float32)
-
-
-        sub_preds_list, slide_preds_list, attn_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
-        
-        #Compute loss for each task, then sum
-        loss = 0
-        div_loss = 0
-        pred_list = []
-        acc1_list = []
-        for k in range(conf.n_task):
-            sub_preds = sub_preds_list[k]
-            slide_preds = slide_preds_list[k]
-            attn = attn_list[k]
-            labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
-            
-            div_loss += torch.sum(F.softmax(attn, dim=-1) * F.log_softmax(attn, dim=-1)) / attn.shape[1]
-            loss += criterion[k](slide_preds, labels.unsqueeze(1))
             pred = torch.sigmoid(slide_preds)
             acc1 = accuracy(pred, labels, topk=(1,))[0]
 

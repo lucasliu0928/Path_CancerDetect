@@ -5,6 +5,7 @@ Created on Sat Nov 16 19:32:29 2024
 
 @author: jliu6
 """
+
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix,fbeta_score,average_precision_score
@@ -14,6 +15,7 @@ import numpy as np
 from Utils import minmax_normalize
 import torch
 from torchmetrics import ROC
+import os
 
 from sklearn.isotonic import IsotonicRegression
 
@@ -119,7 +121,7 @@ def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
 
 
 
-def plot_roc_curve(y_pred, y_true):
+def plot_roc_curve(y_pred, y_true, outdir, outcome_name):
     # Initialize ROC metric for binary classification
     roc = ROC(task='binary')
     
@@ -136,6 +138,7 @@ def plot_roc_curve(y_pred, y_true):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend(loc="lower right")
+    plt.savefig(os.path.join(outdir, "rocauc_"+ outcome_name + ".png"), dpi=300)
     plt.show()
 
 
@@ -223,6 +226,40 @@ def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=No
     return ci_df.T
 
 
+def boxplot_predprob_by_mutationclass(pred_df, outdir):
+    # Get unique outcomes
+    outcomes = pred_df['OUTCOME'].unique()
+    n_outcomes = len(outcomes)
+    
+    # Create data structure for plotting
+    data_to_plot = []
+    labels = []
+    positions = []
+    
+    for i, outcome in enumerate(outcomes):
+        for y_val in [0, 1]:
+            group = pred_df[(pred_df['OUTCOME'] == outcome) & (pred_df['Y_True'] == y_val)]
+            data_to_plot.append(group['Pred_Prob'].values)
+            labels.append(f"{outcome}\nY={y_val}")
+            positions.append(i * 3 + y_val)  # spread boxes for each group
+    
+    # Plotting
+    plt.figure(figsize=(8, 6))
+    box = plt.boxplot(data_to_plot, positions=positions, widths=0.6, patch_artist=True)
+    
+    # Color boxes
+    colors = ['lightblue', 'lightcoral'] * n_outcomes
+    for patch, color in zip(box['boxes'], colors):
+        patch.set_facecolor(color)
+    
+    plt.xticks(positions, labels, rotation=0)
+    plt.ylim(0, 1)
+    plt.ylabel('Predicted Probability')
+    plt.title('Predicted Probabilities by Outcome and Y_True')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "pred_prob_boxplot_byoutcome.png"), dpi=300)
+    plt.show()
 
 
 

@@ -950,7 +950,26 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
+#This one is for muti-class, where pt = exp(...)
+class FocalLossv2(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
 
+    def forward(self, inputs, targets):
+        BCE_loss = F.cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
+
+        if self.reduction == 'mean':
+            return F_loss.mean()
+        elif self.reduction == 'sum':
+            return F_loss.sum()
+        else:
+            return F_loss
+        
 def get_partial_data(indata, selected_ids):
     r'''
     Input:   Model Ready data pool, List of selected_ids
@@ -973,7 +992,7 @@ def get_partial_data(indata, selected_ids):
 
 
 
-def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold):
+def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold, select_label_index = 'ALL'):
 
     #Get train, test IDs
     train_ids = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TRAIN', 'SAMPLE_ID'])
@@ -984,12 +1003,17 @@ def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold):
     val_data, val_ids_final = get_partial_data(data_pool_train, val_ids)
     test_data, test_ids_final = get_partial_data(data_pool_test, test_ids)
     
-
-
     #Exclude tile info data, sample ID, patient ID, do not needed it for training
     train_data_final = [item[:-3] for item in train_data] 
     test_data_final  = [item[:-3] for item in test_data] 
     val_data_final   = [item[:-3] for item in val_data] 
+    
+    
+    #Update labels
+    if select_label_index != 'ALL': 
+        train_data_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in train_data_final]#use index+1 to preserved 2D shape
+        test_data_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in test_data_final]#use index+1 to preserved 2D shape
+        val_data_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in val_data_final]#use index+1 to preserved 2D shape
 
     print(f'Train N: {len(train_ids_final)}; Test N: {len(test_ids_final)}; Val N: {len(val_ids_final)}')
     print(f'Train DS: {len(train_data_final)}; Test DS: {len(test_data_final)}; Val DS: {len(val_data_final)}')
