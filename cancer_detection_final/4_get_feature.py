@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-#NOTE: use paimg9 env
+
 
 import sys
 import os
@@ -17,7 +17,8 @@ from Utils import create_dir_if_not_exists
 from FeatureExtractor import PretrainedModelLoader, TileEmbeddingExtractor
 warnings.filterwarnings("ignore")
 
-
+#source ~/.bashrc
+#conda activate paimg9
 #Run: python3 -u 4_get_feature.py --select_idx_start 80 --select_idx_end 120 --cuda_device 'cuda' --pixel_overlap 0 --save_image_size 250 --cohort_name OPX --feature_extraction_method uni2 
 
 
@@ -25,10 +26,10 @@ warnings.filterwarnings("ignore")
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
-parser.add_argument('--feature_extraction_method', default='uni1', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
 parser.add_argument('--select_idx_start', type=int)
@@ -107,13 +108,13 @@ if __name__ == '__main__':
     ct = 0 
     for cur_id in selected_ids[args.select_idx_start:args.select_idx_end]:
         if ct % 10 == 0: print(ct)
-    
+
         save_location = os.path.join(out_location, cur_id , 'features')
         create_dir_if_not_exists(save_location)
         save_name = os.path.join(save_location, 'features_alltiles_' + args.feature_extraction_method + '.h5')
         
-        if os.path.exists(save_name) == False: #check if processed
-        #if os.path.exists(save_name) == True: #updates
+        #if os.path.exists(save_name) == False: #check if processed
+        if os.path.exists(save_name) == True: #updates
             if args.cohort_name == "OPX":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
@@ -136,7 +137,7 @@ if __name__ == '__main__':
             if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD':
                 oslide = openslide.OpenSlide(_file) 
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, image_type = 'WSI')             
-                
+
             elif args.cohort_name == "TAN_TMA_Cores":      
                 tma = PIL.Image.open(_file)
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, args.feature_extraction_method, model, device, image_type = 'TMA')

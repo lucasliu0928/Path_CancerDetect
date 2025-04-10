@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
-parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 
 args = parser.parse_args()
@@ -42,7 +42,7 @@ SELECTED_FEATURE = get_feature_idexes(args.feature_extraction_method,include_tum
 ##################
 folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-info_path =   os.path.join(proj_dir,'intermediate_data','3_otherinfo', args.cohort_name, folder_name)
+info_path =   os.path.join(proj_dir,'intermediate_data','3A_otherinfo', args.cohort_name, folder_name)
 feature_path = os.path.join(proj_dir,'intermediate_data','4_tile_feature', args.cohort_name, folder_name)
 
 
@@ -103,8 +103,7 @@ ct = 0
 for pt in selected_ids:
     if ct % 10 == 0 : print(ct)
     #Get feature
-    feature_df = get_sample_feature(pt, feature_path, args.feature_extraction_method)
-    
+    feature_df = get_sample_feature(pt, feature_path, args.feature_extraction_method)    
     #Get label
     label_df = get_sample_label(pt,all_tile_info_df, id_col = id_col)
     
