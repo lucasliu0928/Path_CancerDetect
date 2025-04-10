@@ -8,7 +8,9 @@ matplotlib.use('Agg')
 import pandas as pd
 import warnings
 import torch
-from sklearn.model_selection import KFold, train_test_split
+from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+import numpy as np
+from sklearn.model_selection import KFold, train_test_split,StratifiedKFold
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
@@ -111,14 +113,28 @@ train_ids  = train_ids_nomsi + train_ids_msi
 test_ids   = test_ids_nomsi + test_ids_msi
 
 
-#For train_ids_full, then k-fold validation
+# #For train_ids_full, then k-fold validation
+# n_splits = 5 
+# kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42) #Initialize KFold
+# fold_ids = {}
+# for fold, (train_index, val_index) in enumerate(kf.split(train_ids)):
+#     train_ids_fold = [train_ids[i] for i in train_index]  # Get train IDs
+#     val_ids = [train_ids[i] for i in val_index]  # Get val IDs
+#     fold_ids[fold] = {'Train': train_ids_fold, 'Val' :val_ids}  # Store as lists
+
+#stratified by y    , make sure we have pos in validation
 n_splits = 5 
-kf = KFold(n_splits=n_splits, shuffle=True, random_state=42) #Initialize KFold
+y = tile_info_df_pt.loc[tile_info_df_pt['PATIENT_ID'].isin(train_ids), SELECTED_LABEL]
+if args.cohort_name == 'TCGA_PRAD':
+    y.drop(columns=["TMB_HIGHorINTERMEDITATE"], inplace = True)
+mskf = MultilabelStratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
 fold_ids = {}
-for fold, (train_index, val_index) in enumerate(kf.split(train_ids)):
+for fold, (train_index, val_index) in enumerate(mskf.split(np.zeros(len(y)), y)):
     train_ids_fold = [train_ids[i] for i in train_index]  # Get train IDs
     val_ids = [train_ids[i] for i in val_index]  # Get val IDs
     fold_ids[fold] = {'Train': train_ids_fold, 'Val' :val_ids}  # Store as lists
+
+
 
 ################################################
 #Train and Test and VAl df

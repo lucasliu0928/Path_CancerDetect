@@ -1020,4 +1020,26 @@ def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold, select
 
 
     return (train_data_final, train_ids_final), (val_data_final, val_ids_final), (test_data_final, test_ids_final)
+
     
+def get_external_validation_data(indata, select_label_index = 'ALL'):
+    r'''
+    Input:   Model Ready data
+    Returns: Model ready data, List of ids
+    -------
+    '''
+    #Get ordered sample IDs in indata
+    ids  = [x[-2] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID
+
+    #Exclude tile info data, sample ID, patient ID, do not needed it for training
+    indata_final = [item[:-3] for item in indata]                 
+    
+    #Update labels
+    if select_label_index != 'ALL': 
+        indata_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in indata_final]#use index+1 to preserved 2D shape
+
+    print(f'Train N:  {len(ids)}')
+    print(f'Train DS: {len(indata_final)}')
+
+
+    return indata_final,ids

@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr  8 20:02:08 2025
+
+@author: jliu6
+"""
+
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -46,18 +54,18 @@ from architecture.transformer import ACMIL_MHA
 import wandb
 
 
-#Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort OPX --SELECTED_MUTATION MT
+#Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort TCGA_PRAD --SELECTED_MUTATION AR
 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Train")
-parser.add_argument('--SELECTED_FOLD', default=0, type=int, help='select fold')
+parser.add_argument('--SELECTED_FOLD', default=4, type=int, help='select fold')
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
-parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
+parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= 'pred_out_040725', type=str, help='out folder name')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
 parser.add_argument('--SELECTED_MUTATION', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
@@ -151,7 +159,7 @@ if __name__ == '__main__':
     ##################
     #Select GPU
     ##################
-    device = torch.device(args.cuda_device if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda:1' if torch.cuda.is_available() else "cpu")
     print(device)
     
     
@@ -192,13 +200,12 @@ if __name__ == '__main__':
         #For MSI: gamma = 10, focal_alpha = 0.6
         # focal_gamma = 2   #harder eaxmaple
         # focal_alpha = 0.8 #postive ratio
-        # gamma_list = [5,6,7,8,9,10,11,12,13,14,15,20,25] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
-        # alpha_list = [0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
         gamma_list = [8] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
         alpha_list = [0.9]
         # gamma_list = [5] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
         # alpha_list = [0.5]
-
+        # 'GAMMA_5_ALPHA_0.5'
+        # 'GAMMA_8_ALPHA_0.9'
     for focal_gamma in gamma_list:
         for focal_alpha in alpha_list:
             outdir11 = outdir1 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
@@ -213,64 +220,10 @@ if __name__ == '__main__':
             ####################################################
             #Dataloader for training
             ####################################################
-            train_loader = DataLoader(dataset=train_data,batch_size=args.BATCH_SIZE, shuffle=False)
+            train_loader = DataLoader(dataset=train_data, batch_size=args.BATCH_SIZE, shuffle=False)
             test_loader  = DataLoader(dataset=test_data, batch_size=args.BATCH_SIZE, shuffle=False)
-            val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)
+            val_loader   = DataLoader(dataset=val_data, batch_size=args.BATCH_SIZE, shuffle=False)
             tcga_loader  = DataLoader(dataset=tcga_data, batch_size=args.BATCH_SIZE, shuffle=False)
-            
-            
-            ####################################################
-            # define network
-            ####################################################
-            if args.arch == 'ga':
-                model = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-            elif args.arch == 'ga_mt':
-                model = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-            else:
-                model = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
-            model.to(device)
-            
-            
-            # Create a list of FocalLoss criteria with different alpha and gamma
-            if args.use_sep_cri:
-                criterion = [FocalLoss(alpha=a, gamma=g, reduction='mean') for a, g in zip(alpha_values, gamma_values)]
-            else:
-                criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
-            
-            # define optimizer, lr not important at this point
-            optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001, weight_decay=conf.wd)
-            
-        
-            ####################################################
-            #            Train 
-            ####################################################
-            set_seed(0)
-            # define optimizer, lr not important at this point
-            optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=conf.lr, weight_decay=conf.wd)
-            best_state = {'epoch':-1, 'val_acc':0, 'val_auc':0, 'val_f1':0, 'test_acc':0, 'test_auc':0, 'test_f1':0}
-            train_epoch = conf.train_epoch
-            for epoch in range(train_epoch):
-                train_one_epoch_multitask(model, criterion, train_loader, optimizer0, device, epoch, conf, args.loss_method, use_sep_criterion = args.use_sep_cri)
-                val_auc, val_acc, val_f1, val_loss = evaluate_multitask(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri)
-                test_auc, test_acc, test_f1, test_loss = evaluate_multitask(model, criterion, test_loader, device, conf, 'Test', use_sep_criterion = args.use_sep_cri)
-            
-                save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
-                    save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
-                if val_f1 + val_auc > best_state['val_f1'] + best_state['val_auc']:
-                    best_state['epoch'] = epoch
-                    best_state['val_auc'] = val_auc
-                    best_state['val_acc'] = val_acc
-                    best_state['val_f1'] = val_f1
-                    best_state['test_auc'] = test_auc
-                    best_state['test_acc'] = test_acc
-                    best_state['test_f1'] = test_f1
-                    save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
-        
-            
-            print("Results on best epoch:")
-            print(best_state)
-            wandb.finish()
-            
             
             
             ###################################################
@@ -348,7 +301,7 @@ if __name__ == '__main__':
             ##############################################################################################################################
             # TCGA
             ##############################################################################################################################
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, tcga_loader, device, conf, 'TCGA')
+            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, tcga_loader, device, conf, 'TCGA')
 
 
             pred_df_list = []
@@ -365,6 +318,19 @@ if __name__ == '__main__':
             all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_TCGA_pred_df.csv",index = False)
             all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_TCGA_perf.csv",index = True)
             print(round(all_perf_df['AUC'].mean(),2))
+            
+            #bootstrap perforance
+            ci_list = []
+            for i in range(conf.n_task):
+                print(i)
+                if i!= 5:
+                    cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                    cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
+                    cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
+                    ci_list.append(cur_ci_df)
+            ci_final_df = pd.concat(ci_list)
+            print(ci_final_df)
+            ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_TCGA_perf_bootstrap.csv",index = True)
             
             
 
