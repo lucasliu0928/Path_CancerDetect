@@ -66,7 +66,7 @@ parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tum
 parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
 parser.add_argument('--SELECTED_MUTATION', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--perf_dir', default= 'pred_out_040725', type=str, help='out folder name')
+parser.add_argument('--perf_dir', default= 'pred_out_041025', type=str, help='out folder name')
 
 
 if __name__ == '__main__':
@@ -125,21 +125,21 @@ filtered = perf_df[
     perf_df['COHORT'].isin(['TCGA', 'OPX'])
 ].copy()
 
-# Group by FOLDER and compute average AUC and Recall across all rows in that folder
-folder_scores = filtered.groupby('FOLDER')[['AUC', 'Recall']].mean()
+# # Group by FOLDER and compute average AUC and Recall across all rows in that folder
+# folder_scores = filtered.groupby('FOLDER')[['AUC', 'Recall']].mean()
 
-# Optionally: normalize AUC and Recall to give equal weight to both metrics
-folder_scores['AUC_rank'] = folder_scores['AUC'].rank(ascending=False)
-folder_scores['Recall_rank'] = folder_scores['Recall'].rank(ascending=False)
-folder_scores['Avg_rank'] = (folder_scores['AUC_rank'] + folder_scores['Recall_rank']) / 2
+# # Optionally: normalize AUC and Recall to give equal weight to both metrics
+# folder_scores['AUC_rank'] = folder_scores['AUC'].rank(ascending=False)
+# folder_scores['Recall_rank'] = folder_scores['Recall'].rank(ascending=False)
+# folder_scores['Avg_rank'] = (folder_scores['AUC_rank'] + folder_scores['Recall_rank']) / 2
 
-# Get the best folder
-best_folder = folder_scores.sort_values('Avg_rank').head(1)
+# # Get the best folder
+# best_folder = folder_scores.sort_values('Avg_rank').head(1)
 
 
-best = 'GAMMA_8_ALPHA_0.9'
-best_tcga_df = tcga_perf_df.loc[tcga_perf_df['FOLDER'] ==best]
-best_opx_df = test_perf_df.loc[test_perf_df['FOLDER'] == best]
+# best = 'GAMMA_8_ALPHA_0.9'
+# best_tcga_df = tcga_perf_df.loc[tcga_perf_df['FOLDER'] ==best]
+# best_opx_df = test_perf_df.loc[test_perf_df['FOLDER'] == best]
 
     
 
