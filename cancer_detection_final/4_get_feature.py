@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
@@ -52,6 +52,7 @@ if __name__ == '__main__':
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
     wsi_location_tcga = proj_dir + '/data/TCGA_PRAD/'
+    wsi_location_nep = proj_dir + 'data/Neptune/'
     info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name)
     model_path = os.path.join(proj_dir,'models','feature_extraction_models', args.feature_extraction_method)
     
@@ -71,24 +72,27 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id']) #24, 7 from OPX, 17 from ccola
-    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5',
+                                    'NEP-081PS2-1_HE_MH_03282024',
+                                    'NEP-123PS1-1_HE_MH06032024'] #The latter one is TCGA issue file
     
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #353
     ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
     tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
+    nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
     
     if args.cohort_name == "OPX":
-        all_ids = opx_ids
+        all_ids = opx_ids 
     elif args.cohort_name == "ccola":
         all_ids = ccola_ids
     elif args.cohort_name == "TAN_TMA_Cores":
         all_ids = tan_ids
     elif args.cohort_name == 'TCGA_PRAD':
         all_ids = tcga_ids
-    elif args.cohort_name == "all":
-        all_ids = opx_ids + ccola_ids + tan_ids + tcga_ids
+    elif args.cohort_name == "Neptune":
+        all_ids = nep_ids
         
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
@@ -113,8 +117,8 @@ if __name__ == '__main__':
         create_dir_if_not_exists(save_location)
         save_name = os.path.join(save_location, 'features_alltiles_' + args.feature_extraction_method + '.h5')
         
-        #if os.path.exists(save_name) == False: #check if processed
-        if os.path.exists(save_name) == True: #updates
+        if os.path.exists(save_name) == False: #check if processed
+        #if os.path.exists(save_name) == True: #updates
             if args.cohort_name == "OPX":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
@@ -127,6 +131,9 @@ if __name__ == '__main__':
             elif args.cohort_name == 'TCGA_PRAD':
                 slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
                 _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
+            elif args.cohort_name == 'Neptune':
+                slides_name = cur_id
+                _file = wsi_location_nep + slides_name + ".tif"
     
     
             #Get tile info
@@ -134,7 +141,7 @@ if __name__ == '__main__':
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
-            if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD':
+            if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD' or args.cohort_name == 'Neptune':
                 oslide = openslide.OpenSlide(_file) 
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, image_type = 'WSI')             
 
