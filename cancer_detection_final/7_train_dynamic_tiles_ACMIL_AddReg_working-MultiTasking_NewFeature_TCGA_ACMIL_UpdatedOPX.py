@@ -46,7 +46,17 @@ from architecture.transformer import ACMIL_MHA
 import wandb
 
 
-#Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort OPX --SELECTED_MUTATION MT
+#Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort OPX --SELECTED_MUTATION MT --train_with_nonoverlap True
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
 
 ############################################################################################################
 #Parser
@@ -58,10 +68,10 @@ parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tum
 parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--out_folder', default= 'pred_out_040725', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_041025', type=str, help='out folder name')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
 parser.add_argument('--SELECTED_MUTATION', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-
+parser.add_argument("--train_with_nonoverlap", type=str2bool, nargs='?', const=True, default=False, help="Train with non overlaped tiles (True/False)")
 
 
 
@@ -126,12 +136,16 @@ if __name__ == '__main__':
     ###### DIR  ######
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-    folder_name_overlap = "IMSIZE250_OL100"
-    folder_name_nonoverlap = "IMSIZE250_OL0"
-    feature_path_opx_train =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', args.train_cohort, folder_name_overlap, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
-    feature_path_opx_test =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', args.train_cohort, folder_name_nonoverlap, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
+    if args.train_with_nonoverlap:
+        train_folder = "IMSIZE250_OL0"
+    else:
+        train_folder = "IMSIZE250_OL100"
+    test_folder = "IMSIZE250_OL0"
+        
+    feature_path_train =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', args.train_cohort, train_folder, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
+    feature_path_test =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', args.train_cohort, test_folder, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
     train_val_test_id_path =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', args.train_cohort ,'TFT' + str(args.TUMOR_FRAC_THRES))
-    feature_path_tcga = os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', "TCGA_PRAD", folder_name_overlap, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
+    feature_path_tcga = os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', "TCGA_PRAD", test_folder, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
     
     ######################
     #Create output-dir
@@ -158,8 +172,8 @@ if __name__ == '__main__':
     ################################################
     #     Model ready data 
     ################################################
-    data_ol100 = torch.load(os.path.join(feature_path_opx_train, args.train_cohort + '_data.pth'))
-    data_ol0  = torch.load(os.path.join(feature_path_opx_test, args.train_cohort + '_data.pth'))
+    data_ol100 = torch.load(os.path.join(feature_path_train, args.train_cohort + '_data.pth'))
+    data_ol0  = torch.load(os.path.join(feature_path_test, args.train_cohort + '_data.pth'))
 
     #Get Train, test, val data
     train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
@@ -192,12 +206,10 @@ if __name__ == '__main__':
         #For MSI: gamma = 10, focal_alpha = 0.6
         # focal_gamma = 2   #harder eaxmaple
         # focal_alpha = 0.8 #postive ratio
-        # gamma_list = [5,6,7,8,9,10,11,12,13,14,15,20,25] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
-        # alpha_list = [0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-        gamma_list = [8] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
-        alpha_list = [0.9]
-        # gamma_list = [5] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
-        # alpha_list = [0.5]
+        gamma_list = [5,6,7,8,9,10,11,12,13,14,15,20,25] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        alpha_list = [0.3,0.4,0.5,0.6,0.7,0.8]
+        # gamma_list = [8] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        # alpha_list = [0.9]
 
     for focal_gamma in gamma_list:
         for focal_alpha in alpha_list:
