@@ -38,24 +38,32 @@ warnings.filterwarnings("ignore")
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.preprocessing import StandardScaler
 
 # Get clustering data
-def get_cluster_data(feature_list, label_list, id_list, selected_labels):
-    feature_list = [pd.DataFrame(x) for x in feature_list]
-    label_list = [y.squeeze() for y in label_list]
-    
-    for i,x in enumerate(feature_list):
-        x['ID'] = id_list[i]
-        for j,l in enumerate(selected_labels):
-            x[l] = int(label_list[i][j])
-    feature_df = pd.concat(feature_list)
+def get_cluster_data(indata):
+    #Get dataframe to hold feature, label and tile info
+    data_list = []
+    for d in indata:
+        feature_df = pd.DataFrame(d[0].numpy())
+        feature_df.columns = [str(x) for x in feature_df.columns] #change col to str
 
-    #Change feature tumor frac name
-    feature_df.rename(columns = {2048: 'TUMOR_PIXEL_PERC'}, inplace = True)
+        tf_df = pd.DataFrame(d[2].numpy())
+        tf_df.columns = ['TUMOR_FRAC']
     
-    return feature_df
-
+        info_df = d[3]
+        
+        label_df = pd.DataFrame(d[1].numpy())
+        label_df.columns = ["AR","HR","PTEN","RB1","TP53","TMB","MSI_POS"] #change col name
+        label_df = pd.concat([label_df] * len(info_df), ignore_index=True) #repeat n_tiles times to match size
+        
+        comb_df = pd.concat([feature_df, info_df, tf_df, label_df], axis = 1)
+        data_list.append(comb_df)
+    
+    all_comb_df = pd.concat(data_list)
+    
+    return all_comb_df
 
 def get_cluster_label(feature_df, cluster_centers, cluster_features):
     r'''
@@ -93,8 +101,68 @@ def get_pca_components(feature_data, n_components = 2):
 
     return pcs
 
+def find_elbow_point(wcss):
+    wcss = np.array(wcss)
+    # Compute second differences (second derivative approximation)
+    second_derivative = np.diff(wcss, n=2)
+    # The elbow is where the second derivative is largest
+    elbow_point = np.argmax(second_derivative) + 2  # +2 because diff shifts the index
+    return elbow_point
 
+def run_elbow_method(feature_data, outdir, method = 'kmean', rs = 42):
+    wcss = []
+    for i in range(1, 11):
+        if method == 'kmean':
+            kmeans = KMeans(n_clusters=i, random_state=rs)
+        kmeans.fit(feature_data)
+        wcss.append(kmeans.inertia_)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, 11), wcss, marker='o', linestyle='--')
+    plt.title('Elbow Method')
+    plt.xlabel('Number of clusters')
+    plt.ylabel('WCSS')
+    plt.savefig(os.path.join(outdir,'elbow_method.png'))
+    #plt.show()
+    
+    return wcss
 
+def run_clustering_on_training(train_data, selected_feature, outdir, method = 'kmean', rs = 42):
+    #Get features data
+    train_feature = train_data[selected_feature]
+
+    #PCA
+    pcs = get_pca_components(train_feature, n_components = 2)
+    
+    #Feature scaling
+    scaler = StandardScaler()
+    scaled_pcs = scaler.fit_transform(pcs)
+    
+    #Run elbow
+    wcss = run_elbow_method(scaled_pcs, outdir, method = method, rs = rs)
+    bestk = find_elbow_point(wcss)
+    
+    #Run with best k
+    model = KMeans(n_clusters=bestk, random_state = rs)
+    model.fit(scaled_pcs)
+    
+    return model, bestk
+
+def get_cluster_labels(indata, selected_feature, model,  rs = 42):
+    #Get features data
+    feature = indata[selected_feature]
+
+    #PCA
+    pcs = get_pca_components(feature, n_components = 2)
+    
+    #Feature scaling
+    scaler = StandardScaler()
+    scaled_pcs = scaler.fit_transform(pcs)
+
+    #Get cluster labels
+    cluster_labels = model.predict(scaled_pcs)
+    
+    return cluster_labels       
 
 def plot_cluster_distribution(info_df, selected_label, out_path, cohort_name):
     #Plot scatter cluster plot for each outcome,

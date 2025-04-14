@@ -8,6 +8,8 @@ Created on Sat Nov 16 18:27:44 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
+from torchvision import transforms
 
 
 class Mutation_MIL_MT(nn.Module):
@@ -609,3 +611,58 @@ class Mutation_Multihead(nn.Module):
 
 
 
+class Classifier_1fc(nn.Module):
+    def __init__(self, n_channels, n_classes, droprate=0.0):
+        super(Classifier_1fc, self).__init__()
+        self.fc = nn.Linear(n_channels, n_classes)
+        self.droprate = droprate
+        if self.droprate != 0.0:
+            self.dropout = torch.nn.Dropout(p=self.droprate)
+
+    def forward(self, x):
+
+        if self.droprate != 0.0:
+            x = self.dropout(x)
+        x = self.fc(x)
+        return x
+    
+class RESNET_CLUSTER(nn.Module):
+    def __init__(self, D=128, droprate=0, n_task = 7):
+        super(RESNET_CLUSTER, self).__init__()
+        
+        m = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
+        
+        #Get feature dim for fc
+        fc_dim = m.fc.in_features
+
+        #Modify the first convolutional layer to accept nchan input channels
+        m.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False) 
+       
+        #Remove classifaction layer from the original pretrained model
+        self.features = nn.Sequential(*list(m.children())[:-2])
+       
+        #classification layer
+        self.avgpool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
+        
+        #self.fc = nn.Linear(fc_dim, num_classes)
+        
+
+        self.slide_classifier = nn.ModuleList()
+        for i in range(n_task):
+            slide_classifier = Classifier_1fc(fc_dim, 1, droprate)
+            self.slide_classifier.append(slide_classifier)
+            
+
+    def forward(self, x): ## x: N x L
+    
+    
+        x = self.features(x)
+        x = self.avgpool(x).squeeze(-1).squeeze(-1)
+        
+        out = []
+        for i in range(len(self.slide_classifier)):
+            cur_out = self.slide_classifier[i](x)
+            out.append(cur_out)
+        
+            
+        return out

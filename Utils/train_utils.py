@@ -13,13 +13,24 @@ import torch
 import pandas as pd
 import numpy as np
 import os
-from PIL import ImageCms, Image
 from Utils import convert_img
 import torch.nn as nn
 import torch.nn.functional as F
+from cluster_utils import get_cluster_data
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, BoundaryNorm
+import cv2
 
-
-
+def load_model_ready_data(data_path, cohort, pixel_overlap, fe_method, tumor_frac):
+    
+    feature_path =  os.path.join(data_path, 
+                                 cohort, 
+                                 "IMSIZE250_OL" + str(pixel_overlap), 
+                                 'feature_' + fe_method, 
+                                 'TFT' + str(tumor_frac))
+    model_ready_data = torch.load(os.path.join(feature_path, cohort + '_data.pth'))
+    
+    return model_ready_data
         
 def get_feature_idexes(method, include_tumor_fraction = True):
     
@@ -1043,3 +1054,148 @@ def get_external_validation_data(indata, select_label_index = 'ALL'):
 
 
     return indata_final,ids
+
+
+
+class ModelReadyData_clustering(Dataset):
+    def __init__(self,
+                 matrix_list,
+                 label_list,
+                 sp_id_list,
+                 pt_id_list
+                ):
+
+        #Get feature
+        self.x =  [torch.FloatTensor(m) for m in matrix_list]
+        
+        # Get the Y labels
+        self.y =  [torch.FloatTensor(m) for m in label_list]
+        
+        # Get the IDs
+        self.sp_id =  [m for m in sp_id_list]
+        self.pt_id =  [m for m in pt_id_list]
+
+        
+    def __len__(self): 
+        return len(self.x)
+    
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x  = self.x[index]
+        y  = self.y[index]
+
+        sp_id = self.sp_id[index]
+        pt_id = self.pt_id[index]
+        
+        return x, y, sp_id, pt_id
+
+
+   
+
+def plot_cluster_image(cluster_matrix):
+    # --- Define discrete colormap ---
+    colors = ['whitesmoke', 'silver', 'steelblue', 'darkorange', 'tab:red']  # -2, -1, 0, 1, 2
+    cmap = ListedColormap(colors)
+    bounds = [-2.5,-1.5, -0.5, 0.5, 1.5, 2.5]
+    norm = BoundaryNorm(bounds, cmap.N)
+    
+    # --- Plot ---
+    plt.figure(figsize=(8, 6))
+    im = plt.imshow(cluster_matrix.T, cmap=cmap, norm=norm, origin='lower')
+    
+    # --- Colorbar with labels ---
+    cbar = plt.colorbar(im, ticks=[-2,-1, 0, 1, 2])
+    cbar.ax.set_yticklabels(['Non-Tissue', 'Non-Cancer' ,'Cluster 0', 'Cluster 1', 'Cluster 2'])
+    cbar.set_label('Cluster Label')
+    
+    plt.title('Cluster Heatmap')
+    plt.xlabel('Tile X')
+    plt.ylabel('Tile Y')
+    plt.grid(False)
+    plt.show()
+    
+def get_cluster_image_feature(cluster_assigment_df):
+    # Extract X and Y directly
+    cluster_assigment_df['X'] = cluster_assigment_df['TILE_XY_INDEXES'].apply(lambda s: int(s.strip('()').split(',')[0]))
+    cluster_assigment_df['Y'] = cluster_assigment_df['TILE_XY_INDEXES'].apply(lambda s: int(s.strip('()').split(',')[1]))
+    
+
+    # Determine matrix size
+    max_x = cluster_assigment_df['X'].max()
+    max_y = cluster_assigment_df['Y'].max()
+    
+    # Create matrix and fill with cluster labels
+    cluster_matrix = np.full((max_x + 1, max_y + 1), -2)  # or use np.nan
+    
+    for _, row in cluster_assigment_df.iterrows():
+        x, y = row['X'], row['Y']
+        cluster_matrix[x, y] = row['CLUSTER']
+        
+    return cluster_matrix
+        
+
+def get_list_for_modelreadydata(targetd_data, targeted_ids, selected_labels, tumor_frac):
+    matrix_list = []
+    label_list = []
+    sp_id_list = []
+    pt_id_list = []
+    ct = 0
+    for pt in targeted_ids:
+        if ct % 10 == 0: print(ct)
+        ct += 1
+        cur_df = targetd_data.loc[targetd_data['SAMPLE_ID'] == pt].copy()
+        #change the cluster for non-tumor tiles code the cluster as -1
+        cur_df.loc[cur_df['TUMOR_PIXEL_PERC']< tumor_frac,'CLUSTER'] = -1
+        cur_matrix = get_cluster_image_feature(cur_df)
+        matrix_list.append(cur_matrix)
+        
+        #Get label
+        cur_label = cur_df[selected_labels].drop_duplicates().to_numpy()
+        label_list.append(cur_label)
+        
+        #Get ids
+        sp_id_list.append(cur_df['SAMPLE_ID'].unique().item())
+        pt_id_list.append(cur_df['PATIENT_ID'].unique().item())
+    
+    return matrix_list, label_list, sp_id_list, pt_id_list
+            
+
+def predict_clustercnn(net, data_loader, criterion, device, n_task = 7):    
+    y_pred = []
+    y_true = []
+    y_pred_prob = []
+    # Set the network to evaluation mode
+    net.eval()
+    with torch.no_grad():
+        for batch_idx, (images, labels, sp_id, pt_id) in enumerate(data_loader, 1):
+            images, labels = images.to(device), labels.to(device)
+
+            slide_preds = net(images) 
+            
+            #Compute loss for each task, then sum
+            pred_list = []
+            pred_prob_list = []
+            loss = 0
+            for i in range(len(slide_preds)):
+                loss += criterion(slide_preds[i], labels[:,:,i])
+                pred_prob = torch.sigmoid(slide_preds[i]) #[BS, 1]
+                pred = pred_prob.round() ##[BS, 1]
+                pred_list.append(pred.squeeze().cpu().numpy())
+                pred_prob_list.append(pred_prob.squeeze().cpu().numpy())
+        
+            y_pred.append(np.array(pred_list))
+            y_true.append(list(labels.squeeze().cpu().numpy()))
+            y_pred_prob.append(np.array(pred_prob_list))
+            
+        
+        y_predprob_task = []
+        y_pred_tasks = []
+        y_true_tasks = []
+        for k in range(7):
+            y_pred_tasks.append([p[k] for p in y_pred])
+            y_predprob_task.append([p[k] for p in y_pred_prob])
+            y_true_tasks.append([p[k] for p in y_true])
+            
+    
+    
+    return y_pred_tasks, y_predprob_task, y_true_tasks

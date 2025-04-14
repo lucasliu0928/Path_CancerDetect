@@ -5,29 +5,17 @@
 import sys
 import os
 import numpy as np
-import openslide
-#%matplotlib inline
-import matplotlib.pyplot as plt
-import cv2
 import matplotlib
 matplotlib.use('Agg')
 import pandas as pd
 import warnings
 import torch
-from torch.utils.data import DataLoader, Subset
-from pathlib import Path
-from skimage import filters
+from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
-from Utils import create_dir_if_not_exists
-from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords, get_map_startend
-from Utils import get_downsample_factor
-from Utils import minmax_normalize, set_seed
-from Utils import get_image_at_target_mag
-from Utils import do_mask_original
-from Eval import plot_LOSS, compute_performance_each_label, get_attention_and_tileinfo
+from Utils import create_dir_if_not_exists, set_seed, str2bool
 from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic
-from train_utils import pull_tiles, FocalLoss, get_feature_idexes, get_partial_data, get_train_test_val_data, get_external_validation_data
+from train_utils import FocalLoss, get_feature_idexes, get_train_test_val_data, get_external_validation_data, load_model_ready_data
 from ACMIL import ACMIL_GA_MultiTask, predict_v2, train_one_epoch_multitask, evaluate_multitask
 warnings.filterwarnings("ignore")
 
@@ -46,33 +34,23 @@ from architecture.transformer import ACMIL_MHA
 import wandb
 
 
-#Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort OPX --SELECTED_MUTATION MT --train_with_nonoverlap True
-
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ("yes", "true", "t", "1"):
-        return True
-    elif v.lower() in ("no", "false", "f", "0"):
-        return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value expected.")
+#Run: python3 -u 7_train_ACMIL.py --train_cohort OPX --mutation MT 
 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Train")
-parser.add_argument('--SELECTED_FOLD', default=0, type=int, help='select fold')
+parser.add_argument('--s_fold', default=0, type=int, help='select fold')
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
-parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
+parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--learning_method', default='abmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--out_folder', default= 'pred_out_041025', type=str, help='out folder name')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
-parser.add_argument('--SELECTED_MUTATION', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument("--train_with_nonoverlap", type=str2bool, nargs='?', const=True, default=False, help="Train with non overlaped tiles (True/False)")
-
+parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
+parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
+parser.add_argument('--out_folder', default= 'pred_out_041025', type=str, help='out folder name')
 
 
 
@@ -94,7 +72,7 @@ if __name__ == '__main__':
     ######      USERINPUT       ########
     ####################################
     ALL_LABEL = ["AR","HR","PTEN","RB1","TP53","TMB","MSI_POS"]
-    SELECTED_FEATURE = get_feature_idexes(args.feature_extraction_method, include_tumor_fraction = False)
+    SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
     N_FEATURE = len(SELECTED_FEATURE)
             
     # ===============================================================
@@ -109,15 +87,16 @@ if __name__ == '__main__':
     conf.D_inner = args.DIM_OUT
     conf.n_class = 1
     conf.wandb_mode = 'disabled'
-    if args.SELECTED_MUTATION == 'MT':
+    conf.lr = 0.001
+    if args.mutation == 'MT':
         SELECTED_LABEL = ALL_LABEL
         conf.n_task = 7
         select_label_index = 'ALL'
     else:
         conf.n_task = 1
-        SELECTED_LABEL = [args.SELECTED_MUTATION]
+        SELECTED_LABEL = [args.mutation]
         select_label_index = ALL_LABEL.index(SELECTED_LABEL[0])
-    conf.lr = 0.001
+   
     
     if args.learning_method == 'abmil':
         conf.n_token = 1
@@ -135,23 +114,20 @@ if __name__ == '__main__':
     ##################
     ###### DIR  ######
     ##################
-    proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-    if args.train_with_nonoverlap:
-        train_folder = "IMSIZE250_OL0"
-    else:
-        train_folder = "IMSIZE250_OL100"
-    test_folder = "IMSIZE250_OL0"
-        
-    feature_path_train =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', args.train_cohort, train_folder, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
-    feature_path_test =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', args.train_cohort, test_folder, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
-    train_val_test_id_path =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', args.train_cohort ,'TFT' + str(args.TUMOR_FRAC_THRES))
-    feature_path_tcga = os.path.join(proj_dir + 'intermediate_data/5_model_ready_data', "TCGA_PRAD", test_folder, 'feature_' + args.feature_extraction_method, 'TFT' + str(args.TUMOR_FRAC_THRES))
-    
+    proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'        
+    train_val_test_id_path =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', 
+                                           args.train_cohort ,
+                                           'TFT' + str(args.tumor_frac))
     ######################
     #Create output-dir
     ######################
-    folder_name1 = args.feature_extraction_method + '/TrainOL100_TestOL0_TFT' + str(args.TUMOR_FRAC_THRES)  + "/"
-    outdir0 =  proj_dir + "intermediate_data/" + args.out_folder + "/" + args.train_cohort + "/" + folder_name1 + 'FOLD' + str(args.SELECTED_FOLD) + '/' + args.SELECTED_MUTATION + "/" 
+    folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/"
+    outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
+                           'trainCohort_' + args.train_cohort,
+                           args.learning_method,
+                           folder_name1,
+                           'FOLD' + str(args.s_fold),
+                           args.mutation)
     outdir1 =  outdir0  + "/saved_model/"
     outdir2 =  outdir0  + "/model_para/"
     outdir3 =  outdir0  + "/logs/"
@@ -172,13 +148,16 @@ if __name__ == '__main__':
     ################################################
     #     Model ready data 
     ################################################
-    data_ol100 = torch.load(os.path.join(feature_path_train, args.train_cohort + '_data.pth'))
-    data_ol0  = torch.load(os.path.join(feature_path_test, args.train_cohort + '_data.pth'))
+    data_path = proj_dir + 'intermediate_data/5_model_ready_data'
+    data_ol100 = load_model_ready_data(data_path, args.train_cohort, args.train_overlap, args.fe_method, args.tumor_frac)
+    data_ol0   = load_model_ready_data(data_path, args.train_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
+    tcga_data =  load_model_ready_data(data_path, args.valid_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
+    
 
     #Get Train, test, val data
     train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
     train_test_val_id_df.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
-    (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, train_test_val_id_df, args.SELECTED_FOLD, select_label_index)
+    (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, train_test_val_id_df, args.s_fold, select_label_index)
 
     #Get postive freqency to choose alpha or gamma
     check = train_test_val_id_df.loc[train_test_val_id_df['FOLD' + str(0)] == 'TRAIN']
@@ -193,8 +172,10 @@ if __name__ == '__main__':
     # print(check['MSI_POS'].value_counts()/160) 
     
     #External validation
-    tcga_data = torch.load(os.path.join(feature_path_tcga, 'TCGA_PRAD' + '_data.pth'))
     tcga_data, tcga_ids = get_external_validation_data(tcga_data, select_label_index)
+    
+    
+
 
     # Define different values for alpha and gamma
     if args.use_sep_cri:
@@ -208,8 +189,8 @@ if __name__ == '__main__':
         # focal_alpha = 0.8 #postive ratio
         gamma_list = [5,6,7,8,9,10,11,12,13,14,15,20,25] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
         alpha_list = [0.3,0.4,0.5,0.6,0.7,0.8]
-        # gamma_list = [8] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
-        # alpha_list = [0.9]
+        gamma_list = [8] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        alpha_list = [0.9]
 
     for focal_gamma in gamma_list:
         for focal_alpha in alpha_list:

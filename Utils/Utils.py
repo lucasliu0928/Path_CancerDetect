@@ -850,3 +850,12 @@ def cancer_inference_tma(_file, model, tile_info_df, save_image_size, pixel_over
     print('Plot top predicted  tiles...')
     plot_tiles_with_topK_cancerprob_tma(tile_info_df,tma, pixel_overlap, save_image_size, save_location, k = 5)
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
