@@ -18,9 +18,9 @@ import argparse
 #USER INPUT 
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -99,8 +99,17 @@ if args.cohort_name == "OPX":
     ################################################
     #Preprocess label, site info and tile info
     ################################################
-    label_df = preprocess_mutation_data(label_df, select_labels, hr_gene_list = selected_hr_genes, id_col = 'OPX_Number')
-               
+    label_df1 = preprocess_mutation_data(label_df, select_labels, hr_gene_list = selected_hr_genes1, id_col = 'OPX_Number')
+    label_df1 = label_df1.rename(columns = {'HR': 'HR1'}).copy()
+    label_df2 = preprocess_mutation_data(label_df, select_labels, hr_gene_list = selected_hr_genes2, id_col = 'OPX_Number')
+    label_df2 = label_df2.rename(columns = {'HR': 'HR2'}).copy()
+    label_df = label_df1.merge(label_df2, on = ['PATIENT_ID', 'SAMPLE_ID', 
+                                     'SITE_LOCAL', 'AR', 
+                                     'PTEN', 'RB1', 'TP53', 
+                                     'TMB_HIGHorINTERMEDITATE', 'MSI_POS'])
+    label_df = label_df[['PATIENT_ID','SAMPLE_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
+                         'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
+
     ############################################################################################################
     #Combine site and label info and tile info
     ############################################################################################################     
