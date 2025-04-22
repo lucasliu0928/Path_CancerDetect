@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default=0, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 

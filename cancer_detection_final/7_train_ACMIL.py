@@ -47,10 +47,11 @@ parser.add_argument('--fe_method', default='uni2', type=str, help='feature extra
 parser.add_argument('--learning_method', default='abmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
+parser.add_argument('--external_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
 parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--out_folder', default= 'pred_out_041025', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_042125', type=str, help='out folder name')
 
 
 
@@ -71,7 +72,8 @@ if __name__ == '__main__':
     ####################################
     ######      USERINPUT       ########
     ####################################
-    ALL_LABEL = ["AR","HR","PTEN","RB1","TP53","TMB","MSI_POS"]
+    #ALL_LABEL = ["AR","HR2","PTEN","RB1","TP53","TMB","MSI_POS"]
+    ALL_LABEL = ["AR","HR2","PTEN","RB1","TP53","MSI_POS"] #without TMB
     SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
     N_FEATURE = len(SELECTED_FEATURE)
             
@@ -90,7 +92,8 @@ if __name__ == '__main__':
     conf.lr = 0.001
     if args.mutation == 'MT':
         SELECTED_LABEL = ALL_LABEL
-        conf.n_task = 7
+        #conf.n_task = 7
+        conf.n_task = 6
         select_label_index = 'ALL'
     else:
         conf.n_task = 1
@@ -151,13 +154,22 @@ if __name__ == '__main__':
     data_path = proj_dir + 'intermediate_data/5_model_ready_data'
     data_ol100 = load_model_ready_data(data_path, args.train_cohort, args.train_overlap, args.fe_method, args.tumor_frac)
     data_ol0   = load_model_ready_data(data_path, args.train_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
-    tcga_data =  load_model_ready_data(data_path, args.valid_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
+    data_external =  load_model_ready_data(data_path, args.external_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
     
 
     #Get Train, test, val data
     train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
     train_test_val_id_df.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
-    (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, train_test_val_id_df, args.s_fold, select_label_index)
+    (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, 
+                                                                                                  train_test_val_id_df, 
+                                                                                                  args.s_fold, select_label_index)
+    #For TCGA train
+    #TODO, Exclude the TMB label
+    #Exclude tile info data, sample ID, patient ID, do not needed it for training
+    train_data = [(x[0], x[1][:,[0,1,2,3,4,6]], x[2]) for x in train_data]
+    test_data = [(x[0], x[1][:,[0,1,2,3,4,6]], x[2]) for x in test_data]
+    val_data = [(x[0], x[1][:,[0,1,2,3,4,6]], x[2]) for x in val_data]
+    
 
     #Get postive freqency to choose alpha or gamma
     check = train_test_val_id_df.loc[train_test_val_id_df['FOLD' + str(0)] == 'TRAIN']
@@ -170,10 +182,10 @@ if __name__ == '__main__':
     # print(check['TP53'].value_counts()/160) 
     # print(check['TMB'].value_counts()/160) 
     # print(check['MSI_POS'].value_counts()/160) 
-    
+    #TODO, OPX model  ready data is not correct
     #External validation
-    tcga_data, tcga_ids = get_external_validation_data(tcga_data, select_label_index)
-    
+    external_data, external_ids = get_external_validation_data(data_external, select_label_index)
+    external_data = [(x[0], x[1][:,[0,1,2,3,4,6]], x[2]) for x in external_data]
     
 
 
@@ -209,7 +221,7 @@ if __name__ == '__main__':
             train_loader = DataLoader(dataset=train_data,batch_size=args.BATCH_SIZE, shuffle=False)
             test_loader  = DataLoader(dataset=test_data, batch_size=args.BATCH_SIZE, shuffle=False)
             val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)
-            tcga_loader  = DataLoader(dataset=tcga_data, batch_size=args.BATCH_SIZE, shuffle=False)
+            external_loader  = DataLoader(dataset=external_data, batch_size=args.BATCH_SIZE, shuffle=False)
             
             
             ####################################################
@@ -341,14 +353,14 @@ if __name__ == '__main__':
             ##############################################################################################################################
             # TCGA
             ##############################################################################################################################
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, tcga_loader, device, conf, 'TCGA')
+            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, external_loader, device, conf, 'TCGA')
 
 
             pred_df_list = []
             perf_df_list = []
             for i in range(conf.n_task):
                 if i != 5 :
-                    pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], tcga_ids, SELECTED_LABEL[i], 
+                    pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], external_ids, SELECTED_LABEL[i], 
                                                        THRES = np.quantile(y_predprob_task_test[i], 0.5))
                     pred_df_list.append(pred_df)
                     perf_df_list.append(perf_df)

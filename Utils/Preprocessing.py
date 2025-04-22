@@ -14,6 +14,7 @@ def extract_before_second_underscore(s):
     return s
     
 def preprocess_mutation_data(indata, select_labels, hr_gene_list = ['BRCA1','BRCA2','PALB2'], id_col = 'OPX_Number'):    
+    indata = indata.copy()
     #Rename ID col
     indata.rename(columns = {id_col: 'SAMPLE_ID'}, inplace = True)
     
@@ -43,7 +44,7 @@ def preprocess_mutation_data(indata, select_labels, hr_gene_list = ['BRCA1','BRC
     
     #Recode others:  1: mutation, 0: no mutation
     other_cols = [x for x in select_labels if x not in ['HR','MSI_POS','TMB_HIGHorINTERMEDITATE']]
-    indata.loc[:, other_cols] = indata.loc[:, other_cols] .notna().astype(int)
+    indata.loc[:, other_cols] = indata.loc[:, other_cols].notna().astype(int)
     
     #Recode
     indata['SITE_LOCAL'] = pd.NA
