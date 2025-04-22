@@ -4,8 +4,8 @@
 #NOTE: use python env acmil in ACMIL folder
 import sys
 import os
-import numpy as np
 import matplotlib
+#%matplotlib inline
 matplotlib.use('Agg')
 import pandas as pd
 import warnings
@@ -13,38 +13,15 @@ import torch
 
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
-from cluster_utils import run_clustering_on_training, get_cluster_labels
+from cluster_utils import run_clustering_on_training, get_cluster_labels, get_label_feature_info_comb
 warnings.filterwarnings("ignore")
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 import argparse
 from train_utils import get_feature_idexes, get_list_for_modelreadydata
-from train_utils import get_sample_feature, get_sample_label, combine_feature_and_label, get_cluster_image_feature, plot_cluster_image, ModelReadyData_clustering
+from train_utils import plot_cluster_image, ModelReadyData_clustering
 
 
-def get_label_feature_info_comb(selected_ids,all_tile_info_df, feature_path, fe_method, id_col):
-    comb_df_list = []
-    ct = 0 
-    for pt in selected_ids:
-        if ct % 10 == 0 : print(ct)
 
-        #Get feature
-        feature_df = get_sample_feature(pt, feature_path, fe_method)    
-
-        #Get label
-        label_df = get_sample_label(pt,all_tile_info_df, id_col = id_col)
-        
-        #Merge feature and label
-        comb_df = combine_feature_and_label(feature_df,label_df)
-        
-        #Select tumor fraction > X tiles
-        comb_df = comb_df.sort_values(by = ['TILE_XY_INDEXES'], ascending = True)
-        comb_df.reset_index(inplace = True, drop = True)
-        comb_df_list.append(comb_df)
-        ct += 1
-    
-    all_comb_df = pd.concat(comb_df_list)
-    
-    return all_comb_df
     
     
 #Run: python3 -u 7_train_ACMIL.py --train_cohort OPX --mutation MT 
@@ -56,8 +33,8 @@ parser = argparse.ArgumentParser("Cluster data extraction")
 parser.add_argument('--train_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--test_overlap', default=0, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
-parser.add_argument('--train_cohort', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
-parser.add_argument('--valid_cohort', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--train_cohort', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--valid_cohort', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold') #NOte: this does not filter out any tiles, only for selection of folders
@@ -119,16 +96,21 @@ if __name__ == '__main__':
     ############################################################################################################
     #Get Train, test, val IDs
     ############################################################################################################
-    if args.train_cohort == 'OPX':
-        id_col = 'SAMPLE_ID'
+    if args.train_cohort == "OPX":
+        train_id_col = 'SAMPLE_ID'
     elif args.train_cohort == 'TCGA_PRAD':
-        id_col = 'TCGA_FOLDER_ID'
+        train_id_col = 'TCGA_FOLDER_ID'
+    
+    if args.valid_cohort == "OPX":
+        val_id_col = 'SAMPLE_ID'
+    elif args.valid_cohort == 'TCGA_PRAD':
+        val_id_col = 'TCGA_FOLDER_ID'
         
     train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
-    selected_ids = list(train_test_val_id_df[id_col].unique())
+    selected_ids = list(train_test_val_id_df['SAMPLE_ID'].unique())
     selected_ids.sort()
-    train_ids = list(train_test_val_id_df.loc[train_test_val_id_df['TRAIN_OR_TEST'] == 'TRAIN', id_col].unique())
-    test_ids = list(train_test_val_id_df.loc[train_test_val_id_df['TRAIN_OR_TEST'] == 'TEST', id_col].unique())
+    train_ids = list(train_test_val_id_df.loc[train_test_val_id_df['TRAIN_OR_TEST'] == 'TRAIN', 'SAMPLE_ID'].unique())
+    test_ids = list(train_test_val_id_df.loc[train_test_val_id_df['TRAIN_OR_TEST'] == 'TEST', 'SAMPLE_ID'].unique())
     
     ############################################################################################################
     #Load all tile info df
@@ -136,21 +118,26 @@ if __name__ == '__main__':
     #and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
     ############################################################################################################
     all_tile_info_df_train = pd.read_csv(os.path.join(info_path_train, "all_tile_info.csv"))
-    all_tile_info_df_train = all_tile_info_df_train.loc[all_tile_info_df_train[id_col].isin(train_ids)]
+    all_tile_info_df_train = all_tile_info_df_train.loc[all_tile_info_df_train['SAMPLE_ID'].isin(train_ids)]
     
     all_tile_info_df_test = pd.read_csv(os.path.join(info_path_test, "all_tile_info.csv"))
-    all_tile_info_df_test = all_tile_info_df_test.loc[all_tile_info_df_test[id_col].isin(test_ids)]
+    all_tile_info_df_test = all_tile_info_df_test.loc[all_tile_info_df_test['SAMPLE_ID'].isin(test_ids)]
         
     all_tile_info_df_val = pd.read_csv(os.path.join(info_path_val, "all_tile_info.csv"))
+    
+    #update ID for folder ID if TCGA
+    train_ids = list(all_tile_info_df_train[train_id_col].unique())
+    test_ids = list(all_tile_info_df_test[train_id_col].unique())
+    val_ids = list(all_tile_info_df_val[val_id_col].unique())
     
 
     ############################################################################################################
     #Get label feature and info comb df
     #Get all tile , do not exclude <0.9 tumor fraction
     ############################################################################################################
-    comb_df_train = get_label_feature_info_comb(train_ids,all_tile_info_df_train, feature_path_train, args.fe_method, 'SAMPLE_ID')
-    comb_df_test = get_label_feature_info_comb(test_ids,all_tile_info_df_test, feature_path_test, args.fe_method,'SAMPLE_ID')
-    comb_df_val = get_label_feature_info_comb(list(all_tile_info_df_val['TCGA_FOLDER_ID'].unique()),all_tile_info_df_val, feature_path_val, args.fe_method, 'TCGA_FOLDER_ID')
+    comb_df_train = get_label_feature_info_comb(train_ids,all_tile_info_df_train, feature_path_train, args.fe_method, train_id_col)
+    comb_df_test = get_label_feature_info_comb(test_ids,all_tile_info_df_test, feature_path_test, args.fe_method,train_id_col)
+    comb_df_val = get_label_feature_info_comb(val_ids,all_tile_info_df_val, feature_path_val, args.fe_method, val_id_col)
 
     ############################################################################################################
     #Clustering
@@ -164,6 +151,11 @@ if __name__ == '__main__':
     ############################################################################################################
     #Get image cluster data
     ############################################################################################################
+    #update ID for folder ID if TCGA
+    train_ids = list(all_tile_info_df_train['SAMPLE_ID'].unique())
+    test_ids = list(all_tile_info_df_test['SAMPLE_ID'].unique())
+    val_ids = list(all_tile_info_df_val['SAMPLE_ID'].unique())
+    
     #Train data
     matrix_list, label_list, sp_id_list, pt_id_list = get_list_for_modelreadydata(comb_df_train, train_ids, SELECTED_LABEL, args.tumor_frac)
     train_data_cluster = ModelReadyData_clustering(matrix_list, label_list, sp_id_list, pt_id_list)
@@ -180,8 +172,8 @@ if __name__ == '__main__':
     torch.save(val_data_cluster, os.path.join(outdir, args.valid_cohort + '_val_data.pth'))
 
     #Plot cluster image
-    %matplotlib inline
-    plot_cluster_image(matrix_list[20])
+   
+    plot_cluster_image(matrix_list[0])
     
 
 

@@ -6,40 +6,18 @@ Created on Tue Jul  2 03:27:29 2024
 @author: jliu6
 """
 
-import sys
 import os
 import numpy as np
-import cv2
-import openslide
-from openslide import open_slide
-from openslide.deepzoom import DeepZoomGenerator
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
-import geojson
-import argparse
 import matplotlib.pyplot as plt
-import fastai
-from fastai.vision.all import *
-import PIL
-matplotlib.use('Agg')
 import pandas as pd
-import datetime
-from skimage import draw, measure, morphology, filters
-from shapely.geometry import Polygon, Point, MultiPoint, MultiPolygon, shape
-from shapely.ops import cascaded_union, unary_union
-import json
-import shapely
 import warnings
-import datetime
-import random
-import torch
-from PIL import ImageCms, Image
 warnings.filterwarnings("ignore")
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-from sklearn.cluster import KMeans, DBSCAN
+from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from train_utils import get_sample_feature, get_sample_label, combine_feature_and_label
+
 
 # Get clustering data
 def get_cluster_data(indata):
@@ -249,3 +227,29 @@ def load_alltile_tumor_info(input_path, patient_id, selected_labels,info_df):
             comb_df[label].fillna(comb_df[label].dropna().unique()[0], inplace=True)
 
     return comb_df
+
+
+
+def get_label_feature_info_comb(sample_ids, all_tile_info_df, feature_path, fe_method, id_col):
+    comb_df_list = []
+    ct = 0 
+    for pt in sample_ids:
+        if ct % 10 == 0 : print(ct)
+        
+        feature_df = get_sample_feature(pt, feature_path, fe_method)    
+
+        #Get label
+        label_df = get_sample_label(pt,all_tile_info_df, id_col = id_col)
+        
+        #Merge feature and label
+        comb_df = combine_feature_and_label(feature_df,label_df)
+        
+        #Select tumor fraction > X tiles
+        comb_df = comb_df.sort_values(by = ['TILE_XY_INDEXES'], ascending = True)
+        comb_df.reset_index(inplace = True, drop = True)
+        comb_df_list.append(comb_df)
+        ct += 1
+    
+    all_comb_df = pd.concat(comb_df_list)
+    
+    return all_comb_df

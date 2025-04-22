@@ -136,8 +136,6 @@ reviewed_df = pd.read_excel(data_dir + 'Digital_pathology_TCGA_Mutation_Check_Pr
 reviewed_df.rename(columns = {'Patient ID': 'PATIENT_ID'}, inplace = True)
 reviewed_df['Track_name'] = reviewed_df['Track_name'].str.strip()
 reviewed_df_updated = reviewed_df.merge(df_merged, on = ['PATIENT_ID', 'Mutation_Type', 'Track_name', 'Pathway'])
-notmatched_ids = [x for x in reviewed_df['PATIENT_ID'].tolist() if x not in reviewed_df_updated['PATIENT_ID'].tolist()]
-print(notmatched_ids)
 
 #Add other clinical data
 comb_df = reviewed_df_updated.merge(clinical_df, on = ['PATIENT_ID','SAMPLE_ID'], how = 'left')
@@ -164,9 +162,6 @@ for gene in other_genes:
 df_other = pd.concat(df_list)
 
 
-
-
-
 # For SAMPLE DATA
 onco_df_sample = pd.read_csv(data_dir + 'raw_oncoprint/SAMPLE_DATA_oncoprint_AR, PTEN, RB1, TP53.tsv', sep = '\t')
 other_genes = ['AR', 'PTEN', 'RB1', 'TP53']
@@ -178,12 +173,18 @@ for gene in other_genes:
 df_other_sample = pd.concat(df_list)
 df_other_sample['PATIENT_ID'] = df_other_sample['SAMPLE_ID'].apply(extract_before_third_hyphen)
 
-
-
 # Merge Sample and Patient
 df_merged = pd.merge(df_other, df_other_sample, on= ['PATIENT_ID', 'Mutation_Type', 'Track_name', 'Pathway'], how='outer')
 df_merged = df_merged[['PATIENT_ID', 'SAMPLE_ID', 'Pathway', 'Track_name' ,'Mutation_Type']]
 
+
+#Add other info to reviewed other mutation
+reviewed_df = pd.read_excel(data_dir + 'Digital_pathology_TCGA_AR_PTEN_RB1_TP53_CP.xlsx')
+reviewed_df['Track_name'] = reviewed_df['Track_name'].str.strip()
+reviewed_df['Pathway'] = reviewed_df['Track_name']
+reviewed_df_updated = reviewed_df.merge(df_merged, on = ['PATIENT_ID','SAMPLE_ID','Mutation_Type', 'Track_name', 'Pathway'])
+
 #Add other clinical data
-comb_df = df_merged.merge(clinical_df, on = ['PATIENT_ID','SAMPLE_ID'], how = 'left')
-comb_df.to_csv(data_dir + 'cleaned_final/Digital_pathology_TCGA_Mutation_AR_PTEN_RB1_TP53_OtherInfoAdded.csv', index = False)
+comb_df = reviewed_df_updated.merge(clinical_df, on = ['PATIENT_ID','SAMPLE_ID'], how = 'left')
+comb_df.to_csv(data_dir + 'cleaned_final/Digital_pathology_TCGA_Mutation_AR_PTEN_RB1_TP53_CP_OtherInfoAdded.csv', index = False)
+

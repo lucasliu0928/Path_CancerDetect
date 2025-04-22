@@ -20,7 +20,7 @@ import argparse
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -31,8 +31,9 @@ args = parser.parse_args()
 ############################################################################################################
 folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
 select_labels = ["AR","HR","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
-selected_hr_genes = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'] #Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'
-
+selected_hr_genes1 = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'] #Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'
+selected_hr_genes2 = ['BRCA2', 'BRCA1', 'PALB2']
+selected_msi_genes = ['MSH2', 'MSH6', 'PMS2', 'MLH1']
 ############################################################################################################
 #DIR
 ############################################################################################################
@@ -220,7 +221,7 @@ elif args.cohort_name == "TCGA_PRAD":
     all_cd_df = pd.concat(cancer_detect_list)
 
     #Filter for Cancer detected tiles > threshod
-    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= args.TUMOR_FRAC_THRES] #3335532
+    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= args.TUMOR_FRAC_THRES] #1307688, 3335532
 
     #No Cancer IDs 
     cancer_ids = list(set(all_cd_df['TCGA_FOLDER_ID']))
@@ -236,11 +237,17 @@ elif args.cohort_name == "TCGA_PRAD":
     #Load mutation label data
     #NOTE: the TCGA folder ID != UUIDs in label file
     ################################################
-    HRMSI_df = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_HR_MSI_Pritchard_OtherInfoAdded.csv")) 
-    HRMSI_df = HRMSI_df.loc[HRMSI_df['Colin Recommends Keep vs. Exclude'] == 'Keep']
-    HRMSI_df = HRMSI_df[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
-    HRMSI_df = HRMSI_df.loc[HRMSI_df['Track_name'].isin(selected_hr_genes + ['MSH2', 'MSH6', 'PMS2', 'MLH1'])]
-    other_df = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_AR_PTEN_RB1_TP53_OtherInfoAdded.csv")) 
+    HRMSI_df_all = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_HR_MSI_Pritchard_OtherInfoAdded.csv")) 
+    HRMSI_df_all = HRMSI_df_all.loc[HRMSI_df_all['Colin Recommends Keep vs. Exclude'] == 'Keep']
+    HRMSI_df_all = HRMSI_df_all[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
+    hr_df1 = HRMSI_df_all.loc[HRMSI_df_all['Track_name'].isin(selected_hr_genes1)].copy()
+    hr_df1['Pathway'] = 'HR1'
+    hr_df2 = HRMSI_df_all.loc[HRMSI_df_all['Track_name'].isin(selected_hr_genes2)].copy()
+    hr_df2['Pathway'] = 'HR2'
+    hr_df = pd.concat([hr_df1,hr_df2])
+    msi_df = HRMSI_df_all.loc[HRMSI_df_all['Track_name'].isin(selected_msi_genes)].copy()
+    HRMSI_df = pd.concat([hr_df,msi_df])
+    other_df = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_AR_PTEN_RB1_TP53_CP_OtherInfoAdded.csv")) 
     other_df = other_df[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
     all_mutation_df = pd.concat([HRMSI_df,other_df])
     mut_pathways = all_mutation_df['Pathway'].unique().tolist() 
@@ -268,11 +275,7 @@ elif args.cohort_name == "TCGA_PRAD":
             else:
                 label_df.loc[idx, l] = 0
     label_df.reset_index(drop=True, inplace=True)
-  
-    #ADD TMB
-    #TODO: this need to update labtler
-    label_df['TMB_HIGHorINTERMEDITATE'] = pd.NA
-    
+      
     #Rename
     label_df.rename(columns = {'MSI-H':'MSI_POS'}, inplace = True)
     
@@ -282,7 +285,8 @@ elif args.cohort_name == "TCGA_PRAD":
     #Load clinical
     clinical_df = pd.read_csv(label_path + '/Firehose Legacy/prad_tcga_all_data/data_clinical_sample.txt', sep = '\t', header=4)
     clinical_df = clinical_df.loc[clinical_df['SAMPLE_ID'] != 'TCGA-V1-A9O5-06'] #NOTE: this is a duplicate patient, the patient other slide was included, not this one
-    clinical_df = clinical_df[['PATIENT_ID','SAMPLE_TYPE','SAMPLE_ID','OTHER_SAMPLE_ID','PATHOLOGY_REPORT_FILE_NAME','PATHOLOGY_REPORT_UUID']]
+    clinical_df = clinical_df[['PATIENT_ID','SAMPLE_TYPE','SAMPLE_ID','OTHER_SAMPLE_ID',
+                               'PATHOLOGY_REPORT_FILE_NAME','PATHOLOGY_REPORT_UUID','TMB_NONSYNONYMOUS']]
     
     #Combine 
     label_df = label_df.merge(clinical_df, on = ['PATIENT_ID'], how = 'left')
@@ -293,8 +297,12 @@ elif args.cohort_name == "TCGA_PRAD":
     label_df.loc[cond,'SITE_LOCAL'] = 1
     label_df.loc[~cond,'SITE_LOCAL'] = 0
     
+    #ADD TMB
+    #TODO: this need to confirm maybe use label_df['TMB_NONSYNONYMOUS']
+    label_df['TMB_HIGHorINTERMEDITATE'] = pd.NA
+    
     #reorder
-    label_df = label_df[['TCGA_FOLDER_ID','PATIENT_ID','SLIDE_ID','SITE_LOCAL', 'AR', 'HR', 'PTEN', 'RB1',
+    label_df = label_df[['TCGA_FOLDER_ID','PATIENT_ID','SLIDE_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
                          'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
     
 

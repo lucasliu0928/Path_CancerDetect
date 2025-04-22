@@ -16,10 +16,8 @@ import os
 from Utils import convert_img
 import torch.nn as nn
 import torch.nn.functional as F
-from cluster_utils import get_cluster_data
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
-import cv2
 
 def load_model_ready_data(data_path, cohort, pixel_overlap, fe_method, tumor_frac):
     
@@ -134,9 +132,9 @@ def get_feature_label_array(input_path, feature_folder, selected_ids,selected_la
     return feature_3d, label_array
 
 
-def get_sample_feature(patient_id, feature_path, input_file_name):
+def get_sample_feature(folder_name, feature_path, input_file_name):
     #Input dir
-    input_dir = os.path.join(feature_path, patient_id, 'features', 'features_alltiles_' + input_file_name + '.h5')
+    input_dir = os.path.join(feature_path, folder_name, 'features', 'features_alltiles_' + input_file_name + '.h5')
     
     #feature
     feature_df = pd.read_hdf(input_dir, key='feature')
@@ -155,8 +153,8 @@ def get_sample_feature(patient_id, feature_path, input_file_name):
 
     return feature_df
     
-def get_sample_label(patient_id, all_label_data, id_col = 'SAMPLE_ID'):
-    label_df = all_label_data.loc[all_label_data[id_col] == patient_id]
+def get_sample_label(sample_id, all_label_data, id_col = 'SAMPLE_ID'):
+    label_df = all_label_data.loc[all_label_data[id_col] == sample_id]
     label_df.reset_index(drop = True, inplace = True)
     return label_df
 
@@ -1092,7 +1090,7 @@ class ModelReadyData_clustering(Dataset):
 
    
 
-def plot_cluster_image(cluster_matrix):
+def plot_cluster_image(cluster_matrix, plot_tile, plot_outdir, colorbar = True):
     # --- Define discrete colormap ---
     colors = ['whitesmoke', 'silver', 'steelblue', 'darkorange', 'tab:red']  # -2, -1, 0, 1, 2
     cmap = ListedColormap(colors)
@@ -1104,14 +1102,16 @@ def plot_cluster_image(cluster_matrix):
     im = plt.imshow(cluster_matrix.T, cmap=cmap, norm=norm, origin='lower')
     
     # --- Colorbar with labels ---
-    cbar = plt.colorbar(im, ticks=[-2,-1, 0, 1, 2])
-    cbar.ax.set_yticklabels(['Non-Tissue', 'Non-Cancer' ,'Cluster 0', 'Cluster 1', 'Cluster 2'])
-    cbar.set_label('Cluster Label')
+    if colorbar:
+        cbar = plt.colorbar(im, ticks=[-2,-1, 0, 1, 2])
+        cbar.ax.set_yticklabels(['Non-Tissue', 'Non-Cancer' ,'Cluster 0', 'Cluster 1', 'Cluster 2'])
+        cbar.set_label('Cluster Label')
     
     plt.title('Cluster Heatmap')
     plt.xlabel('Tile X')
     plt.ylabel('Tile Y')
     plt.grid(False)
+    plt.savefig(plot_outdir + plot_tile + '.png', dpi=300, bbox_inches='tight')
     plt.show()
     
 def get_cluster_image_feature(cluster_assigment_df):
