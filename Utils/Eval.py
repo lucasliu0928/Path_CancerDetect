@@ -87,6 +87,21 @@ def compute_performance_each_label(selected_label, prediction_df, prediction_typ
 
     return comb_perf
 
+def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
+
+    #Prediction df
+    pred_df = pd.DataFrame({"SAMPLE_IDs":  cohort_ids, 
+                            "Y_True": y_true, 
+                            "Pred_Prob" :  y_predprob,
+                            "OUTCOME": outcome})
+        
+    pred_df['Pred_Class'] = 0
+    pred_df.loc[pred_df['Pred_Prob'] > THRES,'Pred_Class'] = 1
+
+
+    perf_df = compute_performance_each_label([outcome], pred_df, "SAMPLE_LEVEL")
+
+    return pred_df, perf_df
 
 def get_attention_and_tileinfo(pt_label_df, patient_att_score):    
     #Get label
@@ -103,21 +118,7 @@ def get_attention_and_tileinfo(pt_label_df, patient_att_score):
     return cur_att_df
 
 
-def get_performance(y_predprob, y_true, cohort_ids, outcome, THRES):
 
-    #Prediction df
-    pred_df = pd.DataFrame({"SAMPLE_IDs":  cohort_ids, 
-                            "Y_True": y_true, 
-                            "Pred_Prob" :  y_predprob,
-                            "OUTCOME": outcome})
-        
-    pred_df['Pred_Class'] = 0
-    pred_df.loc[pred_df['Pred_Prob'] > THRES,'Pred_Class'] = 1
-
-
-    perf_df = compute_performance_each_label([outcome], pred_df, "SAMPLE_LEVEL")
-
-    return pred_df, perf_df
 
 
 

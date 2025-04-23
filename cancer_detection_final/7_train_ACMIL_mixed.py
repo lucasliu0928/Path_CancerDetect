@@ -12,10 +12,10 @@ import warnings
 import torch
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
-from Utils import create_dir_if_not_exists, set_seed
+from Utils import create_dir_if_not_exists, set_seed, str2bool
 from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic
-from train_utils import FocalLoss, get_feature_idexes, get_train_test_val_data, update_label, load_model_ready_data
+from train_utils import FocalLoss, get_feature_idexes, get_train_test_val_data, get_external_validation_data, load_model_ready_data
 from ACMIL import ACMIL_GA_MultiTask, predict_v2, train_one_epoch_multitask, evaluate_multitask
 warnings.filterwarnings("ignore")
 
@@ -34,7 +34,7 @@ from architecture.transformer import ACMIL_MHA
 import wandb
 
 
-#Run: python3 -u 7_train_ACMIL.py --train_cohort TCGA_PRAD --external_cohort TCGA_PRAD
+#Run: python3 -u 7_train_ACMIL.py --train_cohort TCGA_PRAD --f_alpha 0.6 --f_gamma 2
 
 ############################################################################################################
 #Parser
@@ -46,23 +46,23 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
+parser.add_argument('--train_cohort', default= 'TCGA_OPX', type=str, help='TCGA_PRAD or OPX')
+parser.add_argument('--external_cohort', default= 'TCGA_OPX', type=str, help='TCGA_PRAD or OPX')
 parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
-parser.add_argument('--external_cohort', default= 'TCGA_PRAD', type=str, help='TCGA_PRAD or OPX')
-parser.add_argument('--f_alpha', default= 0.8, type=float, help='focal alpha')
-parser.add_argument('--f_gamma', default= 9, type=float, help='focal gamma')
 parser.add_argument('--out_folder', default= 'pred_out_042125', type=str, help='out folder name')
+parser.add_argument('--f_alpha', default= 0.9, type=float, help='focal alpha')
+parser.add_argument('--f_gamma', default= 8, type=float, help='focal gamma')
 
-############################################################################################################
+
+
+# ===============================================================
 #     Model Para
-############################################################################################################
+# ===============================================================
 parser.add_argument('--BATCH_SIZE', default=1, type=int, help='batch size')
 #parser.add_argument('--DROPOUT', default=0, type=int, help='drop out rate')
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
-parser.add_argument('--train_epoch', default=100, type=int, help='')
-parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga_mt', type=str, help='e.g., ga_mt, or ga')
 parser.add_argument('--use_sep_cri', action= 'store_true', default=False, help='use seperate focal parameters for each mutation')
 
@@ -74,38 +74,40 @@ if __name__ == '__main__':
     ####################################
     ######      USERINPUT       ########
     ####################################
-    #Feature
+    #ALL_LABEL = ["AR","HR2","PTEN","RB1","TP53","TMB","MSI_POS"]
+    ALL_LABEL = ["AR","HR1","PTEN","RB1","TP53","MSI_POS"] #without TMB
     SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
     N_FEATURE = len(SELECTED_FEATURE)
-    
-    
-    #Label
-    label_avail = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI_POS"]    #All label avaiable
-    
-    if args.mutation == 'MT':
-        if args.train_cohort == 'OPX':
-            SELECTED_LABEL = ["AR","HR1","PTEN","RB1","TP53","TMB","MSI_POS"]
-        elif args.train_cohort == 'TCGA_PRAD':
-            SELECTED_LABEL = ["AR","HR1","PTEN","RB1","TP53","MSI_POS"]   #without TMB
-    else:
-        SELECTED_LABEL = [args.mutation]
-        
-    selected_label_index = []
-    for l in SELECTED_LABEL:
-        selected_label_index.append(label_avail.index(l))
-                    
-    #Model Config
+            
+    # ===============================================================
+    #     Get config
+    # ===============================================================
     config_dir = "myconf.yml"
     with open(config_dir, "r") as ymlfile:
         c = yaml.load(ymlfile, Loader=yaml.FullLoader)
         conf = Struct(**c)
-    conf.train_epoch = args.train_epoch
+    conf.train_epoch = 100
     conf.D_feat = N_FEATURE
     conf.D_inner = args.DIM_OUT
     conf.n_class = 1
     conf.wandb_mode = 'disabled'
-    conf.lr = args.lr
-    conf.n_task = len(SELECTED_LABEL)
+    conf.lr = 0.001
+    if ALL_LABEL[1] == 'HR1':
+        hr_label_index = 1
+    elif ALL_LABEL[1] == 'HR2':
+        hr_label_index = 2
+        
+    if args.mutation == 'MT':
+        SELECTED_LABEL = ALL_LABEL
+        if args.train_cohort == 'TCGA_PRAD' or args.train_cohort == 'TCGA_OPX':
+            conf.n_task = 6
+        elif args.train_cohort == 'OPX':
+            conf.n_task = 7
+        select_label_index = 'ALL'
+    else:
+        conf.n_task = 1
+        SELECTED_LABEL = [args.mutation]
+        select_label_index = ALL_LABEL.index(SELECTED_LABEL[0])
    
     
     if args.learning_method == 'abmil':
@@ -125,8 +127,11 @@ if __name__ == '__main__':
     ###### DIR  ######
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'        
-    train_val_test_id_path =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', 
-                                           args.train_cohort ,
+    train_val_test_id_path1 =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', 
+                                            "OPX" ,
+                                           'TFT' + str(args.tumor_frac))
+    train_val_test_id_path2 =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', 
+                                            "TCGA_PRAD" ,
                                            'TFT' + str(args.tumor_frac))
     ######################
     #Create output-dir
@@ -159,42 +164,45 @@ if __name__ == '__main__':
     #     Model ready data 
     ################################################
     data_path = proj_dir + 'intermediate_data/5_model_ready_data'
-    data_ol100 = load_model_ready_data(data_path, args.train_cohort, args.train_overlap, args.fe_method, args.tumor_frac)
-    data_ol0   = load_model_ready_data(data_path, args.train_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
-    data_external =  load_model_ready_data(data_path, args.external_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
+    data_ol100_opx = load_model_ready_data(data_path, "OPX", args.train_overlap, args.fe_method, args.tumor_frac)
+    data_ol0_opx   = load_model_ready_data(data_path, "OPX", args.test_overlap, args.fe_method, args.tumor_frac)
+    data_ol100_tcga = load_model_ready_data(data_path, "TCGA_PRAD", args.train_overlap, args.fe_method, args.tumor_frac)
+    data_ol0_tcga   = load_model_ready_data(data_path, "TCGA_PRAD", args.test_overlap, args.fe_method, args.tumor_frac)
     
-    #Clean (updated label and remove reduant info)
-    data_ol100, _ = update_label(data_ol100, selected_label_index)
-    data_ol0, _ = update_label(data_ol0, selected_label_index)
-    external_data, external_ids = update_label(data_external, selected_label_index)
     
-
+   
     #Get Train, test, val data
-    train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
-    train_test_val_id_df.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
-    (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, 
-                                                                                                  train_test_val_id_df, 
-                                                                                                  args.s_fold)
+    train_test_val_id_df1 = pd.read_csv(os.path.join(train_val_test_id_path1, "train_test_split.csv"))
+    train_test_val_id_df1.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
+    (train_data1, train_ids1), (val_data1, val_ids1), (test_data1, test_ids1) = get_train_test_val_data(data_ol100_opx, data_ol0_opx, 
+                                                                                                  train_test_val_id_df1, 
+                                                                                                  args.s_fold, select_label_index)
+    train_test_val_id_df2 = pd.read_csv(os.path.join(train_val_test_id_path2, "train_test_split.csv"))
+    train_test_val_id_df2.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
+    (train_data2, train_ids2), (val_data2, val_ids2), (test_data2, test_ids2) = get_train_test_val_data(data_ol100_tcga, data_ol0_tcga, 
+                                                                                                  train_test_val_id_df2, 
+                                                                                                  args.s_fold, select_label_index)
     
+    train_data = train_data1 + train_data2
+    test_data = test_data1 + test_data2
+    val_data = val_data1 + val_data2
+    train_ids = train_ids1 + train_ids2
+    test_ids = test_ids1 + test_ids2
+    val_ids = val_ids1 + val_ids2
 
-    #Exclude tile info data, sample ID, patient ID, do not needed it for training
-    train_data = [item[:-3] for item in train_data]
-    test_data = [item[:-3] for item in test_data]   
-    val_data = [item[:-3] for item in val_data]
-    external_data = [item[:-3] for item in external_data] 
-    
-    
-    #Get postive freqency to choose alpha or gamma
-    # check = train_test_val_id_df.loc[train_test_val_id_df['FOLD' + str(0)] == 'TRAIN']
-    #check = train_test_val_id_df.loc[train_test_val_id_df['TRAIN_OR_TEST'] == 'TRAIN']
 
-    # print(check['AR'].value_counts()/160) 
-    # print(check['HR'].value_counts()/160) 
-    # print(check['PTEN'].value_counts()/160) 
-    # print(check['RB1'].value_counts()/160) 
-    # print(check['TP53'].value_counts()/160) 
-    # print(check['TMB'].value_counts()/160) 
-    # print(check['MSI_POS'].value_counts()/160) 
+    
+    #For TCGA train
+    #TODO, Exclude the HR1, TMB label, 
+    #["AR","HR1","HR2","PTEN","RB1","TP53","TMB","MSI_POS"]
+    if args.train_cohort == 'TCGA_PRAD' or args.train_cohort == 'TCGA_OPX':
+        train_data = [(x[0], x[1][:,[0,hr_label_index,3,4,5,7]], x[2]) for x in train_data]
+        test_data = [(x[0], x[1][:,[0,hr_label_index,3,4,5,7]], x[2]) for x in test_data]
+        val_data = [(x[0], x[1][:,[0,hr_label_index,3,4,5,7]], x[2]) for x in val_data]
+    elif args.train_cohort == 'OPX':
+        train_data = [(x[0], x[1][:,[0,hr_label_index,3,4,5,6,7]], x[2]) for x in train_data]
+        test_data = [(x[0], x[1][:,[0,hr_label_index,3,4,5,6,7]], x[2]) for x in test_data]
+        val_data = [(x[0], x[1][:,[0,hr_label_index,3,4,5,6,7]], x[2]) for x in val_data]
 
 
     # Define different values for alpha and gamma
@@ -207,12 +215,14 @@ if __name__ == '__main__':
         #For MSI: gamma = 10, focal_alpha = 0.6
         # focal_gamma = 2   #harder eaxmaple
         # focal_alpha = 0.8 #postive ratio
-        gamma_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,20,25] 
-        alpha_list = [0.2,0.3,0.4,0.5,0.6,0.7,0.8]
-        # gamma_list = [8] 
-        # alpha_list = [0.9]
-        # gamma_list = [args.f_gamma] 
-        # alpha_list = [args.f_alpha]
+        gamma_list = [5,6,7,8,9,10,11,12,13,14,15,20,25] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        alpha_list = [0.3,0.4,0.5,0.6,0.7,0.8]
+        gamma_list = [8] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        alpha_list = [0.9]
+        gamma_list = [args.f_gamma] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        alpha_list = [args.f_alpha]
+        gamma_list = [6] #,12,13,14,15,16,17,18,19,20,25,30,40,50]
+        alpha_list = [0.2]
 
     for focal_gamma in gamma_list:
         for focal_alpha in alpha_list:
@@ -230,9 +240,7 @@ if __name__ == '__main__':
             ####################################################
             train_loader = DataLoader(dataset=train_data,batch_size=args.BATCH_SIZE, shuffle=False)
             test_loader  = DataLoader(dataset=test_data, batch_size=args.BATCH_SIZE, shuffle=False)
-            val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)
-            external_loader  = DataLoader(dataset=external_data, batch_size=args.BATCH_SIZE, shuffle=False)
-            
+            val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)            
             
             ####################################################
             # define network
@@ -287,7 +295,7 @@ if __name__ == '__main__':
             wandb.finish()
             
             
-            #TODO, TO Edit
+            
             ###################################################
             #           Test 
             ###################################################   
@@ -360,55 +368,3 @@ if __name__ == '__main__':
                 cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
                 plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
                 
-            ##############################################################################################################################
-            # External
-            ##############################################################################################################################
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, external_loader, device, conf, 'TCGA')
-
-            pred_df_list = []
-            perf_df_list = []
-            for i in range(conf.n_task):
-                if args.external_cohort == 'TCGA_PRAD':
-                    if i != 5 :
-                        pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
-                                                           external_ids, SELECTED_LABEL[i], 
-                                                           THRES = np.quantile(y_predprob_task_test[i], 0.5))
-                else:
-                    pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
-                                                       external_ids, SELECTED_LABEL[i], 
-                                                       THRES = np.quantile(y_predprob_task_test[i], 0.5))
-                pred_df_list.append(pred_df)
-                perf_df_list.append(perf_df)
-            all_perd_df = pd.concat(pred_df_list)
-            all_perf_df = pd.concat(perf_df_list)
-            print(all_perf_df)
-            all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_EXT_pred_df.csv",index = False)
-            all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_EXT_perf.csv",index = True)
-            print(round(all_perf_df['AUC'].mean(),2))
-                        
-            #bootstrap perforance
-            ci_list = []
-            for i in range(conf.n_task):
-                print(i)
-                if args.external_cohort == 'TCGA_PRAD':
-                    if i!= 5:
-                        cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
-                        cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-                        cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-                        ci_list.append(cur_ci_df)
-                       
-                else:
-                    cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
-                    cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-                    cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-                    ci_list.append(cur_ci_df)
-                    
-            ci_final_df = pd.concat(ci_list)
-            print(ci_final_df)
-            ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_EXT_perf_bootstrap.csv",index = True)
-            
-            
-
-
-
-            

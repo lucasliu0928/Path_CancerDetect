@@ -1001,58 +1001,39 @@ def get_partial_data(indata, selected_ids):
 
 
 
-def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold, select_label_index = 'ALL'):
+def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold):
 
     #Get train, test IDs
     train_ids = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TRAIN', 'SAMPLE_ID'])
     test_ids  = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TEST', 'SAMPLE_ID'])
     val_ids   = list(id_df.loc[id_df['FOLD' + str(fold)] == 'VALID', 'SAMPLE_ID'])
    
-    train_data, train_ids_final = get_partial_data(data_pool_train, train_ids)
-    val_data, val_ids_final = get_partial_data(data_pool_train, val_ids)
-    test_data, test_ids_final = get_partial_data(data_pool_test, test_ids)
+    train_data_final, train_ids_final = get_partial_data(data_pool_train, train_ids)
+    test_data_final, test_ids_final = get_partial_data(data_pool_test, test_ids)
+    val_data_final, val_ids_final = get_partial_data(data_pool_train, val_ids)
     
-    #Exclude tile info data, sample ID, patient ID, do not needed it for training
-    train_data_final = [item[:-3] for item in train_data] 
-    test_data_final  = [item[:-3] for item in test_data] 
-    val_data_final   = [item[:-3] for item in val_data] 
-    
-    
-    #Update labels
-    if select_label_index != 'ALL': 
-        train_data_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in train_data_final]#use index+1 to preserved 2D shape
-        test_data_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in test_data_final]#use index+1 to preserved 2D shape
-        val_data_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in val_data_final]#use index+1 to preserved 2D shape
-
     print(f'Train N: {len(train_ids_final)}; Test N: {len(test_ids_final)}; Val N: {len(val_ids_final)}')
     print(f'Train DS: {len(train_data_final)}; Test DS: {len(test_data_final)}; Val DS: {len(val_data_final)}')
-
 
     return (train_data_final, train_ids_final), (val_data_final, val_ids_final), (test_data_final, test_ids_final)
 
     
-def get_external_validation_data(indata, select_label_index = 'ALL'):
+def update_label(indata, select_label_index):
     r'''
     Input:   Model Ready data
     Returns: Model ready data, List of ids
     -------
     '''
     #Get ordered sample IDs in indata
-    ids  = [x[-2] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID
-
-    #Exclude tile info data, sample ID, patient ID, do not needed it for training
-    indata_final = [item[:-3] for item in indata]                 
+    ids  = [x[-2] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID     
     
-    #Update labels
-    if select_label_index != 'ALL': 
-        indata_final = [(x[0], x[1][:, select_label_index:select_label_index+1], x[2]) for x in indata_final]#use index+1 to preserved 2D shape
+    #Update label
+    indata_final = [(x[0], x[1][:,select_label_index], x[2], x[3],x[4],x[5]) for x in indata]
 
-    print(f'Train N:  {len(ids)}')
-    print(f'Train DS: {len(indata_final)}')
-
+    print(f'N:  {len(ids)}')
+    print(f'DS: {len(indata_final)}')
 
     return indata_final,ids
-
 
 
 class ModelReadyData_clustering(Dataset):
