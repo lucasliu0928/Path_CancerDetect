@@ -13,30 +13,13 @@ Created on Wed Apr  9 12:49:26 2025
 import sys
 import os
 import numpy as np
-import openslide
 #%matplotlib inline
-import matplotlib.pyplot as plt
-import cv2
 import matplotlib
 matplotlib.use('Agg')
 import pandas as pd
 import warnings
-import torch
-from torch.utils.data import DataLoader, Subset
-from pathlib import Path
-from skimage import filters
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
-from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords, get_map_startend
-from Utils import get_downsample_factor
-from Utils import minmax_normalize, set_seed
-from Utils import get_image_at_target_mag
-from Utils import do_mask_original
-from Eval import plot_LOSS, compute_performance_each_label, get_attention_and_tileinfo
-from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
-from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic
-from train_utils import pull_tiles, FocalLoss, get_feature_idexes, get_partial_data, get_train_test_val_data, get_external_validation_data
-from ACMIL import ACMIL_GA_MultiTask, predict_v2, train_one_epoch_multitask, evaluate_multitask
 warnings.filterwarnings("ignore")
 
 
@@ -45,28 +28,25 @@ current_dir = os.getcwd()
 grandparent_subfolder = os.path.join(current_dir, '..', '..', 'other_model_code','ACMIL-main')
 grandparent_subfolder = os.path.normpath(grandparent_subfolder)
 sys.path.insert(0, grandparent_subfolder)
-from utils.utils import save_model, Struct
-import yaml
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 import argparse
-from architecture.transformer import ACMIL_GA #ACMIL_GA
-from architecture.transformer import ACMIL_MHA
-import wandb
-
 
 #Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort TCGA_PRAD --SELECTED_MUTATION AR
 
 ############################################################################################################
 #Parser
 ############################################################################################################
-parser = argparse.ArgumentParser("Train")
-parser.add_argument('--SELECTED_FOLD', default=0, type=int, help='select fold')
+parser = argparse.ArgumentParser("Performance")
+parser.add_argument('--s_fold', default=0, type=int, help='select fold')
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
-parser.add_argument('--SELECTED_MUTATION', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--perf_dir', default= 'pred_out_041025', type=str, help='out folder name')
+parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
+parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
+parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--perf_dir', default= 'pred_out_042125', type=str, help='out folder name')
 
 
 if __name__ == '__main__':
@@ -76,24 +56,37 @@ if __name__ == '__main__':
     ####################################
     ######      USERINPUT       ########
     ####################################
-    ALL_LABEL = ["AR","HR","PTEN","RB1","TP53","TMB","MSI_POS"]
+    label_avail = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI_POS"]    #All label avaiable
+    
+    if args.mutation == 'MT':
+        if args.train_cohort == 'OPX':
+            SELECTED_LABEL = ["AR","HR1","PTEN","RB1","TP53","TMB","MSI_POS"]
+        elif args.train_cohort == 'TCGA_PRAD' or args.train_cohort == 'TCGA_OPX':
+            SELECTED_LABEL = ["AR","HR1","PTEN","RB1","TP53","MSI_POS"]   #without TMB
+    else:
+        SELECTED_LABEL = [args.mutation]
             
         
     ##################
     ###### DIR  ######
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-    perf_path =  os.path.join(proj_dir + 'intermediate_data', args.perf_dir, args.train_cohort, 
-                              args.feature_extraction_method, 'TrainOL100_TestOL0_TFT' + str(args.TUMOR_FRAC_THRES), 
-                              'FOLD' + str(args.SELECTED_FOLD),
-                              args.SELECTED_MUTATION, 'perf')
+    folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/"
+    perf_path = os.path.join(proj_dir + "intermediate_data/" + args.perf_dir,
+                           'trainCohort_' + args.train_cohort,
+                           args.learning_method,
+                           folder_name1,
+                           'FOLD' + str(args.s_fold),
+                           args.mutation,
+                           "perf")
+    
     perf_folders = os.listdir(perf_path)
     metric_cols = ['AUC', 'Recall', 'Specificity', 'ACC', 'Precision', 'PR_AUC', 'F1', 'F2', 'F3']
 
     test_perf_list = []
     tcga_perf_list = []
     for f in perf_folders:
-        if f != 'GAMMA_25_ALPHA_0.3':
+        if f != 'GAMMA_10_ALPHA_0.3' and f != 'GAMMA_11_ALPHA_0.5':
             cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_TEST_perf.csv'))
             mean_row = cur_perf[metric_cols].mean()
             mean_row['OUTCOME'] = 'MEAN'
@@ -102,11 +95,11 @@ if __name__ == '__main__':
             cur_perf['FOLDER'] = f
             
             test_perf_list.append(cur_perf)
-            cur_perf2 = pd.read_csv(os.path.join(perf_path,f,'n_token3_TCGA_perf.csv'))
+            cur_perf2 = pd.read_csv(os.path.join(perf_path,f,'n_token3_EXT_perf.csv'))
             mean_row = cur_perf2[metric_cols].mean()
             mean_row['OUTCOME'] = 'MEAN'
             cur_perf2 = pd.concat([cur_perf2, pd.DataFrame([mean_row])], ignore_index=True)
-            cur_perf2['COHORT'] = 'TCGA'
+            cur_perf2['COHORT'] = 'EXT'
             cur_perf2['FOLDER'] = f
             tcga_perf_list.append(cur_perf2)
         

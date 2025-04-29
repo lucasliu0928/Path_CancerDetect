@@ -985,37 +985,39 @@ def get_partial_data(indata, selected_ids):
     Returns: Model ready data for selected Ids
     -------
     '''
-    #Get ordered sample IDs in indata
-    ids_pool  = [x[-2] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID
+    #Get ordered patient IDs in indata
+    ids_pool  = [x[-1] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID
 
-    #Find index of the selected ids
-    inc_idx = [ids_pool.index(x) for x in selected_ids]
-    
+    #Find all index of the selected ids
+    inc_idx = [i for x in selected_ids for i, val in enumerate(ids_pool) if val == x]
+
     #Subsets
     indata_subset = Subset(indata, inc_idx)
     
-    #Final IDs
-    ids_order =  [x[-2] for x in indata_subset]
-    
-    return indata_subset,ids_order
+    #Get final 
+    sp_ids_order =  [x[-2] for x in indata_subset] #sample IDs
+    pt_ids_order =  [x[-1] for x in indata_subset] #patient IDs
+
+    return indata_subset,sp_ids_order, pt_ids_order
 
 
 
 def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold):
 
     #Get train, test IDs
-    train_ids = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TRAIN', 'SAMPLE_ID'])
-    test_ids  = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TEST', 'SAMPLE_ID'])
-    val_ids   = list(id_df.loc[id_df['FOLD' + str(fold)] == 'VALID', 'SAMPLE_ID'])
+    train_ids_pt = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TRAIN', 'PATIENT_ID'])
+    test_ids_pt  = list(id_df.loc[id_df['FOLD' + str(fold)] == 'TEST', 'PATIENT_ID'])
+    val_ids_pt   = list(id_df.loc[id_df['FOLD' + str(fold)] == 'VALID', 'PATIENT_ID'])
    
-    train_data_final, train_ids_final = get_partial_data(data_pool_train, train_ids)
-    test_data_final, test_ids_final = get_partial_data(data_pool_test, test_ids)
-    val_data_final, val_ids_final = get_partial_data(data_pool_train, val_ids)
+    train_data_final, train_sp_ids_final, train_pt_ids_final = get_partial_data(data_pool_train, train_ids_pt)
+    test_data_final, test_sp_ids_final, test_pt_ids_final = get_partial_data(data_pool_test, test_ids_pt)
+    val_data_final, val_sp_ids_final, val_pt_ids_final = get_partial_data(data_pool_train, val_ids_pt)
     
-    print(f'Train N: {len(train_ids_final)}; Test N: {len(test_ids_final)}; Val N: {len(val_ids_final)}')
-    print(f'Train DS: {len(train_data_final)}; Test DS: {len(test_data_final)}; Val DS: {len(val_data_final)}')
+    print(f'Sample N: Train: {len(set(train_sp_ids_final))}; Test: {len(set(test_sp_ids_final))}; Val: {len(set(val_sp_ids_final))}')
+    print(f'Patient N: Train: {len(set(train_pt_ids_final))}; Test: {len(set(test_pt_ids_final))}; Val: {len(set(val_pt_ids_final))}')
+    print(f'dataset N: Train: {len(train_data_final)}; Test: {len(test_data_final)}; Val: {len(val_data_final)}')
 
-    return (train_data_final, train_ids_final), (val_data_final, val_ids_final), (test_data_final, test_ids_final)
+    return (train_data_final, train_sp_ids_final), (val_data_final, val_sp_ids_final), (test_data_final, test_sp_ids_final)
 
     
 def update_label(indata, select_label_index):

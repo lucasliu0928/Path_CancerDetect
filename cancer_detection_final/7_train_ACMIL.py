@@ -34,7 +34,8 @@ from architecture.transformer import ACMIL_MHA
 import wandb
 
 
-#Run: python3 -u 7_train_ACMIL.py --train_cohort TCGA_PRAD --external_cohort TCGA_PRAD
+#Run: python3 -u 7_train_ACMIL.py --train_cohort OPX --external_cohort TCGA_PRAD --s_fold 0 --hr_v 2 --f_alpha 0.7 --f_gamma 7
+#Run: python3 -u 7_train_ACMIL.py --train_cohort TCGA_PRAD --external_cohort OPX --s_fold 0  --hr_v 2 --f_alpha 0.7 --f_gamma 7
 
 ############################################################################################################
 #Parser
@@ -51,9 +52,10 @@ parser.add_argument('--train_overlap', default=100, type=int, help='train data p
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX')
 parser.add_argument('--external_cohort', default= 'TCGA_PRAD', type=str, help='TCGA_PRAD or OPX')
-parser.add_argument('--f_alpha', default= 0.8, type=float, help='focal alpha')
-parser.add_argument('--f_gamma', default= 9, type=float, help='focal gamma')
-parser.add_argument('--out_folder', default= 'pred_out_042125', type=str, help='out folder name')
+parser.add_argument('--f_alpha', default= 0.7, type=float, help='focal alpha')
+parser.add_argument('--f_gamma', default= 7, type=float, help='focal gamma')
+parser.add_argument('--hr_v', default= "2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
+parser.add_argument('--out_folder', default= 'pred_out_042325', type=str, help='out folder name')
 
 ############################################################################################################
 #     Model Para
@@ -84,9 +86,9 @@ if __name__ == '__main__':
     
     if args.mutation == 'MT':
         if args.train_cohort == 'OPX':
-            SELECTED_LABEL = ["AR","HR1","PTEN","RB1","TP53","TMB","MSI_POS"]
+            SELECTED_LABEL = ["AR","HR" + args.hr_v,"PTEN","RB1","TP53","TMB","MSI_POS"]
         elif args.train_cohort == 'TCGA_PRAD':
-            SELECTED_LABEL = ["AR","HR1","PTEN","RB1","TP53","MSI_POS"]   #without TMB
+            SELECTED_LABEL = ["AR","HR" + args.hr_v,"PTEN","RB1","TP53","MSI_POS"]   #without TMB
     else:
         SELECTED_LABEL = [args.mutation]
         
@@ -207,12 +209,10 @@ if __name__ == '__main__':
         #For MSI: gamma = 10, focal_alpha = 0.6
         # focal_gamma = 2   #harder eaxmaple
         # focal_alpha = 0.8 #postive ratio
-        gamma_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,20,25] 
-        alpha_list = [0.2,0.3,0.4,0.5,0.6,0.7,0.8]
-        # gamma_list = [8] 
-        # alpha_list = [0.9]
-        # gamma_list = [args.f_gamma] 
-        # alpha_list = [args.f_alpha]
+        # gamma_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,20,25] 
+        # alpha_list = [0.2,0.3,0.4,0.5,0.6,0.7,0.8]
+        gamma_list = [args.f_gamma] 
+        alpha_list = [args.f_alpha]
 
     for focal_gamma in gamma_list:
         for focal_alpha in alpha_list:

@@ -27,6 +27,7 @@ parser.add_argument('--save_image_size', default='250', type=int, help='the size
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
 parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 
 
 if __name__ == '__main__':
@@ -49,7 +50,6 @@ if __name__ == '__main__':
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
     wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
     wsi_location_opx = proj_dir + '/data/OPX/' #N= 353, Now OPX has all the old and newly added samples (Oncoplex_deidentified)
-    wsi_location_opx2 = os.path.join(proj_dir,'data','Oncoplex_deidentified')
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_tcga = proj_dir + 'data/TCGA_PRAD/'
     wsi_location_nep = proj_dir + 'data/Neptune/'
@@ -73,7 +73,6 @@ if __name__ == '__main__':
     
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx) if x != '.DS_Store'] #217
-    opx_ids2 = [x.replace('.tif','') for x in os.listdir(wsi_location_opx2) if x != '.DS_Store'] #289
     ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
     tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)  if x != '.DS_Store'] #677
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
