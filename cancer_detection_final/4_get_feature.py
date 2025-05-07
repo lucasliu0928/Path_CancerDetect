@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 
 #source ~/.bashrc
 #conda activate paimg9
-#Run: python3 -u 4_get_feature.py --select_idx_start 80 --select_idx_end 120 --cuda_device 'cuda' --pixel_overlap 0 --save_image_size 250 --cohort_name OPX --feature_extraction_method uni2 
+#Run: python3 -u 4_get_feature.py --select_idx_start 0 --select_idx_end 351 --cuda_device 'cuda' --pixel_overlap 0 --save_image_size 250 --cohort_name Neptune --feature_extraction_method uni2 
 
 
 ############################################################################################################
@@ -72,9 +72,7 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id']) #24, 7 from OPX, 17 from ccola
-    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5',
-                                    'NEP-081PS2-1_HE_MH_03282024',
-                                    'NEP-123PS1-1_HE_MH06032024'] #The latter one is TCGA issue file
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
     
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #353

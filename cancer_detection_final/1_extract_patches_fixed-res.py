@@ -21,12 +21,12 @@ warnings.filterwarnings("ignore")
 ############################################################################################################
 #Parser
 ############################################################################################################
-parser = argparse.ArgumentParser("Tile feature extraction")
+parser = argparse.ArgumentParser("Extract patches")
 parser.add_argument('--mag_extract', default='20', type=int, help='specify magnification, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 
 
@@ -67,9 +67,7 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
-    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5',
-                                    'NEP-081PS2-1_HE_MH_03282024',
-                                    'NEP-123PS1-1_HE_MH06032024'] #The latter one is TCGA issue file
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
     
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx) if x != '.DS_Store'] #217
@@ -93,13 +91,44 @@ if __name__ == '__main__':
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
 
-
-
+    
+    selected_ids = ['NEP-053PS1-1_HE_MH_04142025',
+                    'NEP-054PS1-1_HE_MH_04142025',
+                     'NEP-108PS2-1_HE_MH_04142025',
+                     'NEP-167PS1-1_HE_MH_04142025',
+                     'NEP-169PS1-1_HE_MH_04142025',
+                     'NEP-171PS1-1_HE_MH_04142025',
+                     'NEP-172PS1-1_HE_MH_04142025',
+                     'NEP-173PS5-1_HE_MH_04142025',
+                     'NEP-175PS1-1_HE_MH_04142025',
+                     'NEP-177PS1-1_HE_MH_04142025',
+                     'NEP-178PS1-1_HE_MH_04142025',
+                     'NEP-189PS1-1_HE_MH_04142025',
+                     'NEP-190PS2-1_HE_MH_04142025',
+                     'NEP-194PS1-1_HE_MH_04142025',
+                     'NEP-197PS1-1_HE_MH_04142025',
+                     'NEP-235PS1-1_HE_MH_04142025',
+                     'NEP-244PS2-1_HE_MH_04142025',
+                     'NEP-284PS1-1_HE_MH_04142025',
+                     'NEP-286PS1-1_HE_MH_04092025',
+                     'NEP-310PS1-1_HE_MH_04092025',
+                     'NEP-315PS1-1_HE_MH_04092025',
+                     'NEP-316PS1-1_HE_MH_04092025',
+                     'NEP-316PS2-1_HE_MH_04092025',
+                     'NEP-317PS1-1_HE_MH_04142025',
+                     'NEP-325PS1-1_HE_MH_04142025',
+                     'NEP-328PS1-1_HE_MH_04082025',
+                     'NEP-332PS1-1_HE_MH_04082025',
+                     'NEP-333PS1-1_HE_MH_04082025',
+                     'NEP-336PS1-1_HE_MH_04142025',
+                     'NEP-338PS2-1_HE_MH_04082025']
+    other_files = ['NEP-081PS2-1_HE_MH_03282024','NEP-123PS1-1_HE_MH06032024']
+    selected_ids = selected_ids + other_files
+    
     ############################################################################################################
     #Start 
     ############################################################################################################
-    for cur_id in selected_ids:
-    
+    for cur_id in selected_ids:    
         save_location = out_location + "/" + cur_id + "/" 
         create_dir_if_not_exists(save_location)
     
@@ -120,7 +149,10 @@ if __name__ == '__main__':
                 rad_tissue = 2
             elif 'NEP' in cur_id:
                 _file = wsi_location_nep + slides_name + ".tif"
-                rad_tissue = 5
+                if cur_id == 'NEP-081PS2-1_HE_MH_03282024' or cur_id == 'NEP-123PS1-1_HE_MH06032024':
+                    rad_tissue = 2
+                else:
+                    rad_tissue = 5
             else:
                 slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
                 _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'

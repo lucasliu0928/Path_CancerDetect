@@ -20,7 +20,7 @@ import argparse
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -34,6 +34,7 @@ select_labels = ["AR","HR","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_PO
 selected_hr_genes1 = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'] #Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'
 selected_hr_genes2 = ['BRCA2', 'BRCA1', 'PALB2']
 selected_msi_genes = ['MSH2', 'MSH6', 'PMS2', 'MLH1']
+
 ############################################################################################################
 #DIR
 ############################################################################################################
@@ -339,17 +340,93 @@ elif args.cohort_name == "TCGA_PRAD":
     print("Median # tile/per pt:", tile_counts.median()) #13683, 38110
     
 
+elif args.cohort_name == "Neptune":
+    ################################################
+    #Get Neptune IDs 
+    ################################################
+    #All Aval IDs
+    nep_ids = [x.replace('.tif','') for x in os.listdir(wsi_location) if x != '.DS_Store'] #350
+
+    #Only Include IDs are high quality
+    label_df_all = pd.read_excel(os.path.join(label_path, "Neptune_ES_ver2_updated_rescan_ids.xlsx")) #274 Samples, 272 patient, #New data (there are some ids in old data exclude due to bad quality)
+    label_df_all.rename(columns = {'Slide ID': 'SAMPLE_ID',
+                                   'Neptune ID': 'PATIENT_ID',
+                                   'MSI..POS.NEG.': 'MSI (POS/NEG)',
+                                   'TMB..HIGH.LOW.INTERMEDIATE.': 'TMB (HIGH/LOW/INTERMEDIATE)',
+                                   'HR.DDR..BRCA1..BRCA2..ATM..CHEK2..PALB2..BAP1..BARD1..RAD51C..RAD51D..FANCA..FANCD2..MRE11A..ATR..NBN..FANCM..FANCG.':
+                                       'HR/DDR (BRCA1, BRCA2, ATM, CHEK2, PALB2, BAP1, BARD1, RAD51C, RAD51D, FANCA, FANCD2, MRE11A, ATR, NBN, FANCM, FANCG)'}, inplace = True)
+    label_df_all['Anatomic site'] = ''
+    ids_high_quality = list(label_df_all['SAMPLE_ID'].unique())  #209
+    ids_high_quality = [f[:-4] if f.lower().endswith('.tif') else f for f in ids_high_quality]
+    selected_ids = ids_high_quality #209
+
+    #Exclude IDs has no cancer detected
+    cd_aval_ids = [x for x in os.listdir(info_path) if x != '.DS_Store'] #350
+    cancer_detect_list = []
+    for cur_id in cd_aval_ids:
+        cur_info_df = pd.read_csv(os.path.join(info_path, cur_id, 'ft_model',cur_id + "_TILE_TUMOR_PERC.csv"))
+        cancer_detect_list.append(cur_info_df)
+    all_cd_df = pd.concat(cancer_detect_list)
+
+    #Filter for Cancer detected tiles > threshod
+    all_cd_df = all_cd_df.loc[all_cd_df['TUMOR_PIXEL_PERC'] >= args.TUMOR_FRAC_THRES] #555,533
+
+    #No Cancer IDs from high quality:
+    cancer_ids = list(set(all_cd_df['SAMPLE_ID']))
+    nocancer_ids = [x for x in cd_aval_ids if x not in cancer_ids]
+    print("Original IDs has No Cancer detected (n = ", len(nocancer_ids), "):" ,nocancer_ids) #4 #['OPX_145', 'OPX_005', 'OPX_203', 'OPX_059']
+    selected_ids = [x for x in selected_ids if x not in nocancer_ids] #268 (No sample is excluded here, because the no cancer detected id is already removed from high quality)
+    selected_ids.sort()
+    print("Final Nep IDs (n = ", len(selected_ids), ")") #202
+    
+
+    ################################################
+    #Preprocess label, site info and tile info
+    ################################################
+    label_df1 = preprocess_mutation_data(label_df_all, select_labels, hr_gene_list = selected_hr_genes1, id_col = 'OPX_Number')
+    label_df1 = label_df1.rename(columns = {'HR': 'HR1'}).copy()
+    label_df2 = preprocess_mutation_data(label_df_all, select_labels, hr_gene_list = selected_hr_genes2, id_col = 'OPX_Number')
+    label_df2 = label_df2.rename(columns = {'HR': 'HR2'}).copy()
+    label_df = label_df1.merge(label_df2, on = ['PATIENT_ID', 'SAMPLE_ID', 
+                                     'SITE_LOCAL', 'AR', 
+                                     'PTEN', 'RB1', 'TP53', 
+                                     'TMB_HIGHorINTERMEDITATE', 'MSI_POS'])
+    label_df = label_df[['PATIENT_ID','SAMPLE_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
+                         'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
+    
+    ############################################################################################################
+    #Combine site and label info and tile info
+    ############################################################################################################     
+    tile_info_list = []
+    for cur_id in selected_ids:
+        cur_info_df = pd.read_csv(os.path.join(info_path, cur_id, 'ft_model',cur_id + "_TILE_TUMOR_PERC.csv"))
+        cur_label_df = label_df.loc[label_df['SAMPLE_ID'] == cur_id]
+        cur_comb_df = cur_info_df.merge(cur_label_df, on = ['SAMPLE_ID'],how = 'left') #add label
+        tile_info_list.append(cur_comb_df)
+    all_tile_info_df = pd.concat(tile_info_list)
+    print(all_tile_info_df.shape) #653182 tiles overlap0
+    
+    #Print stats
+    tile_counts = all_tile_info_df['SAMPLE_ID'].value_counts()
+    print("Total Nep IDs in tile path: ", len(set(all_tile_info_df['SAMPLE_ID']))) #202
+    print("Max # tile/per pt:", tile_counts.max()) #35004, 
+    print("Min # tile/per pt:", tile_counts.min()) #54, 
+    print("Median # tile/per pt:", tile_counts.median()) #1401
+    
+
 
 #Output
 #This file contains all tiles without cancer fraction exclusion and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
 #OPX:   4843073 for overlap0, 1743458 #for overlap100,   
 #TCGA:  5964499 for overlap0, 16570195 #for overlap100,
 #TMA: 80630 for oeverlap0
+#Neptune: 653182 for oeverlap0
 all_tile_info_df.to_csv(os.path.join(out_location, "all_tile_info.csv"), index = False)
 
 
 #Jsut check tumor tile numbers:
 #OPX    555533 for overlap0,   1389408 for overlap100
 #TCGA  1307688 for overlap0,   3335532 for overlap100
-#TMA    18328 for overlap0
+#Neptune    18328 for overlap0
+#Neptune    167026 for overlap0
 print(all_tile_info_df[all_tile_info_df['TUMOR_PIXEL_PERC']>=0.9].shape)

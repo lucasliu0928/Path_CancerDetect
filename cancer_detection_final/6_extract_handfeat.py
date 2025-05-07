@@ -39,10 +39,10 @@ def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds)
 
     return tiles, tile_lvls, physSize, base_mag
 
+
 #RUN
-#source ~/.bashrc
-#conda activate paimg9
-#python3 -u 1_extract_patches_fixed-res.py  --cohort_name Neptune --pixel_overlap 0 
+#source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_ppl_code/handcrafted_features/hf_env/bin/activate
+#python3 -u 6_extract_handfeat.py  --cohort_name OPX --select_idx_start 0 --select_idx_end 40 
 ############################################################################################################
 #Parser
 ############################################################################################################
@@ -51,7 +51,8 @@ parser.add_argument('--save_image_size', default='250', type=int, help='the size
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-
+parser.add_argument('--select_idx_start', type=int)
+parser.add_argument('--select_idx_end', type=int)
 
 
 if __name__ == '__main__':
@@ -88,9 +89,7 @@ if __name__ == '__main__':
     ############################################################################################################
     #Start 
     ############################################################################################################
-    for cur_id in selected_ids:
-        cur_id = selected_ids[0]    
-        
+    for cur_id in selected_ids[args.select_idx_start:args.select_idx_end]:
         save_location = out_location + "/" + cur_id + "/" 
         create_dir_if_not_exists(save_location)
     
@@ -188,16 +187,6 @@ if __name__ == '__main__':
             all_features_df = pd.concat(all_features_list)
             all_features_df.to_csv(os.path.join(save_location, slides_name + "_handcrafted_feature.csv"), index = False)
         
-            # Save to CSV
-            import time
-            start = time.time()
-            all_features_df.to_csv(os.path.join(save_location, slides_name + "_handcrafted_feature.csv"), index = False)
-            print('CSV save time:', time.time() - start)
-            
-            # Save to HDF5
-            start = time.time()
-            all_features_df.to_hdf(os.path.join(save_location, slides_name + "_handcrafted_feature.h5"), key='hand_crafted_feature', mode='w')
-            print('HDF5 save time:', time.time() - start)
 
 
 #Plot normed images

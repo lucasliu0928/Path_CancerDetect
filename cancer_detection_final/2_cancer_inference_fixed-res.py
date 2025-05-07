@@ -28,7 +28,7 @@ parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the 
 parser.add_argument('--mag_target_prob', default='2.5', type=float, help='magnification for cancer detection: e.g., 2.5x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 
 if __name__ == '__main__':
     
@@ -73,9 +73,7 @@ if __name__ == '__main__':
     #Get IDs that are in FT train or already processed to exclude 
     fine_tune_ids_df = pd.read_csv(proj_dir + 'intermediate_data/0_cd_finetune/cancer_detection_training/all_tumor_fraction_info.csv')
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id'])
-    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5',
-                                    'NEP-081PS2-1_HE_MH_03282024',
-                                    'NEP-123PS1-1_HE_MH06032024'] #The latter one is TCGA issue file
+    toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
     
     #All available IDs
     opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx) if x != '.DS_Store'] #353
@@ -98,12 +96,13 @@ if __name__ == '__main__':
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
-
+        
     ############################################################################################################
     #START
     ############################################################################################################
     ct = 0
     for cur_id in selected_ids:
+        
         if (ct % 50 == 0): print(ct)
         ct += 1
     
@@ -122,7 +121,10 @@ if __name__ == '__main__':
             rad_tissue = 2
         elif 'NEP' in cur_id:
             _file = wsi_location_nep + slides_name + ".tif"
-            rad_tissue = 5
+            if cur_id == 'NEP-081PS2-1_HE_MH_03282024' or cur_id == 'NEP-123PS1-1_HE_MH06032024':
+                rad_tissue = 2
+            else:
+                rad_tissue = 5
         else:
             slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
             _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
@@ -155,7 +157,11 @@ if __name__ == '__main__':
             print(tile_info_df.shape)
             
             #Run
+            #TODO: might need to do stain norm
             if 'TMA' in cur_id:
                 cancer_inference_tma(_file, learn, tile_info_df, save_image_size, pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name = cur_id)
             else:
                 cancer_inference_wsi(_file, learn, tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, save_name = slides_name)
+                
+                
+
