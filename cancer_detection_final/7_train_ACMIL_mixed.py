@@ -39,7 +39,7 @@ import wandb
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Train")
-parser.add_argument('--s_fold', default=0, type=int, help='select fold')
+parser.add_argument('--s_fold', default=3, type=int, help='select fold')
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
@@ -49,11 +49,11 @@ parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutatio
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'TCGA_OPX', type=str, help='TCGA_PRAD or OPX or TCGA_OPX')
-parser.add_argument('--external_cohort', default= 'TCGA_PRAD', type=str, help='TCGA_PRAD or OPX')
+parser.add_argument('--external_cohort', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--f_alpha', default= 0.8, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 9, type=float, help='focal gamma')
 parser.add_argument('--hr_v', default= "2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
-parser.add_argument('--out_folder', default= 'pred_out_042325', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_050625', type=str, help='out folder name')
 
 ############################################################################################################
 #     Model Para
@@ -166,13 +166,15 @@ if __name__ == '__main__':
     data_ol0_opx   = load_model_ready_data(data_path, "OPX", args.test_overlap, args.fe_method, args.tumor_frac)
     data_ol100_tcga = load_model_ready_data(data_path, "TCGA_PRAD", args.train_overlap, args.fe_method, args.tumor_frac)
     data_ol0_tcga   = load_model_ready_data(data_path, "TCGA_PRAD", args.test_overlap, args.fe_method, args.tumor_frac)
-    
+    data_ol0_nep   = load_model_ready_data(data_path, "Neptune", args.test_overlap, args.fe_method, args.tumor_frac)
+
     
     #Clean (updated label and remove reduant info)
     data_ol100_opx, _ = update_label(data_ol100_opx, selected_label_index)
     data_ol0_opx, _ = update_label(data_ol0_opx, selected_label_index)
     data_ol100_tcga, _ = update_label(data_ol100_tcga, selected_label_index)
     data_ol0_tcga, _ = update_label(data_ol0_tcga, selected_label_index)
+    data_ol0_nep, nep_ids = update_label(data_ol0_nep, selected_label_index)
 
     #Get Train, test, val data
     train_test_val_id_df1 = pd.read_csv(os.path.join(train_val_test_id_path1, "train_test_split.csv"))
@@ -197,6 +199,7 @@ if __name__ == '__main__':
     train_data = [item[:-3] for item in train_data]
     test_data = [item[:-3] for item in test_data]   
     val_data = [item[:-3] for item in val_data]
+    ext_data = [item[:-3] for item in data_ol0_nep]
 
 
 
@@ -236,6 +239,8 @@ if __name__ == '__main__':
             train_loader = DataLoader(dataset=train_data,batch_size=args.BATCH_SIZE, shuffle=False)
             test_loader  = DataLoader(dataset=test_data, batch_size=args.BATCH_SIZE, shuffle=False)
             val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)            
+            ext_loader   = DataLoader(dataset=ext_data,  batch_size=args.BATCH_SIZE, shuffle=False)            
+
             
             ####################################################
             # define network
@@ -363,3 +368,60 @@ if __name__ == '__main__':
                 cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
                 plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
                 
+                
+                
+            ###################################################
+            #           external validation 
+            ###################################################   
+            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, ext_loader, device, conf, 'EXT')
+            
+            # from sklearn.linear_model import LogisticRegression
+            # import numpy as np
+        
+            # # Step 1: Fit Platt scaling (logistic regression) on validation set
+            # platt_model = LogisticRegression()
+            # platt_model.fit(np.array(y_predprob_task_test[i]).reshape(-1, 1), np.array(y_true_task_test[i]))
+            # calibrated_probs = platt_model.predict_proba(np.array(y_predprob_task_test[i]).reshape(-1, 1))[:, 1]
+        
+            
+            pred_df_list = []
+            perf_df_list = []
+            for i in range(conf.n_task):
+                #Calibration
+                prob_calibrated = calibrate_probs_isotonic(y_true_task_val[i], y_predprob_task_val[i], y_predprob_task_test[i])
+                pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], nep_ids, SELECTED_LABEL[i], THRES = np.quantile(y_predprob_task_test[i],0.5))
+                pred_df_list.append(pred_df)
+                perf_df_list.append(perf_df)
+            
+            all_perd_df = pd.concat(pred_df_list)
+            all_perf_df = pd.concat(perf_df_list)
+            print(all_perf_df)
+            
+            all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_EXT_pred_df.csv",index = False)
+            all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_EXT_perf.csv",index = True)
+            print(round(all_perf_df['AUC'].mean(),2))
+        
+            #bootstrap perforance
+            ci_list = []
+            for i in range(conf.n_task):
+                print(i)
+                cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
+                cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
+                ci_list.append(cur_ci_df)
+            ci_final_df = pd.concat(ci_list)
+            print(ci_final_df)
+            ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_EXT_perf_bootstrap.csv",index = True)
+            
+            
+        
+        
+            #plot boxplot of pred prob by mutation class
+            boxplot_predprob_by_mutationclass(all_perd_df, outdir44)
+        
+            
+            #plot roc curve by mutation class
+            for i in range(conf.n_task):
+                cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
+            

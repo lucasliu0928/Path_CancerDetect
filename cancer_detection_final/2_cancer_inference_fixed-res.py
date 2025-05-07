@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 #Run: 
 #source ~/.bashrc
 #conda activate paimg9
-#python3 -u 2_cancer_inference_fixed-res.py  --cohort_name Neptune --pixel_overlap 0 
+#python3 -u 2_cancer_inference_fixed-res.py  --cohort_name Neptune --pixel_overlap 100 
 
 ############################################################################################################
 #Parser

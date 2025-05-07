@@ -356,8 +356,8 @@ elif args.cohort_name == "Neptune":
                                    'HR.DDR..BRCA1..BRCA2..ATM..CHEK2..PALB2..BAP1..BARD1..RAD51C..RAD51D..FANCA..FANCD2..MRE11A..ATR..NBN..FANCM..FANCG.':
                                        'HR/DDR (BRCA1, BRCA2, ATM, CHEK2, PALB2, BAP1, BARD1, RAD51C, RAD51D, FANCA, FANCD2, MRE11A, ATR, NBN, FANCM, FANCG)'}, inplace = True)
     label_df_all['Anatomic site'] = ''
+    label_df_all['SAMPLE_ID'] = label_df_all['SAMPLE_ID'].str.replace('.tif', '', regex=False)
     ids_high_quality = list(label_df_all['SAMPLE_ID'].unique())  #209
-    ids_high_quality = [f[:-4] if f.lower().endswith('.tif') else f for f in ids_high_quality]
     selected_ids = ids_high_quality #209
 
     #Exclude IDs has no cancer detected
@@ -383,9 +383,9 @@ elif args.cohort_name == "Neptune":
     ################################################
     #Preprocess label, site info and tile info
     ################################################
-    label_df1 = preprocess_mutation_data(label_df_all, select_labels, hr_gene_list = selected_hr_genes1, id_col = 'OPX_Number')
+    label_df1 = preprocess_mutation_data(label_df_all, select_labels, hr_gene_list = selected_hr_genes1, id_col = 'SAMPLE_ID')
     label_df1 = label_df1.rename(columns = {'HR': 'HR1'}).copy()
-    label_df2 = preprocess_mutation_data(label_df_all, select_labels, hr_gene_list = selected_hr_genes2, id_col = 'OPX_Number')
+    label_df2 = preprocess_mutation_data(label_df_all, select_labels, hr_gene_list = selected_hr_genes2, id_col = 'SAMPLE_ID')
     label_df2 = label_df2.rename(columns = {'HR': 'HR2'}).copy()
     label_df = label_df1.merge(label_df2, on = ['PATIENT_ID', 'SAMPLE_ID', 
                                      'SITE_LOCAL', 'AR', 
@@ -427,6 +427,6 @@ all_tile_info_df.to_csv(os.path.join(out_location, "all_tile_info.csv"), index =
 #Jsut check tumor tile numbers:
 #OPX    555533 for overlap0,   1389408 for overlap100
 #TCGA  1307688 for overlap0,   3335532 for overlap100
-#Neptune    18328 for overlap0
+#TMA    18328 for overlap0
 #Neptune    167026 for overlap0
 print(all_tile_info_df[all_tile_info_df['TUMOR_PIXEL_PERC']>=0.9].shape)

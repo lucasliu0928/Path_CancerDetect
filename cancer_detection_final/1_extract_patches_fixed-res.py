@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 #RUN
 #source ~/.bashrc
 #conda activate paimg9
-#python3 -u 1_extract_patches_fixed-res.py  --cohort_name Neptune --pixel_overlap 0 
+#python3 -u 1_extract_patches_fixed-res.py  --cohort_name Neptune --pixel_overlap 100
 ############################################################################################################
 #Parser
 ############################################################################################################
