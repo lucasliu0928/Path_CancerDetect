@@ -10,7 +10,7 @@ import shutil
 import os
 
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-data_folder = proj_dir + '/intermediate_data/4_tile_feature/Neptune/IMSIZE250_OL100/'
+data_folder = proj_dir + '/intermediate_data/2_cancer_detection/Neptune/IMSIZE250_OL100/'
 
 folders_to_remove = ['NEP-053PS1-1_HE_MH_03252024',
  'NEP-054PS1_HE_MH_03252024',

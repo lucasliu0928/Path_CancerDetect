@@ -45,7 +45,7 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='HR', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'TCGA_OPX', type=str, help='TCGA_PRAD or OPX or TCGA_OPX')
@@ -87,6 +87,10 @@ if __name__ == '__main__':
             SELECTED_LABEL = ["AR","HR" + args.hr_v,"PTEN","RB1","TP53","TMB","MSI_POS"]
         elif args.train_cohort == 'TCGA_PRAD' or args.train_cohort == 'TCGA_OPX':
             SELECTED_LABEL = ["AR","HR" + args.hr_v,"PTEN","RB1","TP53","MSI_POS"]   #without TMB
+    elif args.mutation == 'HR_MSI':
+        SELECTED_LABEL = ["HR" + args.hr_v,"MSI_POS"]   
+    elif args.mutation == 'HR':
+        SELECTED_LABEL = ["HR" + args.hr_v]    
     else:
         SELECTED_LABEL = [args.mutation]
         
@@ -217,8 +221,8 @@ if __name__ == '__main__':
         alpha_list = [0.2,0.3,0.4,0.5,0.6,0.7,0.8]
         # gamma_list = [args.f_gamma] 
         # alpha_list = [args.f_alpha]
-        # gamma_list = [6]
-        # alpha_list = [0.2]
+        gamma_list = [0]
+        alpha_list = [0.6]
 
     for focal_gamma in gamma_list:
         for focal_alpha in alpha_list:
