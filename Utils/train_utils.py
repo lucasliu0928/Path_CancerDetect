@@ -43,6 +43,34 @@ def get_feature_idexes(method, include_tumor_fraction = True):
         selected_feature = selected_feature + ['TUMOR_PIXEL_PERC'] 
         
     return selected_feature
+
+def has_seven_csv_files(folder_path):
+    # List all files ending with .csv
+    csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv') and os.path.isfile(os.path.join(folder_path, f))]
+    return len(csv_files) == 6
+
+def get_selected_labels(mutation_name, hr_type, train_cohort):
+    
+    all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI_POS"]    
+    
+    if mutation_name == 'MT':
+        if 'TCGA' in train_cohort:
+            selected = ["AR" ,hr_type, "PTEN","RB1","TP53","MSI_POS"]   #without TMB
+        else:
+            selected = ["AR", hr_type, "PTEN","RB1","TP53","TMB","MSI_POS"]
+            
+    elif mutation_name == 'HR_MSI':
+        selected = [hr_type, "MSI_POS"]   
+  
+    else:
+        selected = [mutation_name]
+    
+    #get label index in all labels
+    selected_index = []
+    for l in selected:
+        selected_index.append(all_labels.index(l))
+    
+    return selected, selected_index
     
 class pull_tiles(Dataset):
     def __init__(self, tile_info, deepzoom_tiles, tile_levels):

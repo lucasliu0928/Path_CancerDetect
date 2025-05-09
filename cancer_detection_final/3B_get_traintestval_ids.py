@@ -67,7 +67,7 @@ parser.add_argument('--save_image_size', default=250, type=int, help='the size o
 parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: OPX or TCGA_PRAD')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--tile_info_path', default= '3A_otherinfo', type=str, help='tile info folder name')
 parser.add_argument('--out_folder', default= '3B_Train_TEST_IDS', type=str, help='out folder name')
 
@@ -109,6 +109,8 @@ tile_info_df_pt = tile_info_df.drop_duplicates(subset = ['PATIENT_ID']).copy() #
 ################################################
 if args.cohort_name == 'OPX':
     mutations_to_balance = ['AR','HR2' , 'RB1' ,'MSI_POS','TMB_HIGHorINTERMEDITATE']
+elif args.cohort_name == 'Neptune':
+    mutations_to_balance = ['AR', 'RB1' ,'MSI_POS','TMB_HIGHorINTERMEDITATE']
 else:
     mutations_to_balance = ['AR', 'HR2' ,'MSI_POS']
 
