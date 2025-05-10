@@ -17,6 +17,7 @@ warnings.filterwarnings("ignore")
 #RUN
 #source ~/.bashrc
 #conda activate paimg9
+#source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/code_s/cancer_detection_final/.acmil3/bin/activate
 #python3 -u 1_extract_patches_fixed-res.py  --cohort_name Neptune --pixel_overlap 100
 ############################################################################################################
 #Parser
@@ -90,45 +91,11 @@ if __name__ == '__main__':
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
-
-    
-    selected_ids = ['NEP-053PS1-1_HE_MH_04142025',
-                    'NEP-054PS1-1_HE_MH_04142025',
-                     'NEP-108PS2-1_HE_MH_04142025',
-                     'NEP-167PS1-1_HE_MH_04142025',
-                     'NEP-169PS1-1_HE_MH_04142025',
-                     'NEP-171PS1-1_HE_MH_04142025',
-                     'NEP-172PS1-1_HE_MH_04142025',
-                     'NEP-173PS5-1_HE_MH_04142025',
-                     'NEP-175PS1-1_HE_MH_04142025',
-                     'NEP-177PS1-1_HE_MH_04142025',
-                     'NEP-178PS1-1_HE_MH_04142025',
-                     'NEP-189PS1-1_HE_MH_04142025',
-                     'NEP-190PS2-1_HE_MH_04142025',
-                     'NEP-194PS1-1_HE_MH_04142025',
-                     'NEP-197PS1-1_HE_MH_04142025',
-                     'NEP-235PS1-1_HE_MH_04142025',
-                     'NEP-244PS2-1_HE_MH_04142025',
-                     'NEP-284PS1-1_HE_MH_04142025',
-                     'NEP-286PS1-1_HE_MH_04092025',
-                     'NEP-310PS1-1_HE_MH_04092025',
-                     'NEP-315PS1-1_HE_MH_04092025',
-                     'NEP-316PS1-1_HE_MH_04092025',
-                     'NEP-316PS2-1_HE_MH_04092025',
-                     'NEP-317PS1-1_HE_MH_04142025',
-                     'NEP-325PS1-1_HE_MH_04142025',
-                     'NEP-328PS1-1_HE_MH_04082025',
-                     'NEP-332PS1-1_HE_MH_04082025',
-                     'NEP-333PS1-1_HE_MH_04082025',
-                     'NEP-336PS1-1_HE_MH_04142025',
-                     'NEP-338PS2-1_HE_MH_04082025']
-    other_files = ['NEP-081PS2-1_HE_MH_03282024','NEP-123PS1-1_HE_MH06032024']
-    selected_ids = selected_ids + other_files
     
     ############################################################################################################
     #Start 
     ############################################################################################################
-    for cur_id in selected_ids:    
+    for cur_id in selected_ids:            
         save_location = out_location + "/" + cur_id + "/" 
         create_dir_if_not_exists(save_location)
     
