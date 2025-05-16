@@ -33,6 +33,7 @@ import warnings
 import datetime
 import random
 import torch
+from histomicstk import preprocessing,features
 from PIL import ImageCms, Image
 warnings.filterwarnings("ignore")
 
@@ -575,7 +576,7 @@ def generating_tiles_tma(pt_id, _file, save_image_size, pixel_overlap, rad_tissu
 
 
 #Grab tiles and plot
-def plot_tiles_with_topK_cancerprob(tile_info_data, tiles, tile_lvls, mag_extract, save_image_size, save_location, k = 5):
+def plot_tiles_with_topK_cancerprob(tile_info_data, tiles, tile_lvls, mag_extract, save_image_size, save_location, stain_norm_target_img = None, k = 5):
     
     tile_info_data_sorted= tile_info_data.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
     for i in range(0,k): #top5
@@ -589,6 +590,10 @@ def plot_tiles_with_topK_cancerprob(tile_info_data, tiles, tile_lvls, mag_extrac
         tile_pull_ex = tile_pull_ex.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
         tile_pull_ex = convert_img(tile_pull_ex)
         
+        if stain_norm_target_img is not None:
+            tile_pull_ex = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull_ex), im_target=stain_norm_target_img) #a color-adjusted version of your input tile 
+            tile_pull_ex = Image.fromarray(tile_pull_ex)
+                
         #Save tile
         cur_tf = round(cur_row['TUMOR_PIXEL_PERC'],2)
         cur_mag = cur_row['MAG_EXTRACT']
@@ -652,7 +657,21 @@ def check_tile_info_match(tile_info_data, mag_extract, save_image_size, pixel_ov
 
 
 
-def cancer_inference_wsi(_file, model, tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, save_name):
+def cancer_inference_wsi(_file, 
+                         model, 
+                         tile_info_df, 
+                         mag_extract, 
+                         save_image_size, 
+                         pixel_overlap, 
+                         limit_bounds, 
+                         mag_target_prob, 
+                         mag_target_tiss, 
+                         rad_tissue, 
+                         smooth, 
+                         bi_thres, 
+                         save_location, 
+                         save_name,
+                         stain_norm_target_img = None):
     
     #check to see if info matches, and if can proceed
     can_proceed = check_tile_info_match(tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds) 
@@ -685,6 +704,11 @@ def cancer_inference_wsi(_file, model, tile_info_df, mag_extract, save_image_siz
             lvl_in_deepzoom = tile_lvls.index(mag_extract)
             tile_pull = tiles.get_tile(lvl_in_deepzoom, (x, y))
             tile_pull = tile_pull.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
+            
+            if stain_norm_target_img is not None:
+                tile_pull = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=stain_norm_target_img) #a color-adjusted version of your input tile 
+                tile_pull = Image.fromarray(tile_pull)
+                
             tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords(tiles, lvl_in_deepzoom, x, y) #get tile coords
             map_xstart, map_xend, map_ystart, map_yend = get_map_startend(tile_starts,tile_ends,lvl_resize) #Get current tile position in map
             tile_info_df.loc[index,'pred_map_location'] = str(tuple([map_xstart, map_xend, map_ystart, map_yend]))
@@ -750,7 +774,7 @@ def cancer_inference_wsi(_file, model, tile_info_df, mag_extract, save_image_siz
 
         #Grab tiles and plot
         print('Plot top predicted  tiles...')
-        plot_tiles_with_topK_cancerprob(tile_info_df, tiles, tile_lvls, mag_extract, save_image_size, save_location, k = 5)
+        plot_tiles_with_topK_cancerprob(tile_info_df, tiles, tile_lvls, mag_extract, save_image_size, save_location, stain_norm_target_img, k = 5)
 
 
 

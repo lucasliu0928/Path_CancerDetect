@@ -10,6 +10,7 @@ from fastai.vision.all import load_learner
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
 from Utils import cancer_inference_wsi , cancer_inference_tma
+from skimage import io
 warnings.filterwarnings("ignore")
 
 
@@ -64,7 +65,7 @@ if __name__ == '__main__':
     model_path = os.path.join(proj_dir,'models','cancer_detection_models', 'mets')
     
     
-    out_location = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', cohort_name, folder_name)
+    out_location = os.path.join(proj_dir,'intermediate_data','2_cancer_detection_stainnormed', cohort_name, folder_name)
     create_dir_if_not_exists(out_location)
 
     ############################################################################################################
@@ -96,13 +97,19 @@ if __name__ == '__main__':
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
-        
+    
+    
+    ############################################################################################################
+    #Load normalization norm target image
+    ############################################################################################################
+    tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
+    norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
+            
     ############################################################################################################
     #START
     ############################################################################################################
     ct = 0
     for cur_id in selected_ids:
-        
         if (ct % 50 == 0): print(ct)
         ct += 1
     
@@ -156,12 +163,18 @@ if __name__ == '__main__':
                 tile_info_df = pd.read_csv(os.path.join(feature_location, cur_id, cur_id + "_tiles.csv"))
             print(tile_info_df.shape)
             
+
             #Run
-            #TODO: might need to do stain norm
             if 'TMA' in cur_id:
                 cancer_inference_tma(_file, learn, tile_info_df, save_image_size, pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name = cur_id)
             else:
-                cancer_inference_wsi(_file, learn, tile_info_df, mag_extract, save_image_size, pixel_overlap, limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, save_name = slides_name)
+                cancer_inference_wsi(_file, learn, tile_info_df, mag_extract, save_image_size, pixel_overlap, 
+                                     limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, 
+                                     save_name = slides_name,
+                                     stain_norm_target_img = norm_target_img)
                 
-                
+
+
+
+
 
