@@ -14,6 +14,7 @@ Predict Gene Mutation from H&E WSI Image for Prostate Cancer
    - torch == 2.4.1+cu121
    - torchvision == 0.19.1+cu121
    - openslide == 1.3.1
+   - histomicstk == 1.3.14 (python -m pip install histomicstk --find-links https://girder.github.io/large_image_wheels)
 * Python 3.11.11 [GCC 13.3.0]
 
 ### Installing
