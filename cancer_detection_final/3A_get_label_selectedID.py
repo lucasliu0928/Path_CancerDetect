@@ -20,7 +20,7 @@ import argparse
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -409,15 +409,15 @@ elif args.cohort_name == "Neptune":
     #Print stats
     tile_counts = all_tile_info_df['SAMPLE_ID'].value_counts()
     print("Total Nep IDs in tile path: ", len(set(all_tile_info_df['SAMPLE_ID']))) #202
-    print("Max # tile/per pt:", tile_counts.max()) #35004, 97269
-    print("Min # tile/per pt:", tile_counts.min()) #54, 148
-    print("Median # tile/per pt:", tile_counts.median()) #1401, 3919
+    print("Max # tile/per pt:", tile_counts.max()) #34689, 96406
+    print("Min # tile/per pt:", tile_counts.min()) #98, 285
+    print("Median # tile/per pt:", tile_counts.median()) #1809, 5132
     
 
 
 #Output
 #This file contains all tiles without cancer fraction exclusion and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
-#OPX:   4843073 for overlap0, 1743458 #for overlap100,   
+#OPX:   1743458 for overlap0, 4841982 #for overlap100,   
 #TCGA:  5964499 for overlap0, 16570195 #for overlap100,
 #TMA: 80630 for oeverlap0
 #Neptune: 653182 for oeverlap0, 1809448 for overlap100
@@ -425,8 +425,8 @@ all_tile_info_df.to_csv(os.path.join(out_location, "all_tile_info.csv"), index =
 
 
 #Jsut check tumor tile numbers:
-#OPX    555533 for overlap0,   1389408 for overlap100
+#OPX    524370 for overlap0,   1332241 for overlap100
 #TCGA  1307688 for overlap0,   3335532 for overlap100
 #TMA    18328 for overlap0
-#Neptune    167026 for overlap0, 399753 for oeverlap100
+#Neptune    150806 for overlap0, 399753 for oeverlap100
 print(all_tile_info_df[all_tile_info_df['TUMOR_PIXEL_PERC']>=0.9].shape)

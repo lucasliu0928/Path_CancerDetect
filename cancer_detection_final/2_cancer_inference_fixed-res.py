@@ -30,6 +30,8 @@ parser.add_argument('--mag_target_prob', default='2.5', type=float, help='magnif
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
 parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--select_idx_start', type=int)
+parser.add_argument('--select_idx_end', type=int)
 
 if __name__ == '__main__':
     
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     #START
     ############################################################################################################
     ct = 0
-    for cur_id in selected_ids:
+    for cur_id in selected_ids[args.select_idx_start:args.select_idx_end]:
         if (ct % 50 == 0): print(ct)
         ct += 1
     
@@ -172,9 +174,3 @@ if __name__ == '__main__':
                                      limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, 
                                      save_name = slides_name,
                                      stain_norm_target_img = norm_target_img)
-                
-
-
-
-
-

@@ -37,7 +37,6 @@ from histomicstk import preprocessing,features
 from PIL import ImageCms, Image
 warnings.filterwarnings("ignore")
 
-
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -706,8 +705,12 @@ def cancer_inference_wsi(_file,
             tile_pull = tile_pull.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
             
             if stain_norm_target_img is not None:
-                tile_pull = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=stain_norm_target_img) #a color-adjusted version of your input tile 
-                tile_pull = Image.fromarray(tile_pull)
+                try:
+                    tile_pull = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=stain_norm_target_img) #a color-adjusted version of your input tile 
+                    tile_pull = Image.fromarray(tile_pull)
+                except np.linalg.LinAlgError:
+                    print("Deconvolution failed on a tile – skipping") #this is due to some tiles are not actuallly not tissue, all black (Neptune), just skip the norm
+                    pass
                 
             tile_starts, tile_ends, save_coords, tile_coords = extract_tile_start_end_coords(tiles, lvl_in_deepzoom, x, y) #get tile coords
             map_xstart, map_xend, map_ystart, map_yend = get_map_startend(tile_starts,tile_ends,lvl_resize) #Get current tile position in map

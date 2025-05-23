@@ -6,6 +6,9 @@ import ResNet as ResNet
 from torch.utils.data import Dataset
 from torchvision import transforms
 import PIL
+from histomicstk import preprocessing
+from PIL import Image
+import numpy as np
 from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords_tma
     
 class PretrainedModelLoader:
@@ -68,7 +71,7 @@ class PretrainedModelLoader:
 
 
 class TileEmbeddingExtractor(Dataset):
-    def __init__(self, tile_info, image, pretrain_model_name, pretrain_model, device, image_type = 'WSI'):
+    def __init__(self, tile_info, image, pretrain_model_name, pretrain_model, device, stain_norm_target_img = None, image_type = 'WSI'):
         r'''
         Given a dataframe contains tiles info
         Return grabbed tiles, and embeddings
@@ -83,6 +86,7 @@ class TileEmbeddingExtractor(Dataset):
         self.pretrain_model = pretrain_model.to(self.device)
         self.transform = self._transform_functions(pretrain_model_name)
         self.image_type = image_type
+        self.stain_norm_target_img = stain_norm_target_img
 
 
     def __getitem__(self, idx):
@@ -111,6 +115,14 @@ class TileEmbeddingExtractor(Dataset):
         #resize 
         tile_pull = tile_pull.resize(size=(self.save_image_size, self.save_image_size),resample=PIL.Image.LANCZOS) 
         
+        if self.stain_norm_target_img is not None:
+            try:
+                tile_pull = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=self.stain_norm_target_img) #a color-adjusted version of your input tile 
+                tile_pull = Image.fromarray(tile_pull)
+            except np.linalg.LinAlgError:
+                print("Deconvolution failed on a tile – skipping") #this is due to some tiles are not actuallly not tissue, all black (Neptune), just skip the norm
+                pass
+        
         return tile_pull
 
     def _pull_tile_tma(self, x, y):
@@ -119,6 +131,14 @@ class TileEmbeddingExtractor(Dataset):
         tile_pull = self.image.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1])) 
         tile_pull = tile_pull.resize(size=(self.save_image_size, self.save_image_size),resample=PIL.Image.LANCZOS) #resize
         tile_pull = tile_pull.convert('RGB')
+        
+        if self.stain_norm_target_img is not None:
+            try:
+                tile_pull = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=self.stain_norm_target_img) #a color-adjusted version of your input tile 
+                tile_pull = Image.fromarray(tile_pull)
+            except np.linalg.LinAlgError:
+                print("Deconvolution failed on a tile – skipping") #this is due to some tiles are not actuallly not tissue, all black (Neptune), just skip the norm
+                pass
 
         return tile_pull
         

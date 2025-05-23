@@ -1066,6 +1066,21 @@ def update_label(indata, select_label_index):
     return indata_final,ids
 
 
+def update_to_agg_feature(indata):
+            
+    indata_final = [(x[0].mean(dim = 0).unsqueeze(0), x[1], x[2], x[3],x[4],x[5]) for x in indata]
+    
+    return indata_final
+        
+
+def concate_agg_feature(indata, cohort_name):
+            
+    indata_feature = [(x[0].mean(dim = 0).unsqueeze(0)) for x in indata]
+    indata_final = np.array(torch.concat(indata_feature))
+    indata_y = np.array([cohort_name] * indata_final.shape[0])
+    
+    return indata_final, indata_y
+
 class ModelReadyData_clustering(Dataset):
     def __init__(self,
                  matrix_list,

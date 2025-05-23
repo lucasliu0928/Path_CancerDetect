@@ -12,6 +12,7 @@ import warnings
 import time
 import PIL
 import argparse
+from skimage import io
 sys.path.insert(0, '../Utils/')
 from Utils import create_dir_if_not_exists
 from FeatureExtractor import PretrainedModelLoader, TileEmbeddingExtractor
@@ -19,21 +20,21 @@ warnings.filterwarnings("ignore")
 
 #source ~/.bashrc
 #conda activate paimg9
-#Run: python3 -u 4_get_feature.py --select_idx_start 0 --select_idx_end 351 --cuda_device 'cuda' --pixel_overlap 0 --save_image_size 250 --cohort_name Neptune --feature_extraction_method uni2 
+#Run: python3 -u 4_get_feature.py --select_idx_start 60 --select_idx_end 100 --cuda_device 'cuda:1' --pixel_overlap 100 --save_image_size 250 --cohort_name OPX_stnormed --feature_extraction_method uni2
 
 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='OPX_stnormed', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, Neptune_stnormed,  OPX_stnormed')
 parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
-parser.add_argument('--select_idx_start', type=int)
-parser.add_argument('--select_idx_end', type=int)
+parser.add_argument('--select_idx_start', type=int, default = 0)
+parser.add_argument('--select_idx_end', type=int, default = 1)
 
 if __name__ == '__main__':
     
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
     
-    if args.cohort_name == "OPX":
+    if args.cohort_name == "OPX" or args.cohort_name == "OPX_stnormed":
         all_ids = opx_ids 
     elif args.cohort_name == "ccola":
         all_ids = ccola_ids
@@ -89,7 +90,7 @@ if __name__ == '__main__':
         all_ids = tan_ids
     elif args.cohort_name == 'TCGA_PRAD':
         all_ids = tcga_ids
-    elif args.cohort_name == "Neptune":
+    elif args.cohort_name == "Neptune" or args.cohort_name == "Neptune_stnormed":
         all_ids = nep_ids
         
     #Exclude ids in ft_train or processed
@@ -97,7 +98,12 @@ if __name__ == '__main__':
     selected_ids.sort()
     print(len(selected_ids))
 
-
+    ############################################################################################################
+    #Load normalization norm target image
+    ############################################################################################################
+    tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
+    norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
+    
     ############################################################################################################
     # Load Pretrained representation model
     ############################################################################################################
@@ -117,7 +123,7 @@ if __name__ == '__main__':
         
         if os.path.exists(save_name) == False: #check if processed
         #if os.path.exists(save_name) == True: #updates
-            if args.cohort_name == "OPX":
+            if args.cohort_name == "OPX" or args.cohort_name == "OPX_stnormed":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
             elif args.cohort_name == "ccola":
@@ -129,7 +135,7 @@ if __name__ == '__main__':
             elif args.cohort_name == 'TCGA_PRAD':
                 slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
                 _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
-            elif args.cohort_name == 'Neptune':
+            elif args.cohort_name == 'Neptune' or args.cohort_name == "Neptune_stnormed":
                 slides_name = cur_id
                 _file = wsi_location_nep + slides_name + ".tif"
     
@@ -139,13 +145,17 @@ if __name__ == '__main__':
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
-            if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD' or args.cohort_name == 'Neptune':
+            if args.cohort_name == "OPX" or args.cohort_name == "OPX_stnormed" or args.cohort_name == 'TCGA_PRAD' or args.cohort_name == 'Neptune' or args.cohort_name == "Neptune_stnormed":
                 oslide = openslide.OpenSlide(_file) 
-                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, image_type = 'WSI')             
+                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, 
+                                                         stain_norm_target_img = norm_target_img,
+                                                         image_type = 'WSI')             
 
             elif args.cohort_name == "TAN_TMA_Cores":      
                 tma = PIL.Image.open(_file)
-                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, args.feature_extraction_method, model, device, image_type = 'TMA')
+                embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, args.feature_extraction_method, model, device,
+                                                         stain_norm_target_img = norm_target_img,
+                                                         image_type = 'TMA')
     
             #Get feature
             start_time = time.time()

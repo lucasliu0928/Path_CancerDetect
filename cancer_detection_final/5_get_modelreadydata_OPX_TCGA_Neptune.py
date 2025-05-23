@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 
 
 
-#Run: python3 -u 5_get_modelreadydata_OPX_TCGA.py --pixel_overlap 100 --cohort_name TCGA_PRAD
+#Run: python3 -u 5_get_modelreadydata_OPX_TCGA_Neptune.py --pixel_overlap 100 --cohort_name OPX --TUMOR_FRAC_THRES 0.8
 
 ############################################################################################################
 #Parser
@@ -24,8 +24,8 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser("Model ready data")
 parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
+parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=float, help='tile tumor fraction threshold')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 

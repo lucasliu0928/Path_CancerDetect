@@ -22,9 +22,6 @@ from train_utils import plot_cluster_image, ModelReadyData_clustering
 
 
 
-    
-    
-#Run: python3 -u 7_train_ACMIL.py --train_cohort OPX --mutation MT 
 
 ############################################################################################################
 #Parser
