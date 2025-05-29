@@ -19,6 +19,16 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
+
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    if value.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif value.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+
+
 def load_model_ready_data(data_path, cohort, pixel_overlap, fe_method, tumor_frac):
     
     feature_path =  os.path.join(data_path, 

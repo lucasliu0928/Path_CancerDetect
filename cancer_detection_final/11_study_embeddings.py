@@ -15,7 +15,12 @@ from Utils import create_dir_if_not_exists
 from train_utils import get_feature_idexes, get_selected_labels, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import update_to_agg_feature, concate_agg_feature
 warnings.filterwarnings("ignore")
-
+import numpy as np
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.decomposition import PCA
+%matplotlib inline
 
 #FOR ACMIL
 current_dir = os.getcwd()
@@ -33,14 +38,13 @@ parser = argparse.ArgumentParser("Train")
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR_MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX or Neptune or TCGA_OPX')
-parser.add_argument('--external_cohort1', default= 'TCGA_PRAD', type=str, help='TCGA_PRAD or OPX or Neptune')
-parser.add_argument('--external_cohort2', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
+parser.add_argument('--train_cohort', default= 'z_nostnorm_OPX', type=str, help='TCGA_PRAD or OPX or Neptune or TCGA_OPX')
+parser.add_argument('--external_cohort1', default= 'z_nostnorm_TCGA_PRAD', type=str, help='TCGA_PRAD or OPX or Neptune')
+parser.add_argument('--external_cohort2', default= 'z_nostnorm_Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
-parser.add_argument('--out_folder', default= 'pred_out_050625', type=str, help='out folder name')
 
 
 if __name__ == '__main__':
@@ -54,9 +58,6 @@ if __name__ == '__main__':
     SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
     N_FEATURE = len(SELECTED_FEATURE)
     
-    #Select mutatation
-    #mutations = [ "MSI_POS","HR1", "HR2", "AR", "PTEN","RB1","TP53","TMB"]
-    args.mutation = "MT"
     
     #Label
     SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.hr_type, args.train_cohort)
@@ -110,60 +111,72 @@ if __name__ == '__main__':
     ################################################
     #PCA and TSNE
     ################################################
-    import numpy as np
-    from sklearn.manifold import TSNE
-    import matplotlib.pyplot as plt
-    from sklearn.datasets import load_iris
-    from sklearn.decomposition import PCA
-    #%matplotlib inline
-    
-    
     data_opx_ol100, opx_ol100_label = concate_agg_feature(data_opx_ol100, "OPX_OL100")
     data_opx_ol0, opx_ol0_label = concate_agg_feature(data_opx_ol0, "OPX_OL0")
     data_tcga_ol0, tcga_ol0_label = concate_agg_feature(data_tcga_ol0, "TCGA_OL0")
     data_nep_ol0, nep_ol0_label = concate_agg_feature(data_nep_ol0, "NEP_OL0")
     
-    all_X = np.concatenate((data_opx_ol100, data_opx_ol0, data_tcga_ol0, data_nep_ol0))
-    all_y = np.concatenate((opx_ol100_label, opx_ol0_label, tcga_ol0_label, nep_ol0_label))
+    all_X = np.concatenate((data_opx_ol0, data_tcga_ol0, data_nep_ol0))
+    all_y = np.concatenate((opx_ol0_label, tcga_ol0_label, nep_ol0_label))
 
+ 
 
-    # Reduce to 50 components first
-    pca = PCA(n_components=2, random_state=42)
-    X_pca = pca.fit_transform(all_X)
+    all_x = np.concatenate((embedding_opx, embedding_tcga, embedding_nep))
+    # # Reduce to 50 components first
+    # pca = PCA(n_components=1000, random_state=42)
+    # X_pca = pca.fit_transform(all_X)
         
     # Run t-SNE
-    tsne = TSNE(n_components=2, perplexity=40, random_state=42)
-    X_tsne = tsne.fit_transform(X_pca)
+    tsne = TSNE(n_components=2, perplexity=5, random_state=42)
+    X_tsne = tsne.fit_transform(all_X)
 
-    # print(np.isnan(X_pca).any())
-    # print(np.isinf(X_pca).any())  # Should be False
-    # print(X_pca.dtype)
-            
-    
+
     # Step 1: Define color map
     label_to_color = {
-        'NEP_OL0': 'red',
-        'OPX_OL0': 'blue',
-        'OPX_OL100': 'green',
-        'TCGA_OL0': 'purple'
+        'NEP_OL0': 'Orange',
+        'OPX_OL0': 'steelblue',
+        'TCGA_OL0': 'darkolivegreen'
     }
+    
+    
+    label_to_display = {
+    'NEP_OL0': 'NEP',
+    'OPX_OL0': 'OPX',
+    'TCGA_OL0': 'TCGA'
+    }
+
     
     # Step 2: Map labels to colors
     colors = [label_to_color[label] for label in all_y]
 
     # Step 3: Plot
     plt.figure(figsize=(8, 6))
-    scatter = plt.scatter(X_tsne[:, 0], X_tsne[:, 1], c=colors)
+    scatter = plt.scatter(
+        X_tsne[:, 0], X_tsne[:, 1],
+        c=colors,
+        alpha=1,         # Add transparency
+        s=60,              # Smaller size to reduce clutter
+        edgecolors='none'  # Remove borders
+    )
     
-    # Step 4: Custom legend
     from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor=clr, label=lbl) for lbl, clr in label_to_color.items()]
-    plt.legend(handles=legend_elements, title="Classes")
+    legend_elements = [
+        Patch(facecolor=label_to_color[label], label=label_to_display[label])
+        for label in label_to_color
+    ]
     
+    # Place legend just below the title
+    plt.legend(
+        handles=legend_elements,
+        title="Cohort",
+        loc='upper right',  # Inside top-left corner
+        frameon=True,      # Optional: show legend box
+        fontsize='small'   # Optional: adjust size
+    )
     # Final touches
-    plt.title("t-SNE Visualization")
+    plt.title("t-SNE Visualization for UNI2 Features")
     plt.xlabel("t-SNE 1")
     plt.ylabel("t-SNE 2")
     plt.grid(True)
-    plt.savefig("plot.png")
+    plt.tight_layout()
     plt.show()

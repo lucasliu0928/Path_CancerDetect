@@ -37,19 +37,19 @@ import argparse
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Performance")
-parser.add_argument('--s_fold', default=4, type=int, help='select fold')
+parser.add_argument('--s_fold', default=2, type=int, help='select fold')
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--train_cohort', default= 'TCGA_OPX', type=str, help='TCGA_PRAD or OPX')
-parser.add_argument('--external_cohort1', default= 'OPX', type=str, help='TCGA_PRAD or OPX or Neptune')
-parser.add_argument('--external_cohort2', default= 'TCGA_PRAD', type=str, help='TCGA_PRAD or OPX or Neptune')
-parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
+parser.add_argument('--external_cohort1', default= 'z_nostnorm_TCGA_PRAD', type=str, help='TCGA_PRAD or OPX or Neptune')
+parser.add_argument('--external_cohort2', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
+parser.add_argument('--train_overlap', default=0, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--mutation', default='HR_MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
-parser.add_argument('--perf_dir', default= 'pred_out_050625', type=str, help='out folder name')
+parser.add_argument('--perf_dir', default= 'pred_out_050625_stnormed', type=str, help='out folder name')
 
 
 if __name__ == '__main__':
@@ -63,19 +63,20 @@ if __name__ == '__main__':
     SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.hr_type, args.train_cohort)
     print(SELECTED_LABEL)
     print(selected_label_index)
-            
+    
+    args.GRL = True
         
     ##################
     ###### DIR  ######
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-    folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/"
+    folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/" 
     perf_path = os.path.join(proj_dir + "intermediate_data/" + args.perf_dir,
-                           'trainCohort_' + args.train_cohort,
+                           'trainCohort_' + args.train_cohort + 'GRL' + str(args.GRL),
                            args.learning_method,
                            folder_name1,
                            'FOLD' + str(args.s_fold),
-                           args.mutation + '_' + args.hr_type,
+                           args.mutation + 'HR_TYPE' + args.hr_type,
                            "perf")    
     perf_folders = os.listdir(perf_path)
     metric_cols = ['AUC', 'Recall', 'Specificity', 'ACC', 'Precision', 'PR_AUC', 'F1', 'F2', 'F3']
@@ -108,8 +109,7 @@ if __name__ == '__main__':
     tcga_perf_list = []
     nep_perf_list = []
     for f in perf_folders:
-        if f != 'GAMMA_6_ALPHA_0.2':
-            cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_TEST_perf.csv'))
+            cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_OPX_perf.csv'))
             mean_row = cur_perf[metric_cols].mean()
             mean_row['OUTCOME'] = 'MEAN'
             cur_perf = pd.concat([cur_perf, pd.DataFrame([mean_row])], ignore_index=True)
@@ -117,7 +117,7 @@ if __name__ == '__main__':
             cur_perf['FOLDER'] = f
             test_perf_list.append(cur_perf)
             
-            cur_perf2 = pd.read_csv(os.path.join(perf_path,f,'n_token3_' + args.external_cohort1 + '_perf.csv'))
+            cur_perf2 = pd.read_csv(os.path.join(perf_path,f,'n_token3_TCGA_perf.csv'))
             mean_row = cur_perf2[metric_cols].mean()
             mean_row['OUTCOME'] = 'MEAN'
             cur_perf2 = pd.concat([cur_perf2, pd.DataFrame([mean_row])], ignore_index=True)
@@ -125,7 +125,7 @@ if __name__ == '__main__':
             cur_perf2['FOLDER'] = f
             tcga_perf_list.append(cur_perf2)
             
-            cur_perf3 = pd.read_csv(os.path.join(perf_path,f,'n_token3_' + args.external_cohort2 + '_perf.csv'))
+            cur_perf3 = pd.read_csv(os.path.join(perf_path,f,'n_token3_EXT_perf.csv'))
             mean_row = cur_perf3[metric_cols].mean()
             mean_row['OUTCOME'] = 'MEAN'
             cur_perf3 = pd.concat([cur_perf3, pd.DataFrame([mean_row])], ignore_index=True)
@@ -143,17 +143,17 @@ if __name__ == '__main__':
     
     
     filtered = test_perf_df[
-        test_perf_df['OUTCOME'].isin(['HR2'])
+        test_perf_df['OUTCOME'].isin(['MSI_POS'])
     ].copy()
     print(filtered)
     
-    f = 'GAMMA_0_ALPHA_0.7'
-    cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_TEST_perf_bootstrap.csv'))
-    print(args.external_cohort1)
-    cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_' + args.external_cohort1 + '_perf_bootstrap.csv'))
-    print(args.external_cohort2)
-    cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_' + args.external_cohort2 + '_perf_bootstrap.csv'))
-
+    f = 'GAMMA_7_ALPHA_0.7'
+    cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_OPX_perf_bootstrap.csv'))
+    print(cur_perf)
+    cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_TCGA_perf_bootstrap.csv'))
+    print(cur_perf)
+    cur_perf = pd.read_csv(os.path.join(perf_path,f,'n_token3_EXT_perf_bootstrap.csv'))
+    print(cur_perf)
     # # Filter by OUTCOME and COHORT
     # filtered = perf_df[
     #     perf_df['OUTCOME'].isin(['MSI_POS', 'HR2'])

@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 
 #source ~/.bashrc
 #conda activate paimg9
-#Run: python3 -u 4_get_feature.py --select_idx_start 60 --select_idx_end 100 --cuda_device 'cuda:1' --pixel_overlap 100 --save_image_size 250 --cohort_name OPX_stnormed --feature_extraction_method uni2
+#Run: python3 -u 4_get_feature.py --select_idx_start 60 --select_idx_end 100 --cuda_device 'cuda:1' --pixel_overlap 100 --save_image_size 250 --cohort_name OPX --feature_extraction_method uni2
 
 
 ############################################################################################################
@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX_stnormed', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, Neptune_stnormed,  OPX_stnormed')
+parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
     
-    if args.cohort_name == "OPX" or args.cohort_name == "OPX_stnormed":
+    if args.cohort_name == "OPX":
         all_ids = opx_ids 
     elif args.cohort_name == "ccola":
         all_ids = ccola_ids
@@ -90,7 +90,7 @@ if __name__ == '__main__':
         all_ids = tan_ids
     elif args.cohort_name == 'TCGA_PRAD':
         all_ids = tcga_ids
-    elif args.cohort_name == "Neptune" or args.cohort_name == "Neptune_stnormed":
+    elif args.cohort_name == "Neptune":
         all_ids = nep_ids
         
     #Exclude ids in ft_train or processed
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         
         if os.path.exists(save_name) == False: #check if processed
         #if os.path.exists(save_name) == True: #updates
-            if args.cohort_name == "OPX" or args.cohort_name == "OPX_stnormed":
+            if args.cohort_name == "OPX":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
             elif args.cohort_name == "ccola":
@@ -135,7 +135,7 @@ if __name__ == '__main__':
             elif args.cohort_name == 'TCGA_PRAD':
                 slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
                 _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
-            elif args.cohort_name == 'Neptune' or args.cohort_name == "Neptune_stnormed":
+            elif args.cohort_name == 'Neptune':
                 slides_name = cur_id
                 _file = wsi_location_nep + slides_name + ".tif"
     
@@ -145,7 +145,7 @@ if __name__ == '__main__':
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
-            if args.cohort_name == "OPX" or args.cohort_name == "OPX_stnormed" or args.cohort_name == 'TCGA_PRAD' or args.cohort_name == 'Neptune' or args.cohort_name == "Neptune_stnormed":
+            if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD' or args.cohort_name == 'Neptune':
                 oslide = openslide.OpenSlide(_file) 
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, 
                                                          stain_norm_target_img = norm_target_img,

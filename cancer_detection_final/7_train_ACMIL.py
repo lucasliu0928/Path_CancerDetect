@@ -44,21 +44,21 @@ import wandb
 parser = argparse.ArgumentParser("Train")
 parser.add_argument('--s_fold', default=4, type=int, help='select fold')
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
-parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--tumor_frac', default= 0.9, type=float, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR_MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA_PRAD or OPX or Neptune or TCGA_OPX')
-parser.add_argument('--external_cohort1', default= 'TCGA_PRAD', type=str, help='TCGA_PRAD or OPX or Neptune')
+parser.add_argument('--external_cohort1', default= 'z_nostnorm_TCGA_PRAD', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--external_cohort2', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 
 parser.add_argument('--f_alpha', default= 0.6, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 6, type=float, help='focal gamma')
 parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
-parser.add_argument('--out_folder', default= 'pred_out_050625', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_050625_stnormed', type=str, help='out folder name')
 
 ############################################################################################################
 #     Model Para
@@ -75,380 +75,385 @@ parser.add_argument('--use_sep_cri', action= 'store_true', default=False, help='
 if __name__ == '__main__':
     
     args = parser.parse_args()
-    
-    ####################################
-    ######      USERINPUT       ########
-    ####################################
-    #Feature
-    SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
-    N_FEATURE = len(SELECTED_FEATURE)
-    
-    mutations = [ "MSI_POS","HR1", "HR2", "AR", "PTEN","RB1","TP53","TMB"]
-    
-    for mut in mutations:
-        args.mutation = mut
-        #Label
-        SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.hr_type, args.train_cohort)
-        print(SELECTED_LABEL)
-        print(selected_label_index)
+
+    selected_folds = [2,3,4]
+    for s_fold in selected_folds:
+        args.s_fold = s_fold
+        
+        ####################################
+        ######      USERINPUT       ########
+        ####################################
+        #Feature
+        SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
+        N_FEATURE = len(SELECTED_FEATURE)
+        
+        mutations = [ "MSI_POS","HR1", "HR2", "AR", "PTEN","RB1","TP53","TMB"]
+        mutations = ['MT']
+        
+        for mut in mutations:
+            args.mutation = mut
+            #Label
+            SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.hr_type, args.train_cohort)
+            print(SELECTED_LABEL)
+            print(selected_label_index)
+                    
+            
+            #Model Config
+            config_dir = "myconf.yml"
+            with open(config_dir, "r") as ymlfile:
+                c = yaml.load(ymlfile, Loader=yaml.FullLoader)
+                conf = Struct(**c)
+            conf.train_epoch = args.train_epoch
+            conf.D_feat = N_FEATURE
+            conf.D_inner = args.DIM_OUT
+            conf.n_class = 1
+            conf.wandb_mode = 'disabled'
+            conf.lr = args.lr
+            conf.n_task = len(SELECTED_LABEL)
+           
+            
+            if args.learning_method == 'abmil':
+                conf.n_token = 1
+                conf.mask_drop = 0
+                conf.n_masked_patch = 0
+            elif args.learning_method == 'acmil':
+                conf.n_token = 3
+                conf.mask_drop = 0.6
+                conf.n_masked_patch = 0
                 
-        
-        #Model Config
-        config_dir = "myconf.yml"
-        with open(config_dir, "r") as ymlfile:
-            c = yaml.load(ymlfile, Loader=yaml.FullLoader)
-            conf = Struct(**c)
-        conf.train_epoch = args.train_epoch
-        conf.D_feat = N_FEATURE
-        conf.D_inner = args.DIM_OUT
-        conf.n_class = 1
-        conf.wandb_mode = 'disabled'
-        conf.lr = args.lr
-        conf.n_task = len(SELECTED_LABEL)
-       
-        
-        if args.learning_method == 'abmil':
-            conf.n_token = 1
-            conf.mask_drop = 0
-            conf.n_masked_patch = 0
-        elif args.learning_method == 'acmil':
-            conf.n_token = 3
-            conf.mask_drop = 0.6
-            conf.n_masked_patch = 0
+            # Print all key-value pairs in the conf object
+            for key, value in conf.__dict__.items():
+                print(f"{key}: {value}")
+                
+            ##################
+            ###### DIR  ######
+            ##################
+            proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'        
+            train_val_test_id_path =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', 
+                                                   args.train_cohort ,
+                                                   'TFT' + str(args.tumor_frac))
+            ######################
+            #Create output-dir
+            ######################
+            folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/"
+            outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
+                                   'trainCohort_' + args.train_cohort,
+                                   args.learning_method,
+                                   folder_name1,
+                                   'FOLD' + str(args.s_fold),
+                                   args.mutation + '_' + args.hr_type)
+            outdir1 =  outdir0  + "/saved_model/"
+            outdir2 =  outdir0  + "/model_para/"
+            outdir3 =  outdir0  + "/logs/"
+            outdir4 =  outdir0  + "/predictions/"
+            outdir5 =  outdir0  + "/perf/"
+            outdir_list = [outdir0,outdir1,outdir2,outdir3,outdir4,outdir5]
             
-        # Print all key-value pairs in the conf object
-        for key, value in conf.__dict__.items():
-            print(f"{key}: {value}")
-            
-        ##################
-        ###### DIR  ######
-        ##################
-        proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'        
-        train_val_test_id_path =  os.path.join(proj_dir + 'intermediate_data/3B_Train_TEST_IDS', 
-                                               args.train_cohort ,
-                                               'TFT' + str(args.tumor_frac))
-        ######################
-        #Create output-dir
-        ######################
-        folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/"
-        outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                               'trainCohort_' + args.train_cohort,
-                               args.learning_method,
-                               folder_name1,
-                               'FOLD' + str(args.s_fold),
-                               args.mutation + '_' + args.hr_type)
-        outdir1 =  outdir0  + "/saved_model/"
-        outdir2 =  outdir0  + "/model_para/"
-        outdir3 =  outdir0  + "/logs/"
-        outdir4 =  outdir0  + "/predictions/"
-        outdir5 =  outdir0  + "/perf/"
-        outdir_list = [outdir0,outdir1,outdir2,outdir3,outdir4,outdir5]
-        
-        for out_path in outdir_list:
-            create_dir_if_not_exists(out_path)
-    
-        ##################
-        #Select GPU
-        ##################
-        device = torch.device(args.cuda_device if torch.cuda.is_available() else "cpu")
-        print(device)
-        
-        
-        ################################################
-        #     Model ready data 
-        ################################################
-        data_path = proj_dir + 'intermediate_data/5_model_ready_data'
-        data_ol100 = load_model_ready_data(data_path, args.train_cohort, args.train_overlap, args.fe_method, args.tumor_frac)
-        data_ol0   = load_model_ready_data(data_path, args.train_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
-        data_external1 =  load_model_ready_data(data_path, args.external_cohort1, args.test_overlap, args.fe_method, args.tumor_frac)
-        data_external2 =  load_model_ready_data(data_path, args.external_cohort2, args.test_overlap, args.fe_method, args.tumor_frac)
-    
-        #Clean (updated label and remove reduant info)
-        data_ol100, _ = update_label(data_ol100, selected_label_index)
-        data_ol0, _ = update_label(data_ol0, selected_label_index)
-        external_data1, external_ids1 = update_label(data_external1, selected_label_index)
-        external_data2, external_ids2 = update_label(data_external2, selected_label_index)
-    
-        #Get Train, test, val data
-        train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
-        train_test_val_id_df.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
-        (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, 
-                                                                                                      train_test_val_id_df, 
-                                                                                                      args.s_fold)
-        
-    
-        #Exclude tile info data, sample ID, patient ID, do not needed it for training
-        train_data = [item[:-3] for item in train_data]
-        test_data = [item[:-3] for item in test_data]   
-        val_data = [item[:-3] for item in val_data]
-        external_data1 = [item[:-3] for item in external_data1] 
-        external_data2 = [item[:-3] for item in external_data2] 
-    
-    
-    
-        # Define different values for alpha and gamma
-        if args.use_sep_cri:
-            alpha_values = [0.6, 0.1, 0.1, 0.1, 0.1, 0.75, 0.75]  # Example alpha values
-            gamma_values = [10,    2,    2,   2,  2,   15,  15]   # Example gamma values
-        else:
-            #Best before
-            #For RB1: gamma = 2, focal_alpha = 0.1
-            #For MSI: gamma = 10, focal_alpha = 0.6
-            # focal_gamma = 2   #harder eaxmaple
-            # focal_alpha = 0.8 #postive ratio
-            # gamma_list = [1,2,5,6,7,8,9,10,11,12,13,14,15,20,25] 
-            # alpha_list = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-            #a_g_repairs = [(0.7,0),(0.9,0),(0.7,7),(0.6,6),(0.7,1),(0.5,5),(0.2,6)]
-            a_g_repairs = [(0.7,0),(0.7,7),(0.2,6)]
-            # gamma_list = [args.f_gamma] 
-            # alpha_list = [args.f_alpha]
-    
-        for focal_alpha, focal_gamma in a_g_repairs:
-            print(focal_alpha, focal_gamma)
-            outdir11 = outdir1 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir22 = outdir2 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir33 = outdir3 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir44 = outdir4 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir55 = outdir5 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir_list = [outdir11,outdir22,outdir33,outdir44,outdir55]
             for out_path in outdir_list:
                 create_dir_if_not_exists(out_path)
         
-            if has_seven_csv_files(outdir55) == False:
-                ####################################################
-                #Dataloader for training
-                ####################################################
-                train_loader = DataLoader(dataset=train_data,batch_size=args.BATCH_SIZE, shuffle=False)
-                test_loader  = DataLoader(dataset=test_data, batch_size=args.BATCH_SIZE, shuffle=False)
-                val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)
-                external_loader1  = DataLoader(dataset=external_data1, batch_size=args.BATCH_SIZE, shuffle=False)
-                external_loader2  = DataLoader(dataset=external_data2, batch_size=args.BATCH_SIZE, shuffle=False)
+            ##################
+            #Select GPU
+            ##################
+            device = torch.device(args.cuda_device if torch.cuda.is_available() else "cpu")
+            print(device)
+            
+            
+            ################################################
+            #     Model ready data 
+            ################################################
+            data_path = proj_dir + 'intermediate_data/5_model_ready_data'
+            data_ol100 = load_model_ready_data(data_path, args.train_cohort, args.train_overlap, args.fe_method, args.tumor_frac)
+            data_ol0   = load_model_ready_data(data_path, args.train_cohort, args.test_overlap, args.fe_method, args.tumor_frac)
+            data_external1 =  load_model_ready_data(data_path, args.external_cohort1, args.test_overlap, args.fe_method, args.tumor_frac)
+            data_external2 =  load_model_ready_data(data_path, args.external_cohort2, args.test_overlap, args.fe_method, args.tumor_frac)
         
-                
-                ####################################################
-                # define network
-                ####################################################
-                if args.arch == 'ga':
-                    model = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-                elif args.arch == 'ga_mt':
-                    model = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-                else:
-                    model = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
-                model.to(device)
-                
-                
-                # Create a list of FocalLoss criteria with different alpha and gamma
-                if args.use_sep_cri:
-                    criterion = [FocalLoss(alpha=a, gamma=g, reduction='mean') for a, g in zip(alpha_values, gamma_values)]
-                else:
-                    criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
-                
-                # define optimizer, lr not important at this point
-                optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001, weight_decay=conf.wd)
-                
-            
-                ####################################################
-                #            Train 
-                ####################################################
-                set_seed(0)
-                # define optimizer, lr not important at this point
-                optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=conf.lr, weight_decay=conf.wd)
-                best_state = {'epoch':-1, 'val_acc':0, 'val_auc':0, 'val_f1':0, 'test_acc':0, 'test_auc':0, 'test_f1':0}
-                train_epoch = conf.train_epoch
-                for epoch in range(train_epoch):
-                    train_one_epoch_multitask(model, criterion, train_loader, optimizer0, device, epoch, conf, args.loss_method, use_sep_criterion = args.use_sep_cri)
-                    val_auc, val_acc, val_f1, val_loss = evaluate_multitask(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri)
-                    test_auc, test_acc, test_f1, test_loss = evaluate_multitask(model, criterion, test_loader, device, conf, 'Test', use_sep_criterion = args.use_sep_cri)
-                    #ext_auc, ext_acc, ext_f1, ext_loss = evaluate_multitask(model, criterion, external_loader1, device, conf, 'ext1', use_sep_criterion = args.use_sep_cri)
-                    #ext_auc2, ext_acc2, ext_f12, ext_loss2 = evaluate_multitask(model, criterion, external_loader2, device, conf, args.external_cohort2, use_sep_criterion = args.use_sep_cri)
+            #Clean (updated label and remove reduant info)
+            data_ol100, _ = update_label(data_ol100, selected_label_index)
+            data_ol0, _ = update_label(data_ol0, selected_label_index)
+            external_data1, external_ids1 = update_label(data_external1, selected_label_index)
+            external_data2, external_ids2 = update_label(data_external2, selected_label_index)
         
-                    save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
-                        save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
-                    if val_f1 + val_auc > best_state['val_f1'] + best_state['val_auc']:
-                        best_state['epoch'] = epoch
-                        best_state['val_auc'] = val_auc
-                        best_state['val_acc'] = val_acc
-                        best_state['val_f1'] = val_f1
-                        best_state['test_auc'] = test_auc
-                        best_state['test_acc'] = test_acc
-                        best_state['test_f1'] = test_f1
-                        save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
+            #Get Train, test, val data
+            train_test_val_id_df = pd.read_csv(os.path.join(train_val_test_id_path, "train_test_split.csv"))
+            train_test_val_id_df.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
+            (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(data_ol100, data_ol0, 
+                                                                                                          train_test_val_id_df, 
+                                                                                                          args.s_fold)
             
-                
-                print("Results on best epoch:")
-                print(best_state)
-                wandb.finish()
-                
-                
-                ###################################################
-                #           Test 
-                ###################################################   
-                # define network
-                if args.arch == 'ga':
-                    model2 = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-                elif args.arch == 'ga_mt':
-                    model2 = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-                else:
-                    model2 = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
-                model2.to(device)
-                
-                # Load the checkpoint
-                #checkpoint = torch.load(ckpt_dir + 'checkpoint-best.pth')
-                mode_idxes = args.train_epoch-1
-                checkpoint = torch.load(outdir11 + 'checkpoint_epoch'+ str(mode_idxes) + '.pth')
-                
-                # Load the state_dict into the model
-                model2.load_state_dict(checkpoint['model'])
+        
+            #Exclude tile info data, sample ID, patient ID, do not needed it for training
+            train_data = [item[:-3] for item in train_data]
+            test_data = [item[:-3] for item in test_data]   
+            val_data = [item[:-3] for item in val_data]
+            external_data1 = [item[:-3] for item in external_data1] 
+            external_data2 = [item[:-3] for item in external_data2] 
+        
+        
+        
+            # Define different values for alpha and gamma
+            if args.use_sep_cri:
+                alpha_values = [0.6, 0.1, 0.1, 0.1, 0.1, 0.75, 0.75]  # Example alpha values
+                gamma_values = [10,    2,    2,   2,  2,   15,  15]   # Example gamma values
+            else:
+                #Best before
+                #For RB1: gamma = 2, focal_alpha = 0.1
+                #For MSI: gamma = 10, focal_alpha = 0.6
+                # focal_gamma = 2   #harder eaxmaple
+                # focal_alpha = 0.8 #postive ratio
+                # gamma_list = [1,2,5,6,7,8,9,10,11,12,13,14,15,20,25] 
+                # alpha_list = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
+                #a_g_repairs = [(0.7,0),(0.9,0),(0.7,7),(0.6,6),(0.7,1),(0.5,5),(0.2,6)]
+                a_g_repairs = [(0.7,0),(0.7,7),(0.2,6)]
+                # gamma_list = [args.f_gamma] 
+                # alpha_list = [args.f_alpha]
+        
+            for focal_alpha, focal_gamma in a_g_repairs:
+                print(focal_alpha, focal_gamma)
+                outdir11 = outdir1 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+                outdir22 = outdir2 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+                outdir33 = outdir3 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+                outdir44 = outdir4 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+                outdir55 = outdir5 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+                outdir_list = [outdir11,outdir22,outdir33,outdir44,outdir55]
+                for out_path in outdir_list:
+                    create_dir_if_not_exists(out_path)
             
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader, device, conf, 'Test')
-                y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2(model2, val_loader, device, conf, 'Test')
-                
-                # from sklearn.linear_model import LogisticRegression
-                # import numpy as np
+                if has_seven_csv_files(outdir55) == False:
+                    ####################################################
+                    #Dataloader for training
+                    ####################################################
+                    train_loader = DataLoader(dataset=train_data,batch_size=args.BATCH_SIZE, shuffle=False)
+                    test_loader  = DataLoader(dataset=test_data, batch_size=args.BATCH_SIZE, shuffle=False)
+                    val_loader   = DataLoader(dataset=val_data,  batch_size=args.BATCH_SIZE, shuffle=False)
+                    external_loader1  = DataLoader(dataset=external_data1, batch_size=args.BATCH_SIZE, shuffle=False)
+                    external_loader2  = DataLoader(dataset=external_data2, batch_size=args.BATCH_SIZE, shuffle=False)
             
-                # # Step 1: Fit Platt scaling (logistic regression) on validation set
-                # platt_model = LogisticRegression()
-                # platt_model.fit(np.array(y_predprob_task_test[i]).reshape(-1, 1), np.array(y_true_task_test[i]))
-                # calibrated_probs = platt_model.predict_proba(np.array(y_predprob_task_test[i]).reshape(-1, 1))[:, 1]
-            
-                
-                pred_df_list = []
-                perf_df_list = []
-                for i in range(conf.n_task):
-                    #Calibration
-                    prob_calibrated = calibrate_probs_isotonic(y_true_task_val[i], y_predprob_task_val[i], y_predprob_task_test[i])
-                    pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], test_ids, SELECTED_LABEL[i], THRES = np.quantile(y_predprob_task_test[i],0.5))
-                    pred_df_list.append(pred_df)
-                    perf_df_list.append(perf_df)
-                
-                all_perd_df = pd.concat(pred_df_list)
-                all_perf_df = pd.concat(perf_df_list)
-                print(all_perf_df)
-                
-                all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_TEST_pred_df.csv",index = False)
-                all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_TEST_perf.csv",index = True)
-                print(round(all_perf_df['AUC'].mean(),2))
-            
-                #bootstrap perforance
-                ci_list = []
-                for i in range(conf.n_task):
-                    print(i)
-                    cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
-                    cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-                    cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-                    ci_list.append(cur_ci_df)
-                ci_final_df = pd.concat(ci_list)
-                print(ci_final_df)
-                ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_TEST_perf_bootstrap.csv",index = True)
-                
-                
-            
-            
-                #plot boxplot of pred prob by mutation class
-                boxplot_predprob_by_mutationclass(all_perd_df, outdir44)
-            
-                
-                #plot roc curve by mutation class
-                for i in range(conf.n_task):
-                    cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
-                    plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
                     
-                ##############################################################################################################################
-                # External1
-                ##############################################################################################################################
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, external_loader1, device, conf, 'TCGA')
-        
-                pred_df_list = []
-                perf_df_list = []
-                for i in range(conf.n_task):
-                    if args.external_cohort1 == 'TCGA_PRAD':
-                        if i != 5 :
+                    ####################################################
+                    # define network
+                    ####################################################
+                    if args.arch == 'ga':
+                        model = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
+                    elif args.arch == 'ga_mt':
+                        model = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
+                    else:
+                        model = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
+                    model.to(device)
+                    
+                    
+                    # Create a list of FocalLoss criteria with different alpha and gamma
+                    if args.use_sep_cri:
+                        criterion = [FocalLoss(alpha=a, gamma=g, reduction='mean') for a, g in zip(alpha_values, gamma_values)]
+                    else:
+                        criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
+                    
+                    # define optimizer, lr not important at this point
+                    optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001, weight_decay=conf.wd)
+                    
+                
+                    ####################################################
+                    #            Train 
+                    ####################################################
+                    set_seed(0)
+                    # define optimizer, lr not important at this point
+                    optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=conf.lr, weight_decay=conf.wd)
+                    best_state = {'epoch':-1, 'val_acc':0, 'val_auc':0, 'val_f1':0, 'test_acc':0, 'test_auc':0, 'test_f1':0}
+                    train_epoch = conf.train_epoch
+                    for epoch in range(train_epoch):
+                        train_one_epoch_multitask(model, criterion, train_loader, optimizer0, device, epoch, conf, args.loss_method, use_sep_criterion = args.use_sep_cri)
+                        val_auc, val_acc, val_f1, val_loss = evaluate_multitask(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri)
+                        test_auc, test_acc, test_f1, test_loss = evaluate_multitask(model, criterion, test_loader, device, conf, 'Test', use_sep_criterion = args.use_sep_cri)
+                        #ext_auc, ext_acc, ext_f1, ext_loss = evaluate_multitask(model, criterion, external_loader1, device, conf, 'ext1', use_sep_criterion = args.use_sep_cri)
+                        #ext_auc2, ext_acc2, ext_f12, ext_loss2 = evaluate_multitask(model, criterion, external_loader2, device, conf, args.external_cohort2, use_sep_criterion = args.use_sep_cri)
+            
+                        save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
+                            save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
+                        if val_f1 + val_auc > best_state['val_f1'] + best_state['val_auc']:
+                            best_state['epoch'] = epoch
+                            best_state['val_auc'] = val_auc
+                            best_state['val_acc'] = val_acc
+                            best_state['val_f1'] = val_f1
+                            best_state['test_auc'] = test_auc
+                            best_state['test_acc'] = test_acc
+                            best_state['test_f1'] = test_f1
+                            save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
+                
+                    
+                    print("Results on best epoch:")
+                    print(best_state)
+                    wandb.finish()
+                    
+                    
+                    ###################################################
+                    #           Test 
+                    ###################################################   
+                    # define network
+                    if args.arch == 'ga':
+                        model2 = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
+                    elif args.arch == 'ga_mt':
+                        model2 = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
+                    else:
+                        model2 = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
+                    model2.to(device)
+                    
+                    # Load the checkpoint
+                    #checkpoint = torch.load(ckpt_dir + 'checkpoint-best.pth')
+                    mode_idxes = args.train_epoch-1
+                    checkpoint = torch.load(outdir11 + 'checkpoint_epoch'+ str(mode_idxes) + '.pth')
+                    
+                    # Load the state_dict into the model
+                    model2.load_state_dict(checkpoint['model'])
+                
+                    y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader, device, conf, 'Test')
+                    y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2(model2, val_loader, device, conf, 'Test')
+                    
+                    # from sklearn.linear_model import LogisticRegression
+                    # import numpy as np
+                
+                    # # Step 1: Fit Platt scaling (logistic regression) on validation set
+                    # platt_model = LogisticRegression()
+                    # platt_model.fit(np.array(y_predprob_task_test[i]).reshape(-1, 1), np.array(y_true_task_test[i]))
+                    # calibrated_probs = platt_model.predict_proba(np.array(y_predprob_task_test[i]).reshape(-1, 1))[:, 1]
+                
+                    
+                    pred_df_list = []
+                    perf_df_list = []
+                    for i in range(conf.n_task):
+                        #Calibration
+                        prob_calibrated = calibrate_probs_isotonic(y_true_task_val[i], y_predprob_task_val[i], y_predprob_task_test[i])
+                        pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], test_ids, SELECTED_LABEL[i], THRES = np.quantile(y_predprob_task_test[i],0.5))
+                        pred_df_list.append(pred_df)
+                        perf_df_list.append(perf_df)
+                    
+                    all_perd_df = pd.concat(pred_df_list)
+                    all_perf_df = pd.concat(perf_df_list)
+                    print(all_perf_df)
+                    
+                    all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_TEST_pred_df.csv",index = False)
+                    all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_TEST_perf.csv",index = True)
+                    print(round(all_perf_df['AUC'].mean(),2))
+                
+                    #bootstrap perforance
+                    ci_list = []
+                    for i in range(conf.n_task):
+                        print(i)
+                        cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                        cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
+                        cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
+                        ci_list.append(cur_ci_df)
+                    ci_final_df = pd.concat(ci_list)
+                    print(ci_final_df)
+                    ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_TEST_perf_bootstrap.csv",index = True)
+                    
+                    
+                
+                
+                    #plot boxplot of pred prob by mutation class
+                    boxplot_predprob_by_mutationclass(all_perd_df, outdir44)
+                
+                    
+                    #plot roc curve by mutation class
+                    for i in range(conf.n_task):
+                        cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                        plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
+                        
+                    ##############################################################################################################################
+                    # External1
+                    ##############################################################################################################################
+                    y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, external_loader1, device, conf, 'TCGA')
+            
+                    pred_df_list = []
+                    perf_df_list = []
+                    for i in range(conf.n_task):
+                        if 'TCGA_PRAD' in args.external_cohort1:
+                            if i != 5 :
+                                pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
+                                                                   external_ids1, SELECTED_LABEL[i], 
+                                                                   THRES = np.quantile(y_predprob_task_test[i], 0.5))
+                        else:
                             pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
                                                                external_ids1, SELECTED_LABEL[i], 
                                                                THRES = np.quantile(y_predprob_task_test[i], 0.5))
-                    else:
-                        pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
-                                                           external_ids1, SELECTED_LABEL[i], 
-                                                           THRES = np.quantile(y_predprob_task_test[i], 0.5))
-                    pred_df_list.append(pred_df)
-                    perf_df_list.append(perf_df)
-                all_perd_df = pd.concat(pred_df_list)
-                all_perf_df = pd.concat(perf_df_list)
-                print(all_perf_df)
-                all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort1 + "_pred_df.csv",index = False)
-                all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort1 + "_perf.csv",index = True)
-                print(round(all_perf_df['AUC'].mean(),2))
-                            
-                #bootstrap perforance
-                ci_list = []
-                for i in range(conf.n_task):
-                    print(i)
-                    if args.external_cohort1 == 'TCGA_PRAD':
-                        if i!= 5:
+                        pred_df_list.append(pred_df)
+                        perf_df_list.append(perf_df)
+                    all_perd_df = pd.concat(pred_df_list)
+                    all_perf_df = pd.concat(perf_df_list)
+                    print(all_perf_df)
+                    all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort1 + "_pred_df.csv",index = False)
+                    all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort1 + "_perf.csv",index = True)
+                    print(round(all_perf_df['AUC'].mean(),2))
+                                
+                    #bootstrap perforance
+                    ci_list = []
+                    for i in range(conf.n_task):
+                        print(i)
+                        if 'TCGA_PRAD' in args.external_cohort1:
+                            if i!= 5:
+                                cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                                cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
+                                cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
+                                ci_list.append(cur_ci_df)
+                               
+                        else:
                             cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
                             cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
                             cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
                             ci_list.append(cur_ci_df)
-                           
-                    else:
-                        cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
-                        cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-                        cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-                        ci_list.append(cur_ci_df)
-                        
-                ci_final_df = pd.concat(ci_list)
-                print(ci_final_df)
-                ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort1 + "_perf_bootstrap.csv",index = True)
-                
-                
-                ##############################################################################################################################
-                # External2
-                ##############################################################################################################################
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, external_loader2, device, conf, 'TCGA')
-        
-                pred_df_list = []
-                perf_df_list = []
-                for i in range(conf.n_task):
-                    if args.external_cohort2 == 'TCGA_PRAD':
-                        if i != 5 :
+                            
+                    ci_final_df = pd.concat(ci_list)
+                    print(ci_final_df)
+                    ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort1 + "_perf_bootstrap.csv",index = True)
+                    
+                    
+                    ##############################################################################################################################
+                    # External2
+                    ##############################################################################################################################
+                    y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model, external_loader2, device, conf, 'TCGA')
+            
+                    pred_df_list = []
+                    perf_df_list = []
+                    for i in range(conf.n_task):
+                        if 'TCGA_PRAD' in args.external_cohort2:
+                            if i != 5 :
+                                pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
+                                                                   external_ids2, SELECTED_LABEL[i], 
+                                                                   THRES = np.quantile(y_predprob_task_test[i], 0.5))
+                        else:
                             pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
                                                                external_ids2, SELECTED_LABEL[i], 
                                                                THRES = np.quantile(y_predprob_task_test[i], 0.5))
-                    else:
-                        pred_df, perf_df = get_performance(y_predprob_task_test[i], y_true_task_test[i], 
-                                                           external_ids2, SELECTED_LABEL[i], 
-                                                           THRES = np.quantile(y_predprob_task_test[i], 0.5))
-                    pred_df_list.append(pred_df)
-                    perf_df_list.append(perf_df)
-                all_perd_df = pd.concat(pred_df_list)
-                all_perf_df = pd.concat(perf_df_list)
-                print(all_perf_df)
-                all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort2 + "_pred_df.csv",index = False)
-                all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort2 + "_perf.csv",index = True)
-                print(round(all_perf_df['AUC'].mean(),2))
-                            
-                #bootstrap perforance
-                ci_list = []
-                for i in range(conf.n_task):
-                    print(i)
-                    if args.external_cohort2 == 'TCGA_PRAD':
-                        if i!= 5:
+                        pred_df_list.append(pred_df)
+                        perf_df_list.append(perf_df)
+                    all_perd_df = pd.concat(pred_df_list)
+                    all_perf_df = pd.concat(perf_df_list)
+                    print(all_perf_df)
+                    all_perd_df.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort2 + "_pred_df.csv",index = False)
+                    all_perf_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort2 + "_perf.csv",index = True)
+                    print(round(all_perf_df['AUC'].mean(),2))
+                                
+                    #bootstrap perforance
+                    ci_list = []
+                    for i in range(conf.n_task):
+                        print(i)
+                        if 'TCGA_PRAD' in args.external_cohort2:
+                            if i!= 5:
+                                cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
+                                cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
+                                cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
+                                ci_list.append(cur_ci_df)
+                               
+                        else:
                             cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
                             cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
                             cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
                             ci_list.append(cur_ci_df)
-                           
-                    else:
-                        cur_pred_df = all_perd_df.loc[all_perd_df['OUTCOME'] == SELECTED_LABEL[i]]
-                        cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-                        cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-                        ci_list.append(cur_ci_df)
-                        
-                ci_final_df = pd.concat(ci_list)
-                print(ci_final_df)
-                ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort2 + "_perf_bootstrap.csv",index = True)
-                
-                
-        
-        
-                
+                            
+                    ci_final_df = pd.concat(ci_list)
+                    print(ci_final_df)
+                    ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + args.external_cohort2 + "_perf_bootstrap.csv",index = True)
+                    
+                    
+            
+            
+                    

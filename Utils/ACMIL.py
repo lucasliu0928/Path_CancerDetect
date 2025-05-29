@@ -22,6 +22,19 @@ from timm.utils import accuracy
 import torchmetrics
 import wandb
 
+#Gradiant reverse layer
+class GradReverse(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output.neg()
+
+def grad_reverse(x):
+    return GradReverse.apply(x)
+
 class Classifier_multitask(nn.Module):
     def __init__(self, n_channels, n_classes, n_tasks, droprate=0.0):
         super(Classifier_multitask, self).__init__()
@@ -161,6 +174,104 @@ class ACMIL_GA_MultiTask(nn.Module):
         return bag_feat
 
 
+class ACMIL_GA_MultiTask_DA(nn.Module):
+    def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0, n_task = 7):
+        super(ACMIL_GA_MultiTask_DA, self).__init__()
+        self.dimreduction = DimReduction(conf.D_feat, conf.D_inner)
+        self.attention_multitask = nn.ModuleList()
+        for i in range(n_task):
+            self.attention_multitask.append(Attention_Gated(conf.D_inner, D, n_token))
+        
+        self.classifier_multitask = nn.ModuleList()
+        for i in range(n_task):
+            classifier = nn.ModuleList()
+            for j in range(n_token):
+                classifier.append(Classifier_1fc(conf.D_inner, conf.n_class, droprate))
+            self.classifier_multitask.append(classifier)
+        
+        self.n_masked_patch = n_masked_patch
+        self.n_token = conf.n_token
+
+        self.Slide_classifier_multitask = nn.ModuleList()
+        for i in range(n_task):
+            Slide_classifier = Classifier_1fc(conf.D_inner, conf.n_class, droprate)
+            self.Slide_classifier_multitask.append(Slide_classifier)
+            
+        self.mask_drop = mask_drop
+        
+        #Domain predction layer
+        self.domain_layer  =  nn.Linear(conf.D_inner, 1)
+
+
+    def forward(self, x): ## x: N x L
+        x = x[0]
+        x = self.dimreduction(x)
+
+        #Each task has its own attention
+        A_out_list = []
+        outputs_list = []
+        bag_feat_list = []
+        bag_pred_list = []
+        domain_pred_list = []
+        for i, head in enumerate(self.attention_multitask): 
+            A = head(x)  ## K x N
+            
+            if self.n_masked_patch > 0 and self.training:
+                # Get the indices of the top-k largest values
+                k, n = A.shape
+                n_masked_patch = min(self.n_masked_patch, n)
+                _, indices = torch.topk(A, n_masked_patch, dim=-1)
+                rand_selected = torch.argsort(torch.rand(*indices.shape), dim=-1)[:,:int(n_masked_patch * self.mask_drop)]
+                masked_indices = indices[torch.arange(indices.shape[0]).unsqueeze(-1), rand_selected]
+                random_mask = torch.ones(k, n).to(A.device)
+                random_mask.scatter_(-1, masked_indices, 0)
+                A = A.masked_fill(random_mask == 0, -1e9)
+            
+            A_out = A
+            A_out_list.append(A_out.unsqueeze(0))
+            
+            A = F.softmax(A, dim=1)  # softmax over N
+            afeat = torch.mm(A, x) ## K x L
+            outputs = []
+            for j, head2 in enumerate(self.classifier_multitask[i]):
+                outputs.append(head2(afeat[j]))
+            outputs_list.append(torch.stack(outputs, dim=0))
+            
+            bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
+            bag_feat = torch.mm(bag_A, x)
+            bag_feat_list.append(bag_feat)
+            bag_pred_list.append(self.Slide_classifier_multitask[i](bag_feat))
+            
+            #Predict domain
+            d_y = self.domain_layer(bag_feat)
+            domain_pred_list.append(d_y)
+            
+
+        return outputs_list, bag_pred_list, A_out_list, domain_pred_list, bag_feat_list
+
+    def forward_feature(self, x, use_attention_mask=False): ## x: N x L
+        x = x[0]
+        x = self.dimreduction(x)
+        A = self.attention(x)  ## K x N
+
+
+        if self.n_masked_patch > 0 and use_attention_mask:
+            # Get the indices of the top-k largest values
+            k, n = A.shape
+            n_masked_patch = min(self.n_masked_patch, n)
+            _, indices = torch.topk(A, n_masked_patch, dim=-1)
+            rand_selected = torch.argsort(torch.rand(*indices.shape), dim=-1)[:,:int(n_masked_patch * self.mask_drop)]
+            masked_indices = indices[torch.arange(indices.shape[0]).unsqueeze(-1), rand_selected]
+            random_mask = torch.ones(k, n).to(A.device)
+            random_mask.scatter_(-1, masked_indices, 0)
+            A = A.masked_fill(random_mask == 0, -1e9)
+
+        A_out = A
+        bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
+        bag_feat = torch.mm(bag_A, x)
+        return bag_feat
+    
+
 def predict(net, data_loader, device, conf, header):
 
     metric_logger = MetricLogger(delimiter="  ")
@@ -204,7 +315,26 @@ def predict(net, data_loader, device, conf, header):
     return y_pred_tasks, y_predprob_task, y_true_tasks
 
 
-def predict_v2(net, data_loader, device, conf, header):    
+def get_emebddings(net, data_loader, device, criterion_da = None):    
+
+    bag_feature_list = []
+    # Set the network to evaluation mode
+    net.eval()
+    with torch.no_grad():
+        for data in data_loader:
+            image_patches = data[0].to(device, dtype=torch.float32)
+            
+            if criterion_da is not None:
+                sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+            else:
+                sub_preds_list, slide_preds_list, attn_list = net(image_patches)
+            
+            bag_feature_list.append(bag_feat_list)
+
+    return bag_feature_list
+
+                   
+def predict_v2(net, data_loader, device, conf, header, criterion_da = None):    
     y_pred = []
     y_true = []
     y_pred_prob = []
@@ -214,7 +344,11 @@ def predict_v2(net, data_loader, device, conf, header):
         for data in data_loader:
             image_patches = data[0].to(device, dtype=torch.float32)
             label_lists = data[1][0]
-            sub_preds_list, slide_preds_list, attn_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+            
+            if criterion_da is not None:
+                sub_preds_list, slide_preds_list, attn_list, _, _ = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+            else:
+                sub_preds_list, slide_preds_list, attn_list = net(image_patches)
             
             #Compute loss for each task, then sum
             pred_list = []
@@ -244,12 +378,18 @@ def predict_v2(net, data_loader, device, conf, header):
     
     return y_pred_tasks, y_predprob_task, y_true_tasks
 
-def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none', use_sep_criterion = False):
+def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none', use_sep_criterion = False, criterion_da = None):
     """
     Trains the given network for one epoch according to given criterions (loss functions)
 
     use_sep_criterion: use differnt focal paratermeters for each mutation outcome
     """
+
+    # loss_method = 'none' 
+    # use_sep_criterion = False
+    # epoch = 0
+    # data_loader = train_loader
+    # criterion_da = criterion_da
 
     # Set the network to training mode
     model.train()
@@ -267,21 +407,35 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
         image_patches = data[0].to(device, dtype=torch.float32)
         label_lists = data[1][0]
         tf = data[2].to(device, dtype=torch.float32)
+        
+        if criterion_da is not None:
+            dlabel = data[3].to(device, dtype=torch.float32)
 
         # # Calculate and set new learning rate
         adjust_learning_rate(optimizer0, epoch + data_it/len(data_loader), conf)
 
         # Compute loss
-        sub_preds_list, slide_preds_list, attn_list = model(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
-        
+        if criterion_da is not None:
+            sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = model(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+        else:
+            sub_preds_list, slide_preds_list, attn_list = model(image_patches)
+            
         #Compute loss for each task, then sum
         loss = 0
+        loss_d = 0
         for k in range(conf.n_task):
             sub_preds = sub_preds_list[k]
             slide_preds = slide_preds_list[k]
             attn = attn_list[k]
             labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
             
+            #Compute domain loss
+            if criterion_da is not None:
+                d_pred = d_pred_list[k]
+                dloss = criterion_da(d_pred, dlabel.unsqueeze(1))
+                loss_d += grad_reverse(dloss)
+                
+            #Ohter loss
             if use_sep_criterion == False:      
                 if conf.n_token > 1:
                     loss0 = criterion(sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
@@ -316,10 +470,17 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
                 loss += diff_loss + loss0 + loss1 + att_loss
             else:
                 loss += diff_loss + loss0 + loss1 
+                
 
+           
         optimizer0.zero_grad()
         # Backpropagate error and update parameters
-        loss.backward()
+        if criterion_da is not None:
+            loss.backward(retain_graph=True)
+            loss_d.backward()
+        else:
+            loss.backward()
+            
         optimizer0.step()
 
 
@@ -329,6 +490,8 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
         metric_logger.update(slide_loss=loss1.item())
         metric_logger.update(att_loss=att_loss.item())
         metric_logger.update(total_loss=loss.item())
+        if criterion_da is not None:
+            metric_logger.update(domain_loss=loss_d.item())
 
         if conf.wandb_mode != 'disabled':
             """ We use epoch_1000x as the x-axis in tensorboard.
@@ -340,7 +503,7 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
 
 # Disable gradient calculation during evaluation
 @torch.no_grad()
-def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_sep_criterion = False):
+def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_sep_criterion = False, criterion_da = None):
 
     # Set the network to evaluation mode
     net.eval()
@@ -354,10 +517,15 @@ def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_se
         image_patches = data[0].to(device, dtype=torch.float32)
         label_lists = data[1][0]
         tf = data[2].to(device, dtype=torch.float32)
-
-
-        sub_preds_list, slide_preds_list, attn_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
         
+        # if criterion_da is not None:
+        #     dlabel = data[3].to(device, dtype=torch.float32)
+        
+        if criterion_da is not None:
+            sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+        else:
+            sub_preds_list, slide_preds_list, attn_list = net(image_patches)
+            
         #Compute loss for each task, then sum
         loss = 0
         div_loss = 0

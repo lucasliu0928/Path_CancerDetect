@@ -73,7 +73,7 @@ all_tile_info_df = pd.read_csv(os.path.join(info_path, "all_tile_info.csv"))
 
 if args.cohort_name == 'OPX' or args.cohort_name == 'Neptune':
     id_col = 'SAMPLE_ID'
-elif args.cohort_name == 'TCGA_PRAD':
+elif 'TCGA_PRAD' in args.cohort_name:
     id_col = 'TCGA_FOLDER_ID'
 
 selected_ids = list(all_tile_info_df[id_col].unique())    
