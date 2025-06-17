@@ -37,15 +37,25 @@ from histomicstk import preprocessing,features
 from PIL import ImageCms, Image
 warnings.filterwarnings("ignore")
 
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    
+
+
+
+# def set_seed(seed):
+#     random.seed(seed)
+#     np.random.seed(seed)
+#     torch.manual_seed(seed)
+#     torch.cuda.manual_seed_all(seed)
+#     torch.backends.cudnn.deterministic = True
+#     torch.backends.cudnn.benchmark = False
+#     os.environ['PYTHONHASHSEED'] = str(seed)
+
+# def create_dir_if_not_exists(dir_path):
+#     if not os.path.exists(dir_path):
+#         os.makedirs(dir_path)
+#         print(f"Directory '{dir_path}' created.")
+#     else:
+#         print(f"Directory '{dir_path}' already exists.")
+
 def do_mask_original(img,lvl_resize, rad = 5):
     ''' create tissue mask '''
     # get he image and find tissue mask
@@ -232,12 +242,7 @@ def tile_ROIS(mask_arr,lvl_resize):
 def get_y(row): return row['label'].split(" ")
 
 
-def create_dir_if_not_exists(dir_path):
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-        print(f"Directory '{dir_path}' created.")
-    else:
-        print(f"Directory '{dir_path}' already exists.")
+
 
 
 def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds):
@@ -337,14 +342,6 @@ def make_valid_poly(input_polygons, buff_value = 4):
     return smooth_polygon
 
 
-# Min-max normalization function
-def minmax_normalize(tensor):
-    min_val = tensor.min()
-    max_val = tensor.max()
-    normalized_tensor = (tensor - min_val) / (max_val - min_val)
-    return normalized_tensor
-
-
 def log_message(message, file_name):
     """Logs a message to the specified file with a timestamp."""
     with open(file_name, 'a') as file:  # 'a' mode appends to the file
@@ -353,21 +350,6 @@ def log_message(message, file_name):
 
 
 
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    os.environ['PYTHONHASHSEED'] = str(seed)
-
-
-def convert_img(in_img):
-    srgb_profile = ImageCms.createProfile("sRGB")
-    converted_img = ImageCms.profileToProfile(in_img, srgb_profile, srgb_profile)
-
-    return converted_img
 
 
 def count_label(label_df, selected_label_names, cohort_name):

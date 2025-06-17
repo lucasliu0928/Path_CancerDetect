@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn import metrics
 import torchvision
 import numpy as np
-from Utils import minmax_normalize
+from misc_utils import minmax_normalize
 import torch
 from torchmetrics import ROC
 import os

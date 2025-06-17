@@ -13,7 +13,7 @@ import torch
 import pandas as pd
 import numpy as np
 import os
-from Utils import convert_img
+from misc_utils import convert_img
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
@@ -67,14 +67,17 @@ def get_selected_labels(mutation_name, hr_type, train_cohort):
         if 'TCGA' in train_cohort:
             selected = ["AR" ,hr_type, "PTEN","RB1","TP53","MSI_POS"]   #without TMB
         else:
-            selected = ["AR", hr_type, "PTEN","RB1","TP53","TMB","MSI_POS"]
-            
-    elif mutation_name == 'HR_MSI':
-        selected = [hr_type, "MSI_POS"]   
-  
+            selected = ["AR", hr_type, "PTEN","RB1","TP53","TMB","MSI_POS"]   
     else:
-        selected = [mutation_name]
-    
+        if mutation_name == 'MSI_POS':
+            selected = ['MSI_POS']
+        else: 
+            selected = mutation_name.split('_')
+            if 'HR' in selected:
+                selected = [hr_type if x == 'HR' else x for x in selected]
+            if 'MSI' in selected:
+                selected = ['MSI_POS' if x == 'MSI' else x for x in selected]
+
     #get label index in all labels
     selected_index = []
     for l in selected:

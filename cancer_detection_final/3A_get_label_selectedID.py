@@ -10,7 +10,7 @@ import warnings
 sys.path.insert(0, '../Utils/')
 from Preprocessing import preprocess_mutation_data
 from train_utils import extract_before_third_hyphen
-from Utils import create_dir_if_not_exists
+from misc_utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
 import argparse
 
@@ -18,9 +18,9 @@ import argparse
 #USER INPUT 
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--pixel_overlap', default='100', type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -110,6 +110,9 @@ if args.cohort_name == "OPX":
                                      'TMB_HIGHorINTERMEDITATE', 'MSI_POS'])
     label_df = label_df[['PATIENT_ID','SAMPLE_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
                          'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
+    label_df.to_csv(os.path.join(out_location, "all_label_df.csv"), index = False)
+    cor_df = label_df[["AR","HR2","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]].corr()
+    cor_df.to_csv(os.path.join(out_location, "all_labelcoor_df.csv"))
 
 
     ############################################################################################################
@@ -315,6 +318,10 @@ elif args.cohort_name == "TCGA_PRAD":
     #reorder
     label_df = label_df[['TCGA_FOLDER_ID','PATIENT_ID','SLIDE_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
                          'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
+    label_df.to_csv(os.path.join(out_location, "all_label_df.csv"), index = False)
+    cor_df = label_df[["AR","HR2","PTEN","RB1","TP53","MSI_POS"]].corr()
+    cor_df.to_csv(os.path.join(out_location, "all_labelcoor_df.csv"))
+
     
 
     ############################################################################################################
@@ -393,6 +400,11 @@ elif args.cohort_name == "Neptune":
                                      'TMB_HIGHorINTERMEDITATE', 'MSI_POS'])
     label_df = label_df[['PATIENT_ID','SAMPLE_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
                          'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
+    label_df.to_csv(os.path.join(out_location, "all_label_df.csv"), index = False)
+    
+    cor_df = label_df[["AR","HR2","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]].corr()
+    cor_df.to_csv(os.path.join(out_location, "all_labelcoor_df.csv"))
+
     
     ############################################################################################################
     #Combine site and label info and tile info

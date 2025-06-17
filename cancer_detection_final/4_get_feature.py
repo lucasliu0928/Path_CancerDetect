@@ -14,7 +14,7 @@ import PIL
 import argparse
 from skimage import io
 sys.path.insert(0, '../Utils/')
-from Utils import create_dir_if_not_exists
+from misc_utils import create_dir_if_not_exists
 from FeatureExtractor import PretrainedModelLoader, TileEmbeddingExtractor
 warnings.filterwarnings("ignore")
 

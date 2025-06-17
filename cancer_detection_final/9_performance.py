@@ -19,7 +19,7 @@ matplotlib.use('Agg')
 import pandas as pd
 import warnings
 sys.path.insert(0, '../Utils/')
-from Utils import create_dir_if_not_exists
+from misc_utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
 from train_utils import FocalLoss, get_feature_idexes, get_selected_labels
 
@@ -33,6 +33,30 @@ import argparse
 
 #Run: python3 -u 7_train_dynamic_tiles_ACMIL_AddReg_working-MultiTasking_NewFeature_TCGA_ACMIL_UpdatedOPX.py --train_cohort TCGA_PRAD --SELECTED_MUTATION AR
 
+
+
+import os
+import pandas as pd
+
+# Define the root directory containing all the GAMMA_* folders
+root_dir = "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_050625_stnormed/trainCohort_TCGA_OPXGRLFalse/acmil/uni2/TrainOL0_TestOL0_TFT0.9/"
+root_dir = root_dir + 'FOLD2/MTHR_TYPEHR2/perf/'
+
+# Initialize a list to hold DataFrames
+test_perf_dfs = []
+
+# Walk through all subdirectories
+for dirpath, dirnames, filenames in os.walk(root_dir):
+    for file in filenames:
+        if file.endswith("n_token3_EXT_perf_bootstrap.csv"):
+            full_path = os.path.join(dirpath, file)
+            df = pd.read_csv(full_path)
+            df['FOLDER'] = full_path.split('/')[-2]
+            test_perf_dfs.append(df)
+
+test_perf_dfs= pd.concat(test_perf_dfs)
+test_perf_dfs = test_perf_dfs.loc[test_perf_dfs['OUTCOME'] == 'MSI_POS']
+            
 ############################################################################################################
 #Parser
 ############################################################################################################

@@ -9,7 +9,7 @@ import warnings
 import glob
 sys.path.insert(0, '../Utils/')
 from Utils import slide_ROIS
-from Utils import create_dir_if_not_exists
+from misc_utils import create_dir_if_not_exists
 from Utils import generating_tiles, generating_tiles_tma
 warnings.filterwarnings("ignore")
 

@@ -8,7 +8,7 @@ import pandas as pd
 import warnings
 from fastai.vision.all import load_learner
 sys.path.insert(0, '../Utils/')
-from Utils import create_dir_if_not_exists
+from misc_utils import create_dir_if_not_exists
 from Utils import cancer_inference_wsi , cancer_inference_tma
 from skimage import io
 warnings.filterwarnings("ignore")
