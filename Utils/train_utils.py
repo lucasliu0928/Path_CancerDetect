@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
-
+import random
 
 def str2bool(value):
     if isinstance(value, bool):
@@ -1238,3 +1238,77 @@ def predict_clustercnn(net, data_loader, criterion, device, n_task = 7):
     
     
     return y_pred_tasks, y_predprob_task, y_true_tasks
+
+
+
+
+
+def clean_data(data_path, cohort_name, pixel_overlap, fe_method, tumor_frac, label_index):
+    # cohort_name = 'z_nostnorm_OPX'
+    # pixel_overlap = args.train_overlap
+    # fe_method = args.fe_method
+    # tumor_frac = args.tumor_frac
+    # label_index = selected_label_index
+    
+    #Load data
+    model_data = load_model_ready_data(data_path, cohort_name, pixel_overlap, fe_method, tumor_frac)
+    
+    
+    #Clean (updated label and remove reduant info)
+    model_data, ids = update_label(model_data, label_index)
+    
+    return model_data, ids
+
+
+def get_train_test_val_data_cohort(data_dir, cohort_name , model_data, tumor_frac, s_fold):
+    
+    #data_dir = proj_dir + 'intermediate_data/3B_Train_TEST_IDS'
+    
+    #Load ID split data
+    d_path =  os.path.join(data_dir, cohort_name ,'TFT' + str(tumor_frac))
+    train_test_val_id_df = pd.read_csv(os.path.join(d_path, "train_test_split.csv"))
+    train_test_val_id_df.rename(columns = {'TMB_HIGHorINTERMEDITATE': 'TMB'}, inplace = True)
+    
+    
+    #Load data
+    train_model_data = model_data['OL100']
+    test_model_data  = model_data['OL0']
+
+    #get train test data
+    (train_data, train_ids), (val_data, val_ids), (test_data, test_ids) = get_train_test_val_data(train_model_data, test_model_data, train_test_val_id_df, s_fold)
+    
+    #add domain label:
+    train_data = [item[:3] + (torch.tensor(1.0),) + item[3:] for item in train_data] #1 for OPX, biopsy, #0 for TCGA, surgical
+    
+    return (train_data, train_ids), (val_data, val_ids), (test_data, test_ids)
+
+
+
+
+
+def random_sample_tiles(indata, k = 1000, random_seed = 42):
+    random.seed(random_seed)          
+    torch.manual_seed(random_seed)   
+    
+    for i in range(len(indata)):
+        # Unpack the tuple
+        features, labels, tf, domain_label, other_info, sample_id, patient_id = indata[i]
+        
+
+        num_tiles = features.size(0)
+        sample_indices = random.sample(range(num_tiles), min(k, num_tiles)) # Ensure k does not exceed number of rows
+        sample_indices.sort()
+        sampled_feature = features[sample_indices]  
+        sampled_tileinfo = other_info.iloc[sample_indices,].reset_index(drop=True)
+        sampled_tf = tf[sample_indices]
+        
+        # Recreate the tuple with updated features
+        indata[i] = (
+            sampled_feature,
+            labels,
+            sampled_tf,
+            sampled_tileinfo,
+            sample_id,
+            patient_id
+        )
+                

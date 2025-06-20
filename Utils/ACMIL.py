@@ -115,11 +115,12 @@ class ACMIL_GA_MultiTask(nn.Module):
 
     def forward(self, x): ## x: N x L
         x = x[0]
-        x = self.dimreduction(x)
+        x = self.dimreduction(x)  #torch.Size([N, 128])
 
         #Each task has its own attention
-        A_out_list = []
-        outputs_list = []
+        attnetion_list = []
+        branch_pred_list = []
+        bag_pred_list = []
         bag_feat_list = []
         for i, head in enumerate(self.attention_multitask): 
             A = head(x)  ## K x N
@@ -136,42 +137,30 @@ class ACMIL_GA_MultiTask(nn.Module):
                 A = A.masked_fill(random_mask == 0, -1e9)
             
             A_out = A
-            A_out_list.append(A_out.unsqueeze(0))
+            attnetion_list.append(A_out.unsqueeze(0)) # torch.Size([1, N_Tokens, N])
             
-            A = F.softmax(A, dim=1)  # softmax over N
-            afeat = torch.mm(A, x) ## K x L
+            # softmax over N 
+            A = F.softmax(A, dim=1)  # torch.Size([N_Tokens, N])
+            
+            #features for each branch            
+            afeat = torch.mm(A, x)   #torch.Size([N_Tokens, 128])
+            
             outputs = []
-            for j, head2 in enumerate(self.classifier_multitask[i]):
+            for j, head2 in enumerate(self.classifier_multitask[i]): #for each task,there are N_token classifers
                 outputs.append(head2(afeat[j]))
-            outputs_list.append(torch.stack(outputs, dim=0))
+            branch_pred_list.append(torch.stack(outputs, dim=0))
             
+            #Bag Attention
             bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
-            bag_feat = torch.mm(bag_A, x)
-            bag_feat_list.append(self.Slide_classifier_multitask[i](bag_feat))
+            #Bag Feature
+            bag_feat = torch.mm(bag_A, x) #torch.Size([1, 128])
+            bag_feat_list.append(bag_feat)
             
-        return outputs_list, bag_feat_list, A_out_list 
+            #Bag Prediction
+            bag_pred_list.append(self.Slide_classifier_multitask[i](bag_feat))
+            
+        return branch_pred_list, bag_pred_list, attnetion_list, bag_feat_list
 
-    def forward_feature(self, x, use_attention_mask=False): ## x: N x L
-        x = x[0]
-        x = self.dimreduction(x)
-        A = self.attention(x)  ## K x N
-
-
-        if self.n_masked_patch > 0 and use_attention_mask:
-            # Get the indices of the top-k largest values
-            k, n = A.shape
-            n_masked_patch = min(self.n_masked_patch, n)
-            _, indices = torch.topk(A, n_masked_patch, dim=-1)
-            rand_selected = torch.argsort(torch.rand(*indices.shape), dim=-1)[:,:int(n_masked_patch * self.mask_drop)]
-            masked_indices = indices[torch.arange(indices.shape[0]).unsqueeze(-1), rand_selected]
-            random_mask = torch.ones(k, n).to(A.device)
-            random_mask.scatter_(-1, masked_indices, 0)
-            A = A.masked_fill(random_mask == 0, -1e9)
-
-        A_out = A
-        bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
-        bag_feat = torch.mm(bag_A, x)
-        return bag_feat
 
 
 class ACMIL_GA_MultiTask_DA(nn.Module):
@@ -284,7 +273,7 @@ def predict(net, data_loader, device, conf, header):
     for data in metric_logger.log_every(data_loader, 100, header):
         image_patches = data[0].to(device, dtype=torch.float32)
         label_lists = data[1][0]
-        sub_preds_list, slide_preds_list, attn_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+        sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
         
         #Compute loss for each task, then sum
         pred_list = []
@@ -327,7 +316,7 @@ def get_emebddings(net, data_loader, device, criterion_da = None):
             if criterion_da is not None:
                 sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
             else:
-                sub_preds_list, slide_preds_list, attn_list = net(image_patches)
+                sub_preds_list, slide_preds_list, attn_list,bag_feat_list = net(image_patches)
             
             bag_feature_list.append(bag_feat_list)
 
@@ -348,7 +337,7 @@ def predict_v2(net, data_loader, device, conf, header, criterion_da = None):
             if criterion_da is not None:
                 sub_preds_list, slide_preds_list, attn_list, _, _ = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
             else:
-                sub_preds_list, slide_preds_list, attn_list = net(image_patches)
+                sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches)
             
             #Compute loss for each task, then sum
             pred_list = []
@@ -418,7 +407,7 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
         if criterion_da is not None:
             sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = model(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
         else:
-            sub_preds_list, slide_preds_list, attn_list = model(image_patches)
+            sub_preds_list, slide_preds_list, attn_list, bag_feat_list = model(image_patches)
             
         #Compute loss for each task, then sum
         loss = 0
@@ -457,16 +446,17 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
                     diff_loss += torch.cosine_similarity(attn[:, i], attn[:, j], dim=-1).mean() / (
                                 conf.n_token * (conf.n_token - 1) / 2)
 
-            #ATT loss
-            #Take the AVG of each branch attention
-            avg_attn = attn.mean(dim = 1) #Across branches
-            att_loss = F.mse_loss(avg_attn, tf) #different in avg att to the tumor fraction
-            # #Sum of att loss for each branch
-            # att_loss = torch.tensor(0).to(device, dtype=torch.float)
-            # for i in range(conf.n_token):
-            #     att_loss += F.mse_loss(attn[:,i,:], tf)
+
     
             if loss_method == 'ATTLOSS': #ATTLOSS
+                #ATT loss
+                #Take the AVG of each branch attention
+                avg_attn = attn.mean(dim = 1) #Across branches
+                att_loss = F.mse_loss(avg_attn, tf) #different in avg att to the tumor fraction
+                # #Sum of att loss for each branch
+                # att_loss = torch.tensor(0).to(device, dtype=torch.float)
+                # for i in range(conf.n_token):
+                #     att_loss += F.mse_loss(attn[:,i,:], tf)
                 loss += diff_loss + loss0 + loss1 + att_loss
             else:
                 loss += diff_loss + loss0 + loss1 
@@ -488,7 +478,8 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
         metric_logger.update(sub_loss=loss0.item())
         metric_logger.update(diff_loss=diff_loss.item())
         metric_logger.update(slide_loss=loss1.item())
-        metric_logger.update(att_loss=att_loss.item())
+        if loss_method == 'ATTLOSS': 
+            metric_logger.update(att_loss=att_loss.item())
         metric_logger.update(total_loss=loss.item())
         if criterion_da is not None:
             metric_logger.update(domain_loss=loss_d.item())
@@ -500,6 +491,131 @@ def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device,
             wandb.log({'sub_loss': loss0}, commit=False)
             wandb.log({'diff_loss': diff_loss}, commit=False)
             wandb.log({'slide_loss': loss1})
+
+
+def train_one_epoch_multitask_minibatch(model, criterion, data_loader, optimizer0, device, epoch, conf, 
+                                        batch_train = True,
+                                        accum_steps = 32,
+                                        print_every = 100,
+                                        loss_method = 'none', 
+                                        use_sep_criterion = False, 
+                                        criterion_da = None):
+    """
+    Trains the given network for one epoch according to given criterions (loss functions)
+
+    use_sep_criterion: use differnt focal paratermeters for each mutation outcome
+    """
+
+    # Set the network to training mode
+    model.train()
+    
+    for data_it, data in enumerate(data_loader):
+        
+        image_patches = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+        label_lists = data[1][0] #[1, N_FEATURE]
+        tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
+    
+        if criterion_da is not None:
+            dlabel = data[3].to(device, dtype=torch.float32)
+    
+        adjust_learning_rate(optimizer0, epoch + data_it / len(data_loader), conf)
+    
+        if criterion_da is not None:
+            sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = model(image_patches)
+        else:
+            sub_preds_list, slide_preds_list, attn_list, bag_feat_list = model(image_patches)
+    
+        loss = 0
+        loss_d = 0
+    
+        for k in range(conf.n_task):
+            
+            #For each task:
+            
+            #predict from N_token branches
+            sub_preds = sub_preds_list[k] #[N_Token, 1]
+            
+            #Prediction from slide
+            slide_preds = slide_preds_list[k] #[1, 1]
+            
+            #attention from branches
+            attn = attn_list[k]  #torch.Size([1, N_tokens, N_instances])
+            
+            #target labels
+            labels = label_lists[:, k].to(device, dtype=torch.float32) #[1]
+    
+            if criterion_da is not None:
+                d_pred = d_pred_list[k]
+                dloss = criterion_da(d_pred, dlabel.unsqueeze(1))
+                loss_d += grad_reverse(dloss)
+    
+            if not use_sep_criterion:
+                loss0 = criterion(sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1)) if conf.n_token > 1 else torch.tensor(0.).to(device)
+                loss1 = criterion(slide_preds, labels.unsqueeze(1))
+            else:
+                loss0 = criterion[k](sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1)) if conf.n_token > 1 else torch.tensor(0.).to(device)
+                loss1 = criterion[k](slide_preds, labels.unsqueeze(1))
+    
+            diff_loss = torch.tensor(0.).to(device, dtype=torch.float)
+            attn = torch.softmax(attn, dim=-1)
+            for i in range(conf.n_token):
+                for j in range(i + 1, conf.n_token):
+                    diff_loss += torch.cosine_similarity(attn[:, i], attn[:, j], dim=-1).mean() / (
+                        conf.n_token * (conf.n_token - 1) / 2)
+    
+            if loss_method == 'ATTLOSS':
+                avg_attn = attn.mean(dim=1)
+                att_loss = F.mse_loss(avg_attn, tf)
+                loss += diff_loss + loss0 + loss1 + att_loss
+            else:
+                att_loss = None
+                loss += diff_loss + loss0 + loss1
+                
+    
+        
+        if not batch_train:
+            #Backpropagate error and update parameters 
+            optimizer0.zero_grad()
+            if criterion_da is not None:
+                loss.backward(retain_graph=True)
+                loss_d.backward()
+            else:
+                loss.backward()
+            optimizer0.step()
+            
+        else:
+            # Gradient accumulation: scale loss and backward (do not do total loss before of tensor freeed after each forward)
+            loss = loss / accum_steps
+            if criterion_da is not None:
+                loss.backward(retain_graph=True)
+                (loss_d / accum_steps).backward()
+            else:
+                loss.backward()
+    
+            # Step optimizer every accum_steps
+            if (data_it + 1) % accum_steps == 0 or (data_it + 1) == len(data_loader):
+                optimizer0.step()
+                optimizer0.zero_grad()
+                
+    
+        # === Manual Logging ===
+        if data_it % print_every == 0 or data_it == len(data_loader) - 1:
+            log_items = [
+                f"EPOCH: {epoch}",
+                f"[{data_it}/{len(data_loader)}]",
+                f"lr: {optimizer0.param_groups[0]['lr']:.6f}",
+                f"sub_loss: {loss0.item():.4f}",
+                f"slide_loss: {loss1.item():.4f}",
+                f"diff_loss: {diff_loss.item():.4f}",
+                f"total_loss: {loss.item():.4f}"
+            ]
+            if att_loss is not None:
+                log_items.append(f"att_loss: {att_loss.item():.4f}")
+            if criterion_da is not None:
+                log_items.append(f"domain_loss: {loss_d.item():.4f}")
+            print(" | ".join(log_items))
+
+
 
 # Disable gradient calculation during evaluation
 @torch.no_grad()
@@ -524,7 +640,7 @@ def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_se
         if criterion_da is not None:
             sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
         else:
-            sub_preds_list, slide_preds_list, attn_list = net(image_patches)
+            sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches)
             
         #Compute loss for each task, then sum
         loss = 0

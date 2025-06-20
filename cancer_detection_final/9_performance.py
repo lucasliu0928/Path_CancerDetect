@@ -39,8 +39,9 @@ import os
 import pandas as pd
 
 # Define the root directory containing all the GAMMA_* folders
-root_dir = "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_050625_stnormed/trainCohort_TCGA_OPXGRLFalse/acmil/uni2/TrainOL0_TestOL0_TFT0.9/"
-root_dir = root_dir + 'FOLD2/MTHR_TYPEHR2/perf/'
+root_dir = "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_061825_new/"
+root_dir = root_dir + "trainCohort_OPX_TCGA_GRLFalse/acmil/uni2/TrainOL100_TestOL0_TFT0.9/"
+root_dir = root_dir + 'FOLD3/MTHR_TYPEHR2/perf/'
 
 # Initialize a list to hold DataFrames
 test_perf_dfs = []
@@ -48,7 +49,7 @@ test_perf_dfs = []
 # Walk through all subdirectories
 for dirpath, dirnames, filenames in os.walk(root_dir):
     for file in filenames:
-        if file.endswith("n_token3_EXT_perf_bootstrap.csv"):
+        if file.endswith("_TEST_COMB_perf.csv"):
             full_path = os.path.join(dirpath, file)
             df = pd.read_csv(full_path)
             df['FOLDER'] = full_path.split('/')[-2]

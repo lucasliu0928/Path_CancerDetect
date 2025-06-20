@@ -13,7 +13,7 @@ import os
 import pandas as pd
 from PIL import ImageCms, Image
 import sys
-sys.path.insert(0, '../RandomSplit-main/')
+sys.path.insert(0, '../Utils/RandomSplit-main/')
 from RandomSplit import MakeBalancedCrossValidation
 
 def set_seed(seed):
@@ -161,7 +161,7 @@ def generate_balanced_cv_list(patient_label_data, selected_label, n_Folds = 5, p
         
     #Start
     label_df = patient_label_data[selected_label].copy()
-    label_df.index = patient_label_data['SAMPLE_ID']
+    label_df.index = patient_label_data['PATIENT_ID']
     label_df['self_count'] = 1 #Add self count for the cases has zero mutations, so the randomsplit algorithm would run
 
     

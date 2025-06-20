@@ -263,4 +263,23 @@ def boxplot_predprob_by_mutationclass(pred_df, outdir):
     plt.show()
 
 
+def get_performance_alltask(n_task, ytrue_test, ypredprob_test, ids_test, selected_label, calibration = False, ytrue_val = None, ypredprob_val = None):
+    
+    pred_df_list = []
+    perf_df_list = []
+    for i in range(n_task):
 
+        if calibration == True:
+            #Calibration
+            pred_prob = calibrate_probs_isotonic(ytrue_val[i], ypredprob_val[i], ypredprob_test[i])
+        else:
+            pred_prob = ypredprob_test[i]
+            
+        pred_df, perf_df = get_performance(pred_prob, ytrue_test[i], ids_test, selected_label[i], THRES = np.quantile(ypredprob_test[i],0.5))
+        pred_df_list.append(pred_df)
+        perf_df_list.append(perf_df)
+        
+    pred_df_all = pd.concat(pred_df_list)
+    perf_df_all = pd.concat(perf_df_list)
+    
+    return pred_df_all,perf_df_all
