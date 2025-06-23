@@ -1311,4 +1311,138 @@ def random_sample_tiles(indata, k = 1000, random_seed = 42):
             sample_id,
             patient_id
         )
+        
+        
+def get_larger_tumor_fraction_tile(tf1, tf2, match_index1, match_index2):
+    
+    tensor1 = tf1[match_index1]
+    tensor2 = tf2[match_index2]
+    
+    
+    mask_tensor1 = tensor1 >= tensor2
+    
+    # Get indices where tensor1 "wins"
+    indices_tensor1 = mask_tensor1.nonzero(as_tuple=True)[0]
+    
+    # Get indices where tensor2 "wins"
+    indices_tensor2 = (~mask_tensor1).nonzero(as_tuple=True)[0]
+    
+    final_idx1  = [match_index1[i] for i in indices_tensor1.tolist()]
+    final_idx2  = [match_index2[i] for i in indices_tensor2.tolist()]
+    
+    return final_idx1, final_idx2
+
+
+def get_matching_tile_index(indata, common_tiles_xy):
+    # Get row indices in df1
+    match_mask = indata['TILE_COOR_ATLV0'].isin(common_tiles_xy)
+    df_match = indata[match_mask]
+    df_nomatch = indata[~match_mask]
+    match_index = df_match.index.tolist()
+    nomatch_index = df_nomatch.index.tolist()
+    
+    return  match_index, nomatch_index
+
+
+
+
+def combine_data_from_stnorm_and_nostnorm(indata_stnorm, indata_stnorm_no, method = 'union'):
+    
+    # indata_stnorm = data_ol100_opx_stnorm0
+    # indata_stnorm_no = data_ol100_opx_stnorm1
+    
+    comb_data_list = []
+    #get the data with more IDs
+    if len(indata_stnorm) >= len(indata_stnorm_no):
+        main_data = indata_stnorm
+        nomain_data = indata_stnorm_no
+    else:
+        main_data = indata_stnorm_no
+        nomain_data = indata_stnorm
+
+    for i in range(len(main_data)):
+
+        # Unpack the tuple
+        features1, labels1, tf1, other_info1, sample_id1, patient_id1 = main_data[i]
+        
+        #find the data in indata2
+        index = next((i for i, entry in enumerate(nomain_data) if entry[-2] == sample_id1), None)
+        
+    
+        
+        if index is not None: #if the ID is in both data, take the union or combine
+            features2, labels2, tf2, other_info2, sample_id2, patient_id2 = nomain_data[index]
+            if method == 'combine_all':
+                comb_data = (
+                    features1,
+                    labels1,
+                    tf1,
+                    other_info1,
+                    sample_id1,
+                    patient_id1,
+                    
+                    features2,
+                    labels2,
+                    tf2,
+                    other_info2,
+                    sample_id2,
+                    patient_id2,
+                )
+            elif method == 'union':
+                #Intersect
+                common_tiles = set(other_info1['TILE_COOR_ATLV0']).intersection(other_info2['TILE_COOR_ATLV0'])
+                match_index1, nomatch_index1 = get_matching_tile_index(other_info1, common_tiles)
+                match_index2, nomatch_index2 = get_matching_tile_index(other_info2, common_tiles)
+                match_index1_tokeep, match_index2_tokeep = get_larger_tumor_fraction_tile(tf1, tf2,match_index1, match_index2)
                 
+                final_idx_tokeep1 = match_index1_tokeep + nomatch_index1
+                final_idx_tokeep2 = match_index2_tokeep + nomatch_index2
+                
+                
+                #Get updated info
+                feature = torch.concat([features1[final_idx_tokeep1], features2[final_idx_tokeep2]])
+                tf = torch.concat([tf1[final_idx_tokeep1], tf2[final_idx_tokeep2]])
+                labels = labels1 
+                other_info = pd.concat([other_info1.iloc[final_idx_tokeep1], other_info2.iloc[final_idx_tokeep2]])
+                sample_id = sample_id1
+                patient_id = patient_id1
+                
+                comb_data = (
+                    feature,
+                    labels,
+                    tf,
+                    other_info,
+                    sample_id,
+                    patient_id
+                )
+
+        else: #only take all the things in main data
+            if method == 'combine_all':
+                comb_data = (
+                    features1,
+                    labels1,
+                    tf1,
+                    other_info1,
+                    sample_id1,
+                    patient_id1,
+                    [],
+                    [],
+                    [],
+                    [],
+                    [],
+                    []
+                    
+                )
+            elif method == 'union':
+                 comb_data = (
+                     features1,
+                     labels1,
+                     tf1,
+                     other_info1,
+                     sample_id1,
+                     patient_id1
+                 )
+                 
+        comb_data_list.append(comb_data)
+        
+    return comb_data_list         

@@ -29,6 +29,7 @@ from train_utils import str2bool, clean_data, get_train_test_val_data_cohort, ra
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
 from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, predict_v2, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
 from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, predict_v2_sp_nost_andst
+
 warnings.filterwarnings("ignore")
 
 
@@ -48,11 +49,6 @@ import wandb
 #Running in tmux train2
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/ACMIL-main/acmil/bin/activate
 #Run: python3 -u 7_train_ACMIL_mixed_0618.py --mutation MT --GRL False --train_cohort OPX_TCGA --train_flag True --batchsize 1 --use_sep_cri False --sample_training_n 1000 --out_folder pred_out_061825_sample1000tiles_trainOPX_TCGA_GRLFALSE --f_alpha 0.2 --f_gamma 6 
-
-
-#Train with sp from st and nost
-#python3 -u 7_train_ACMIL_mixed_0618.py  --sample_training_n 0 --out_folder pred_out_061825_comb_alltiles_trainOPX_TCGA_GRLFALSE --f_alpha 0.9 --f_gamma 6 --mutation MT --GRL False --train_cohort comb_stnormAndnostnorm_OPX_TCGA --train_flag True --batchsize 1  --batch_train False --use_sep_cri False
-
 ############################################################################################################
 #Parser
 ############################################################################################################
@@ -66,7 +62,7 @@ parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda devi
 parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
+parser.add_argument('--train_cohort', default= 'comb_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
 parser.add_argument('--external_cohort1', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--external_cohort2', default= 'z_nostnorm_Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--f_alpha', default= 0.2, type=float, help='focal alpha')
@@ -76,6 +72,7 @@ parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient
 parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
 parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
 parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
+
 parser.add_argument('--out_folder', default= 'pred_out_061825_new2', type=str, help='out folder name')
 
 ############################################################################################################
@@ -85,7 +82,7 @@ parser.add_argument('--batch_train', type=str2bool, default=False,  help='if use
 parser.add_argument('--batchsize', default=32, type=int, help='training batch size')
 #parser.add_argument('--DROPOUT', default=0, type=int, help='drop out rate')
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
-parser.add_argument('--train_epoch', default=50, type=int, help='')
+parser.add_argument('--train_epoch', default=2, type=int, help='')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga_mt', type=str, help='e.g., ga_mt, or ga')
 parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use seperate focal parameters for each mutation')
@@ -233,7 +230,6 @@ if __name__ == '__main__':
         data_ol0_nep_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'combine_all')
         nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_comb)]
     
-        #TODO Actual: Check OPX_001 was removed beased no cancer detected in stnormed
         ################################################
         #Get Train, test, val data
         ################################################    
@@ -250,9 +246,9 @@ if __name__ == '__main__':
             model_data1 = data_opx_stnorm1
             train_cohort2 = 'TCGA_PRAD'
             model_data2 = data_tcga_stnorm1
-            
+        
         elif args.train_cohort == 'union_stnormAndnostnorm_OPX_TCGA':
-            train_cohort1 = 'OPX'
+            train_cohort1 = 'OPX' 
             model_data1 = data_opx_stnorm10_union
             train_cohort2 = 'TCGA_PRAD'
             model_data2 = data_tcga_stnorm10_union
@@ -262,7 +258,6 @@ if __name__ == '__main__':
             train_cohort2 = 'TCGA_PRAD'
             model_data2 = data_tcga_stnorm10_comb
             
-        #TODO
         ################################################################################################
         #For training and test data, take the union of tiles from stained normed and nostained normed tiles
         ################################################################################################
@@ -301,6 +296,7 @@ if __name__ == '__main__':
                 #Random Sample 1000 tiles or oriingal N tiles (if total number is < 1000) for training data
                 random_sample_tiles(train_data, k = conf.sample_training_n, random_seed = 42)
 
+
         if args.train_cohort != 'comb_stnormAndnostnorm_OPX_TCGA':
             #Exclude tile info data, sample ID, patient ID, do not needed it for training
             train_data = [item[:-3] for item in train_data]
@@ -332,11 +328,8 @@ if __name__ == '__main__':
         else:
             ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_stnorm0]
             ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1]
-        
-        
 
-        
-        
+
         # ################################################################################
         # #up sampling HR
         # from collections import defaultdict

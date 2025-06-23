@@ -11,7 +11,7 @@ import pandas as pd
 import warnings
 import torch
 sys.path.insert(0, '../Utils/')
-from Utils import create_dir_if_not_exists
+from misc_utils import create_dir_if_not_exists
 from train_utils import get_feature_idexes, get_selected_labels, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import update_to_agg_feature, concate_agg_feature
 warnings.filterwarnings("ignore")
@@ -118,7 +118,29 @@ if __name__ == '__main__':
     
     all_X = np.concatenate((data_opx_ol0, data_tcga_ol0, data_nep_ol0))
     all_y = np.concatenate((opx_ol0_label, tcga_ol0_label, nep_ol0_label))
+    
+    #UMAP
+    import numpy as np
+    import matplotlib.pyplot as plt
+    %matplotlib inline
+    import seaborn as sns
+    import umap
+    sns.set(style='white', context='poster')
+    %%time
+    embedding = umap.UMAP(n_neighbors=5).fit_transform(data_opx_ol100)
+    target = [item[1][0,1] for item in data_ol100]
+    fig, ax = plt.subplots(1, figsize=(14, 10))
+    plt.scatter(*embedding.T, s=5, c=target, cmap='Spectral', alpha=1.0)
+    plt.setp(ax, xticks=[], yticks=[])
+    # cbar = plt.colorbar(boundaries=np.arange(11)-0.5)
+    # cbar.set_ticks(np.arange(10))
+    #cbar.set_ticklabels(opx_ol100_label)
+    plt.savefig("test_plot.png", dpi=300, bbox_inches='tight')
+    plt.show()
 
+
+        
+    
  
 
     all_x = np.concatenate((embedding_opx, embedding_tcga, embedding_nep))

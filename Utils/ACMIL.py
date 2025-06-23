@@ -367,6 +367,75 @@ def predict_v2(net, data_loader, device, conf, header, criterion_da = None):
     
     return y_pred_tasks, y_predprob_task, y_true_tasks
 
+
+
+def predict_v2_sp_nost_andst(net, data_loader, device, conf, header, criterion_da = None):    
+    y_pred = []
+    y_true = []
+    y_pred_prob = []
+    
+    rs_rate_stnorm = 1.0
+    rs_rate_nostnorm = 1.0
+    # Set the network to evaluation mode
+    net.eval()
+    with torch.no_grad():
+        for data in data_loader:
+            
+            torch.manual_seed(0)
+            
+            if len(data[0]) != 0:
+                image_patches1 = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+                indices = torch.randperm(image_patches1.size(1))[:round(image_patches1.size(1)*rs_rate_stnorm)] #sample
+                image_patches1 = image_patches1[:, indices, :]
+
+            if len(data[3]) != 0:
+                image_patches2 = data[3].to(device, dtype=torch.float32)
+                indices = torch.randperm(image_patches2.size(1))[:round(image_patches2.size(1)*rs_rate_nostnorm)] #sample
+                image_patches2 = image_patches2[:, indices, :]
+            
+            if len(data[0]) != 0 and len(data[3]) != 0:
+                image_patches = torch.concat([image_patches1,image_patches2], dim = 1)
+            elif len(data[0]) == 0:
+                image_patches = image_patches2
+            elif len(data[3]) == 0:
+                image_patches = image_patches1
+                
+
+            label_lists = data[1][0]
+            
+            if criterion_da is not None:
+                sub_preds_list, slide_preds_list, attn_list, _, _ = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+            else:
+                sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches)
+            
+            #Compute loss for each task, then sum
+            pred_list = []
+            pred_prob_list = []
+            for k in range(conf.n_task):
+                sub_preds = sub_preds_list[k]
+                slide_preds = slide_preds_list[k]
+                attn = attn_list[k]
+                labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
+                pred_prob = torch.sigmoid(slide_preds)
+                pred = pred_prob[0][0].round()
+                pred_list.append(pred)
+                pred_prob_list.append(pred_prob)
+        
+            y_pred.append(pred_list)
+            y_true.append(label_lists)
+            y_pred_prob.append(pred_prob_list)
+    
+        #Get prediction for each task
+        y_predprob_task = []
+        y_pred_tasks = []
+        y_true_tasks = []
+        for k in range(conf.n_task):
+            y_pred_tasks.append([p[k] for p in y_pred])
+            y_predprob_task.append([p[k].item() for p in y_pred_prob])
+            y_true_tasks.append([t[:,k].to(device, dtype = torch.int64).item() for t in y_true])
+    
+    return y_pred_tasks, y_predprob_task, y_true_tasks
+
 def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none', use_sep_criterion = False, criterion_da = None):
     """
     Trains the given network for one epoch according to given criterions (loss functions)
@@ -617,6 +686,142 @@ def train_one_epoch_multitask_minibatch(model, criterion, data_loader, optimizer
 
 
 
+def train_one_epoch_multitask_minibatch_randomSample(model, criterion, data_loader, optimizer0, device, epoch, conf, 
+                                        batch_train = True,
+                                        accum_steps = 32,
+                                        print_every = 100,
+                                        loss_method = 'none', 
+                                        use_sep_criterion = False, 
+                                        criterion_da = None):
+    """
+    Trains the given network for one epoch according to given criterions (loss functions)
+
+    use_sep_criterion: use differnt focal paratermeters for each mutation outcome
+    """
+    
+    rs_rate_stnorm = 0.8
+    rs_rate_nostnorm = 0.2
+
+    # Set the network to training mode
+    model.train()
+    
+    for data_it, data in enumerate(data_loader):
+        torch.manual_seed(epoch)
+        image_patches1 = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+        indices = torch.randperm(image_patches1.size(1))[:round(image_patches1.size(1)*rs_rate_stnorm)] #sample
+        image_patches1 = image_patches1[:, indices, :]
+
+        image_patches2 = data[4].to(device, dtype=torch.float32)
+        indices = torch.randperm(image_patches2.size(1))[:round(image_patches2.size(1)*rs_rate_nostnorm)] #sample
+        image_patches2 = image_patches2[:, indices, :]
+        
+        image_patches = torch.concat([image_patches1,image_patches2], dim = 1)
+        
+        
+        label_lists = data[1][0] #[1, N_FEATURE]
+        tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
+    
+        if criterion_da is not None:
+            dlabel = data[3].to(device, dtype=torch.float32)
+    
+        adjust_learning_rate(optimizer0, epoch + data_it / len(data_loader), conf)
+    
+        if criterion_da is not None:
+            sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = model(image_patches)
+        else:
+            sub_preds_list, slide_preds_list, attn_list, bag_feat_list = model(image_patches)
+    
+        loss = 0
+        loss_d = 0
+    
+        for k in range(conf.n_task):
+            
+            #For each task:
+            
+            #predict from N_token branches
+            sub_preds = sub_preds_list[k] #[N_Token, 1]
+            
+            #Prediction from slide
+            slide_preds = slide_preds_list[k] #[1, 1]
+            
+            #attention from branches
+            attn = attn_list[k]  #torch.Size([1, N_tokens, N_instances])
+            
+            #target labels
+            labels = label_lists[:, k].to(device, dtype=torch.float32) #[1]
+    
+            if criterion_da is not None:
+                d_pred = d_pred_list[k]
+                dloss = criterion_da(d_pred, dlabel.unsqueeze(1))
+                loss_d += grad_reverse(dloss)
+    
+            if not use_sep_criterion:
+                loss0 = criterion(sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1)) if conf.n_token > 1 else torch.tensor(0.).to(device)
+                loss1 = criterion(slide_preds, labels.unsqueeze(1))
+            else:
+                loss0 = criterion[k](sub_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1)) if conf.n_token > 1 else torch.tensor(0.).to(device)
+                loss1 = criterion[k](slide_preds, labels.unsqueeze(1))
+    
+            diff_loss = torch.tensor(0.).to(device, dtype=torch.float)
+            attn = torch.softmax(attn, dim=-1)
+            for i in range(conf.n_token):
+                for j in range(i + 1, conf.n_token):
+                    diff_loss += torch.cosine_similarity(attn[:, i], attn[:, j], dim=-1).mean() / (
+                        conf.n_token * (conf.n_token - 1) / 2)
+    
+            if loss_method == 'ATTLOSS':
+                avg_attn = attn.mean(dim=1)
+                att_loss = F.mse_loss(avg_attn, tf)
+                loss += diff_loss + loss0 + loss1 + att_loss
+            else:
+                att_loss = None
+                loss += diff_loss + loss0 + loss1
+                
+    
+        
+        if not batch_train:
+            #Backpropagate error and update parameters 
+            optimizer0.zero_grad()
+            if criterion_da is not None:
+                loss.backward(retain_graph=True)
+                loss_d.backward()
+            else:
+                loss.backward()
+            optimizer0.step()
+            
+        else:
+            # Gradient accumulation: scale loss and backward (do not do total loss before of tensor freeed after each forward)
+            loss = loss / accum_steps
+            if criterion_da is not None:
+                loss.backward(retain_graph=True)
+                (loss_d / accum_steps).backward()
+            else:
+                loss.backward()
+    
+            # Step optimizer every accum_steps
+            if (data_it + 1) % accum_steps == 0 or (data_it + 1) == len(data_loader):
+                optimizer0.step()
+                optimizer0.zero_grad()
+                
+    
+        # === Manual Logging ===
+        if data_it % print_every == 0 or data_it == len(data_loader) - 1:
+            log_items = [
+                f"EPOCH: {epoch}",
+                f"[{data_it}/{len(data_loader)}]",
+                f"lr: {optimizer0.param_groups[0]['lr']:.6f}",
+                f"sub_loss: {loss0.item():.4f}",
+                f"slide_loss: {loss1.item():.4f}",
+                f"diff_loss: {diff_loss.item():.4f}",
+                f"total_loss: {loss.item():.4f}"
+            ]
+            if att_loss is not None:
+                log_items.append(f"att_loss: {att_loss.item():.4f}")
+            if criterion_da is not None:
+                log_items.append(f"domain_loss: {loss_d.item():.4f}")
+            print(" | ".join(log_items))
+            
+
 # Disable gradient calculation during evaluation
 @torch.no_grad()
 def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_sep_criterion = False, criterion_da = None):
@@ -631,6 +836,110 @@ def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_se
 
     for data in metric_logger.log_every(data_loader, 100, header):
         image_patches = data[0].to(device, dtype=torch.float32)
+        label_lists = data[1][0]
+        tf = data[2].to(device, dtype=torch.float32)
+        
+        # if criterion_da is not None:
+        #     dlabel = data[3].to(device, dtype=torch.float32)
+        
+        if criterion_da is not None:
+            sub_preds_list, slide_preds_list, attn_list, d_pred_list, bag_feat_list = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+        else:
+            sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches)
+            
+        #Compute loss for each task, then sum
+        loss = 0
+        div_loss = 0
+        pred_list = []
+        acc1_list = []
+        for k in range(conf.n_task):
+            sub_preds = sub_preds_list[k]
+            slide_preds = slide_preds_list[k]
+            attn = attn_list[k]
+            labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
+            
+            div_loss += torch.sum(F.softmax(attn, dim=-1) * F.log_softmax(attn, dim=-1)) / attn.shape[1]
+
+            if use_sep_criterion == False: 
+                loss += criterion(slide_preds, labels.unsqueeze(1))
+            else:
+                loss += criterion[k](slide_preds, labels.unsqueeze(1))
+
+            pred = torch.sigmoid(slide_preds)
+            acc1 = accuracy(pred, labels, topk=(1,))[0]
+
+            pred_list.append(pred)
+            acc1_list.append(acc1)
+            
+        avg_acc = sum(acc1_list)/conf.n_task
+
+        metric_logger.update(loss=loss.item())
+        metric_logger.update(div_loss=div_loss.item())
+        metric_logger.meters['acc1'].update(avg_acc.item(), n=labels.shape[0])
+
+        y_pred.append(pred_list)
+        y_true.append(label_lists)
+
+    #Get prediction for each task
+    y_pred_tasks = []
+    y_true_tasks = []
+    for k in range(conf.n_task):
+        y_pred_tasks.append([p[k] for p in y_pred])
+        y_true_tasks.append([t[:,k].to(device, dtype = torch.int64) for t in y_true])
+    
+    #get performance for each calss
+    auroc_each = 0
+    f1_score_each = 0
+    for k in range(conf.n_task):
+        y_pred_each = torch.cat(y_pred_tasks[k], dim=0)
+        y_true_each = torch.cat(y_true_tasks[k], dim=0)
+    
+        AUROC_metric = torchmetrics.AUROC(num_classes = conf.n_class, task='binary').to(device)
+        AUROC_metric(y_pred_each, y_true_each)
+        auroc_each += AUROC_metric.compute().item()
+    
+        F1_metric = torchmetrics.F1Score(num_classes = conf.n_class, task='binary').to(device)
+        F1_metric(y_pred_each, y_true_each.unsqueeze(1))
+        f1_score_each += F1_metric.compute().item()
+        print("AUROC",str(k),":",AUROC_metric.compute().item())
+    auroc = auroc_each/conf.n_task
+    f1_score = f1_score_each/conf.n_task
+
+    print('* Acc@1 {top1.global_avg:.3f} loss {losses.global_avg:.3f} auroc {AUROC:.3f} f1_score {F1:.3f}'
+          .format(top1=metric_logger.acc1, losses=metric_logger.loss, AUROC=auroc, F1=f1_score))
+
+    return auroc, metric_logger.acc1.global_avg, f1_score, metric_logger.loss.global_avg
+
+
+
+# Disable gradient calculation during evaluation
+@torch.no_grad()
+def evaluate_multitask_randomSample(net, criterion, data_loader, device, conf, header, use_sep_criterion = False, criterion_da = None):
+    
+    rs_rate_stnorm = 1.0
+    rs_rate_nostnorm = 1.0
+    
+    # Set the network to evaluation mode
+    net.eval()
+
+    y_pred = []
+    y_true = []
+
+    metric_logger = MetricLogger(delimiter="  ")
+
+    for data in metric_logger.log_every(data_loader, 100, header):
+ 
+        torch.manual_seed(0)
+        image_patches1 = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+        indices = torch.randperm(image_patches1.size(1))[:round(image_patches1.size(1)*rs_rate_stnorm)] #sample
+        image_patches1 = image_patches1[:, indices, :]
+
+        image_patches2 = data[3].to(device, dtype=torch.float32)
+        indices = torch.randperm(image_patches2.size(1))[:round(image_patches2.size(1)*rs_rate_nostnorm)] #sample
+        image_patches2 = image_patches2[:, indices, :]
+        
+        image_patches = torch.concat([image_patches1,image_patches2], dim = 1)
+            
         label_lists = data[1][0]
         tf = data[2].to(device, dtype=torch.float32)
         
