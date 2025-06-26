@@ -331,25 +331,21 @@ if __name__ == '__main__':
         model.load_state_dict(checkpoint['model'])
         
         
-        
+        #TODO
         ###################################################
         # Val
         ###################################################
-        #TODO
-        if args.train_with_samplingSTandNOST:
-            y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2_sp_nost_andst(model, val_loader, device, conf, 'Test', criterion_da = criterion_da)
-        else:
-            y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2(model, val_loader, device, conf, 'Test', criterion_da = criterion_da)
-
-
+        y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2(model, val_loader, device, conf, 'Test', criterion_da = criterion_da)
         all_pred_df0, all_perf_df0 = get_performance_alltask(conf.n_task, y_true_task_val, y_predprob_task_val, val_ids, SELECTED_LABEL, 
                                                            calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-            
-        all_pred_df0.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + "VAL_" + "_pred_df.csv",index = False)
-        all_perf_df0.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + "VAL_" + "_perf.csv",index = True)
+        
+       
+
+        all_pred_df0.to_csv(os.path.join(outdir4, args.focal_para_folder, "n_token" + str(conf.n_token) + "_VAL_pred_df.csv"),index = False)
+        all_perf_df0.to_csv(os.path.join(outdir5, args.focal_para_folder, "n_token" + str(conf.n_token) + "_VAL_perf.csv"),index = True)
         print("VAL:",round(all_perf_df0['AUC'].mean(),2))
         
-        
+
         
         ###################################################
         #           Test 1
