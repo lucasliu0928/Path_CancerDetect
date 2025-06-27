@@ -24,11 +24,12 @@ sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
 from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
+from Eval import output_pred_perf
 from train_utils import FocalLoss, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import str2bool, clean_data, get_train_test_val_data_cohort, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
-from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, predict_v2, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
-from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, predict_v2_sp_nost_andst
+from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
+from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample
 
 warnings.filterwarnings("ignore")
 
@@ -317,9 +318,6 @@ if __name__ == '__main__':
         else:
             criterion_da = nn.BCEWithLogitsLoss()
             
-        
-        criterion = FocalLoss(alpha= conf.focal_alpha, gamma=conf.focal_gamma, reduction='mean')
-
 
         ###################################################
         #  TEST
@@ -331,182 +329,40 @@ if __name__ == '__main__':
         model.load_state_dict(checkpoint['model'])
         
         
+        out_path_pred = os.path.join(outdir4, args.focal_para_folder)
+        out_path_pref = os.path.join(outdir5, args.focal_para_folder)
+        
+
+        
+        # VAL
+        output_pred_perf(model, val_loader, val_ids, SELECTED_LABEL, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
+         
+        
+        # Test 1
+        output_pred_perf(model, test_loader1, test_ids1, SELECTED_LABEL, conf, train_cohort1, out_path_pred, out_path_pref, criterion_da, device)
+        
+        # Test 2
+        output_pred_perf(model, test_loader2, test_ids2, SELECTED_LABEL, conf, train_cohort2 + "2", out_path_pred, out_path_pref, criterion_da, device)
+        
+        
+        #Test Comb
+        output_pred_perf(model, test_loader, test_ids, SELECTED_LABEL, conf, "TEST_COMB" + "2", out_path_pred, out_path_pref, criterion_da, device)
+
+        
+        #External Validation 1 (z_nostnorm_nep)
+        output_pred_perf(model, ext_loader_st0, nep_ids0, SELECTED_LABEL, conf, "z_nostnorm_NEP" + "2", out_path_pred, out_path_pref, criterion_da, device)
+
+        
+        #External Validation 2 (normed nep)
+        output_pred_perf(model, ext_loader_st1, nep_ids1, SELECTED_LABEL, conf, "NEP" + "2", out_path_pred, out_path_pref, criterion_da, device)
+
+
         #TODO
-        ###################################################
-        # Val
-        ###################################################
-        y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2(model, val_loader, device, conf, 'Test', criterion_da = criterion_da)
-        all_pred_df0, all_perf_df0 = get_performance_alltask(conf.n_task, y_true_task_val, y_predprob_task_val, val_ids, SELECTED_LABEL, 
-                                                           calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-        
-       
-
-        all_pred_df0.to_csv(os.path.join(outdir4, args.focal_para_folder, "n_token" + str(conf.n_token) + "_VAL_pred_df.csv"),index = False)
-        all_perf_df0.to_csv(os.path.join(outdir5, args.focal_para_folder, "n_token" + str(conf.n_token) + "_VAL_perf.csv"),index = True)
-        print("VAL:",round(all_perf_df0['AUC'].mean(),2))
-        
-
-        
-        ###################################################
-        #           Test 1
-        ###################################################   
-        if args.train_with_samplingSTandNOST:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, test_loader1, device, conf, 'Test', criterion_da= criterion_da)
-        else:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader1, device, conf, 'Test', criterion_da= criterion_da)
-
-
         # #Get embeddings
         # embedding_opx = get_emebddings(model2, test_loader11, device, criterion_da = criterion_da)
         # embedding_tcga = get_emebddings(model2, test_loader22, device, criterion_da = criterion_da)
         # embedding_nep = get_emebddings(model2, ext_loader2, device, criterion_da = criterion_da)
 
-        
-
-        # from sklearn.linear_model import LogisticRegression
-        # import numpy as np
-    
-        # # Step 1: Fit Platt scaling (logistic regression) on validation set
-        # platt_model = LogisticRegression()
-        # platt_model.fit(np.array(y_predprob_task_test[i]).reshape(-1, 1), np.array(y_true_task_test[i]))
-        # calibrated_probs = platt_model.predict_proba(np.array(y_predprob_task_test[i]).reshape(-1, 1))[:, 1]
     
 
-        
-        all_pred_df1, all_perf_df1 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, test_ids1, SELECTED_LABEL, 
-                                                           calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
             
-        all_pred_df1.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_pred_df.csv",index = False)
-        all_perf_df1.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_perf.csv",index = True)
-        print(train_cohort1 + ":",  round(all_perf_df1['AUC'].mean(),2))
-    
-    
-        #plot boxplot of pred prob by mutation class
-        boxplot_predprob_by_mutationclass(all_pred_df1, outdir44)
-    
-        #plot roc curve by mutation class
-        for i in range(conf.n_task):
-            cur_pred_df = all_pred_df1.loc[all_pred_df1['OUTCOME'] == SELECTED_LABEL[i]]
-            plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-            
-            
-        # #bootstrap perforance
-        # ci_list = []
-        # for i in range(conf.n_task):
-        #     print(i)
-        #     cur_pred_df = all_pred_df1.loc[all_pred_df1['OUTCOME'] == SELECTED_LABEL[i]]
-        #     cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-        #     cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-        #     ci_list.append(cur_ci_df)
-        # ci_final_df = pd.concat(ci_list)
-        # print(ci_final_df)
-        # ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_perf_bootstrap2.csv",index = True)
-        
-        ###################################################
-        #           Test 2
-        ###################################################  
-        if args.train_with_samplingSTandNOST:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, test_loader2, device, conf, 'Test', criterion_da= criterion_da)
-        else:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader2, device, conf, 'Test', criterion_da= criterion_da)
-
-
-        
-        all_pred_df2, all_perf_df2 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, test_ids2, SELECTED_LABEL, 
-                                                           calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-            
-        all_pred_df2.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + train_cohort2 + "_pred_df.csv",index = False)
-        all_perf_df2.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort2 + "_perf.csv",index = True)
-        print(train_cohort2 + ":",  round(all_perf_df2['AUC'].mean(),2))
-    
-    
-        #plot boxplot of pred prob by mutation class
-        boxplot_predprob_by_mutationclass(all_pred_df2, outdir44)
-    
-        #plot roc curve by mutation class
-        for i in range(conf.n_task):
-            cur_pred_df = all_pred_df2.loc[all_pred_df2['OUTCOME'] == SELECTED_LABEL[i]]
-            plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-    
-
-        
-        ###################################################
-        #Test comb
-        ###################################################
-
-        if args.train_with_samplingSTandNOST:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, test_loader, device, conf, 'Test_comb', criterion_da= criterion_da)
-        else:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader, device, conf, 'Test_comb', criterion_da= criterion_da)
-
-
-
-        
-        all_pred_df3, all_perf_df3 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, test_ids, SELECTED_LABEL, 
-                                                           calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-            
-        all_pred_df3.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + 'TEST_COMB' + "_pred_df.csv",index = False)
-        all_perf_df3.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + 'TEST_COMB' + "_perf.csv",index = True)
-        print("TEST_COMB:", round(all_perf_df3['AUC'].mean(),2))
-    
-    
-        #plot boxplot of pred prob by mutation class
-        boxplot_predprob_by_mutationclass(all_pred_df3, outdir44)
-    
-        #plot roc curve by mutation class
-        for i in range(conf.n_task):
-            cur_pred_df = all_pred_df3.loc[all_pred_df3['OUTCOME'] == SELECTED_LABEL[i]]
-            plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-        
-        ###################################################
-        #           external validation  1
-        ###################################################  
-        if args.train_with_samplingSTandNOST:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, ext_loader_st0, device, conf, 'EXT_noSTnorm', criterion_da= criterion_da)
-        else:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, ext_loader_st0, device, conf, 'EXT_noSTnorm', criterion_da= criterion_da)
-
-
-        all_pred_df4, all_perf_df4 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, nep_ids0, SELECTED_LABEL, 
-                                                           calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-            
-        all_pred_df4.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + 'z_nostnorm_NEP' + "_pred_df.csv",index = False)
-        all_perf_df4.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + 'z_nostnorm_NEP' + "_perf.csv",index = True)
-        print("z_nostnorm_NEP:", round(all_perf_df4['AUC'].mean(),2))
-        
-    
-        #plot boxplot of pred prob by mutation class
-        boxplot_predprob_by_mutationclass(all_pred_df4, outdir44)
-    
-        #plot roc curve by mutation class
-        for i in range(conf.n_task):
-            cur_pred_df = all_pred_df4.loc[all_pred_df4['OUTCOME'] == SELECTED_LABEL[i]]
-            plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-            
-            
-            
-        ###################################################
-        #           external validation 2
-        ###################################################   
-        if args.train_with_samplingSTandNOST:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, ext_loader_st1, device, conf, 'EXT_STnorm', criterion_da= criterion_da)
-        else:
-            y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, ext_loader_st1, device, conf, 'EXT_STnorm', criterion_da= criterion_da)
-
-        
-        all_pred_df5, all_perf_df5 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, nep_ids1, SELECTED_LABEL, 
-                                                           calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-            
-        all_pred_df5.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + 'NEP' + "_pred_df.csv",index = False)
-        all_perf_df5.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + 'NEP' + "_perf.csv",index = True)
-        print("NEP:",round(all_perf_df5['AUC'].mean(),2))
-    
-    
-        #plot boxplot of pred prob by mutation class
-        boxplot_predprob_by_mutationclass(all_pred_df5, outdir44)
-    
-        #plot roc curve by mutation class
-        for i in range(conf.n_task):
-            cur_pred_df = all_pred_df5.loc[all_pred_df5['OUTCOME'] == SELECTED_LABEL[i]]
-            plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-

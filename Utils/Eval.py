@@ -122,7 +122,7 @@ def get_attention_and_tileinfo(pt_label_df, patient_att_score):
 
 
 
-def plot_roc_curve(y_pred, y_true, outdir, outcome_name):
+def plot_roc_curve(y_pred, y_true, outdir, cohort_name, outcome_name):
     # Initialize ROC metric for binary classification
     roc = ROC(task='binary')
     
@@ -139,7 +139,7 @@ def plot_roc_curve(y_pred, y_true, outdir, outcome_name):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend(loc="lower right")
-    plt.savefig(os.path.join(outdir, "rocauc_"+ outcome_name + ".png"), dpi=300)
+    plt.savefig(os.path.join(outdir, cohort_name + "_rocauc_"+ outcome_name + ".png"), dpi=300)
     plt.show()
 
 
@@ -227,7 +227,7 @@ def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=No
     return ci_df.T
 
 
-def boxplot_predprob_by_mutationclass(pred_df, outdir):
+def boxplot_predprob_by_mutationclass(pred_df, cohort_name, outdir):
     # Get unique outcomes
     outcomes = pred_df['OUTCOME'].unique()
     n_outcomes = len(outcomes)
@@ -259,7 +259,7 @@ def boxplot_predprob_by_mutationclass(pred_df, outdir):
     plt.title('Predicted Probabilities by Outcome and Y_True')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(os.path.join(outdir, "pred_prob_boxplot_byoutcome.png"), dpi=300)
+    plt.savefig(os.path.join(outdir, cohort_name + "_pred_prob_boxplot_byoutcome.png"), dpi=300)
     plt.show()
 
 
@@ -283,3 +283,159 @@ def get_performance_alltask(n_task, ytrue_test, ypredprob_test, ids_test, select
     perf_df_all = pd.concat(perf_df_list)
     
     return pred_df_all,perf_df_all
+
+
+def predict_v2(net, data_loader, device, conf, criterion_da = None):    
+    y_pred = []
+    y_true = []
+    y_pred_prob = []
+    # Set the network to evaluation mode
+    net.eval()
+    with torch.no_grad():
+        for data in data_loader:
+            image_patches = data[0].to(device, dtype=torch.float32)
+            label_lists = data[1][0]
+            
+            if criterion_da is not None:
+                sub_preds_list, slide_preds_list, attn_list, _, _ = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+            else:
+                sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches)
+            
+            #Compute loss for each task, then sum
+            pred_list = []
+            pred_prob_list = []
+            for k in range(conf.n_task):
+                sub_preds = sub_preds_list[k]
+                slide_preds = slide_preds_list[k]
+                attn = attn_list[k]
+                labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
+                pred_prob = torch.sigmoid(slide_preds)
+                pred = pred_prob[0][0].round()
+                pred_list.append(pred)
+                pred_prob_list.append(pred_prob)
+        
+            y_pred.append(pred_list)
+            y_true.append(label_lists)
+            y_pred_prob.append(pred_prob_list)
+    
+        #Get prediction for each task
+        y_predprob_task = []
+        y_pred_tasks = []
+        y_true_tasks = []
+        for k in range(conf.n_task):
+            y_pred_tasks.append([p[k] for p in y_pred])
+            y_predprob_task.append([p[k].item() for p in y_pred_prob])
+            y_true_tasks.append([t[:,k].to(device, dtype = torch.int64).item() for t in y_true])
+    
+    return y_pred_tasks, y_predprob_task, y_true_tasks
+
+
+
+def predict_v2_sp_nost_andst(net, data_loader, device, conf, header, criterion_da = None):    
+    y_pred = []
+    y_true = []
+    y_pred_prob = []
+    
+    rs_rate_stnorm = 1.0
+    rs_rate_nostnorm = 1.0
+    # Set the network to evaluation mode
+    net.eval()
+    with torch.no_grad():
+        for data in data_loader:
+            
+            torch.manual_seed(0)
+            
+            if len(data[0]) != 0:
+                image_patches1 = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+                indices = torch.randperm(image_patches1.size(1))[:round(image_patches1.size(1)*rs_rate_stnorm)] #sample
+                image_patches1 = image_patches1[:, indices, :]
+
+            if len(data[3]) != 0:
+                image_patches2 = data[3].to(device, dtype=torch.float32)
+                indices = torch.randperm(image_patches2.size(1))[:round(image_patches2.size(1)*rs_rate_nostnorm)] #sample
+                image_patches2 = image_patches2[:, indices, :]
+            
+            if len(data[0]) != 0 and len(data[3]) != 0:
+                image_patches = torch.concat([image_patches1,image_patches2], dim = 1)
+            elif len(data[0]) == 0:
+                image_patches = image_patches2
+            elif len(data[3]) == 0:
+                image_patches = image_patches1
+                
+
+            label_lists = data[1][0]
+            
+            if criterion_da is not None:
+                sub_preds_list, slide_preds_list, attn_list, _, _ = net(image_patches) #lists len of n of tasks, each task = [5,2], [1,2], [1,5,3],
+            else:
+                sub_preds_list, slide_preds_list, attn_list, bag_feat_list = net(image_patches)
+            
+            #Compute loss for each task, then sum
+            pred_list = []
+            pred_prob_list = []
+            for k in range(conf.n_task):
+                sub_preds = sub_preds_list[k]
+                slide_preds = slide_preds_list[k]
+                attn = attn_list[k]
+                labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
+                pred_prob = torch.sigmoid(slide_preds)
+                pred = pred_prob[0][0].round()
+                pred_list.append(pred)
+                pred_prob_list.append(pred_prob)
+        
+            y_pred.append(pred_list)
+            y_true.append(label_lists)
+            y_pred_prob.append(pred_prob_list)
+    
+        #Get prediction for each task
+        y_predprob_task = []
+        y_pred_tasks = []
+        y_true_tasks = []
+        for k in range(conf.n_task):
+            y_pred_tasks.append([p[k] for p in y_pred])
+            y_predprob_task.append([p[k].item() for p in y_pred_prob])
+            y_true_tasks.append([t[:,k].to(device, dtype = torch.int64).item() for t in y_true])
+    
+    return y_pred_tasks, y_predprob_task, y_true_tasks
+
+
+def output_pred_perf(model, data_loader, ids, selected_label, conf, cohort_name, out_path_pred, out_path_pref, criterion_da, device, calibration = False):
+    
+    y_pred_tasks,  y_predprob_task, y_true_task = predict_v2(model, data_loader, device, conf, criterion_da)
+    
+    if calibration == False:
+        ytrue_val = None
+        ypredprob_val = None
+        
+    all_pred_df, all_perf_df = get_performance_alltask(conf.n_task, y_true_task, y_predprob_task, ids, selected_label, 
+                                                       calibration = calibration, ytrue_val = ytrue_val, ypredprob_val = ypredprob_val)
+    
+   
+
+    all_pred_df.to_csv(os.path.join(out_path_pred, "n_token" + str(conf.n_token) + "_" + cohort_name + "_pred_df.csv"),index = False)
+    all_perf_df.to_csv(os.path.join(out_path_pref, "n_token" + str(conf.n_token) + "_" + cohort_name + "_perf.csv"),index = True)
+    print(cohort_name + ":",round(all_perf_df['AUC'].mean(),2))
+    
+    
+    
+    
+    #plot boxplot of pred prob by mutation class
+    boxplot_predprob_by_mutationclass(all_pred_df, cohort_name, out_path_pred)
+
+    #plot roc curve by mutation class
+    for i in range(conf.n_task):
+        cur_pred_df = all_pred_df.loc[all_pred_df['OUTCOME'] == selected_label[i]]
+        plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), out_path_pred, cohort_name ,selected_label[i])
+        
+        
+    # #bootstrap perforance
+    # ci_list = []
+    # for i in range(conf.n_task):
+    #     print(i)
+    #     cur_pred_df = all_pred_df1.loc[all_pred_df1['OUTCOME'] == SELECTED_LABEL[i]]
+    #     cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
+    #     cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
+    #     ci_list.append(cur_ci_df)
+    # ci_final_df = pd.concat(ci_list)
+    # print(ci_final_df)
+    # ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_perf_bootstrap2.csv",index = True)
