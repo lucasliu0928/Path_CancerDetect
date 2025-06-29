@@ -62,7 +62,7 @@ parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda devi
 parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'comb_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
+parser.add_argument('--train_cohort', default= 'comb_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA') #comb: sampling from NST and ST during training the model
 parser.add_argument('--external_cohort1', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--external_cohort2', default= 'z_nostnorm_Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
 parser.add_argument('--f_alpha', default= 0.2, type=float, help='focal alpha')

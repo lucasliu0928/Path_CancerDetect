@@ -12,24 +12,19 @@ Created on Wed Jun 18 17:45:28 2025
 #NOTE: use python env acmil in ACMIL folder
 import sys
 import os
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
-import pandas as pd
 import warnings
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
-from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
-from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
 from Eval import output_pred_perf
-from train_utils import FocalLoss, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
-from train_utils import str2bool, clean_data, get_train_test_val_data_cohort, random_sample_tiles
-from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
-from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
-from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample
+from train_utils import get_feature_idexes, get_selected_labels
+from train_utils import str2bool, clean_data, get_train_test_val_data_cohort
+from train_utils import combine_data_from_stnorm_and_nostnorm
+from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA
 
 warnings.filterwarnings("ignore")
 
@@ -39,17 +34,14 @@ current_dir = os.getcwd()
 grandparent_subfolder = os.path.join(current_dir, '..', '..', 'other_model_code','ACMIL-main')
 grandparent_subfolder = os.path.normpath(grandparent_subfolder)
 sys.path.insert(0, grandparent_subfolder)
-from utils.utils import save_model, Struct
 import yaml
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 import argparse
 from architecture.transformer import ACMIL_GA #ACMIL_GA
 from architecture.transformer import ACMIL_MHA
-import wandb
 
-#Running in tmux train2
+
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/ACMIL-main/acmil/bin/activate
-#Run: python3 -u 7_train_ACMIL_mixed_0618.py --mutation MT --GRL False --train_cohort OPX_TCGA --train_flag True --batchsize 1 --use_sep_cri False --sample_training_n 1000 --out_folder pred_out_061825_sample1000tiles_trainOPX_TCGA_GRLFALSE --f_alpha 0.2 --f_gamma 6 
 ############################################################################################################
 #Parser
 ############################################################################################################
@@ -63,12 +55,12 @@ parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or
 parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
 
 parser.add_argument('--proj_dir', default= '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/', type=str, help='model folder name')
 parser.add_argument('--data_folder', default= '5_model_ready_data', type=str, help='model folder name')
 parser.add_argument('--id_folder', default= '3B_Train_TEST_IDS', type=str, help='ID folder')
-parser.add_argument('--model_folder', default= 'pred_out_061825_union_1000tiles_trainOPX_TCGA_GRLFALSE/trainCohort_union_stnormAndnostnorm_OPX_TCGA_GRLFalse/acmil/uni2/TrainOL100_TestOL0_TFT0.9/FOLD0/MTHR_TYPEHR2/', type=str, help='model folder name')
+parser.add_argument('--train_cohort', default= 'comb_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
+parser.add_argument('--model_folder', default= 'pred_out_061825_comb_alltiles_trainOPX_TCGA_GRLFALSE/trainCohort_comb_stnormAndnostnorm_OPX_TCGA_GRLFalse/acmil/uni2/TrainOL100_TestOL0_TFT0.9/', type=str, help='model folder name')
 parser.add_argument('--focal_para_folder', default= 'GAMMA_6.0_ALPHA_0.9', type=str, help='focal parameter folder')
 
 
@@ -89,7 +81,6 @@ if __name__ == '__main__':
     args = parser.parse_args()    
     fold_list = [0,1,2,3,4]
     for f in fold_list:
-        f = 0
         args.s_fold = f
     
         ####################################
@@ -109,11 +100,11 @@ if __name__ == '__main__':
         ##################
         ###### DIR  ######
         ##################
-        outdir1 =  os.path.join(args.proj_dir, args.model_folder , "saved_model")
-        outdir2 =  os.path.join(args.proj_dir, args.model_folder , "model_para")
-        outdir3 =  os.path.join(args.proj_dir, args.model_folder , "logs")
-        outdir4 =  os.path.join(args.proj_dir, args.model_folder , "predictions")
-        outdir5 =  os.path.join(args.proj_dir, args.model_folder , "perf")
+        outdir1 =  os.path.join(args.proj_dir, args.model_folder , 'FOLD' + str(args.s_fold), args.mutation + 'HR_TYPE' + args.hr_type, "saved_model")
+        outdir2 =  os.path.join(args.proj_dir, args.model_folder , 'FOLD' + str(args.s_fold), args.mutation + 'HR_TYPE' + args.hr_type, "model_para")
+        outdir3 =  os.path.join(args.proj_dir, args.model_folder , 'FOLD' + str(args.s_fold), args.mutation + 'HR_TYPE' + args.hr_type, "logs")
+        outdir4 =  os.path.join(args.proj_dir, args.model_folder , 'FOLD' + str(args.s_fold), args.mutation + 'HR_TYPE' + args.hr_type, "predictions")
+        outdir5 =  os.path.join(args.proj_dir, args.model_folder , 'FOLD' + str(args.s_fold), args.mutation + 'HR_TYPE' + args.hr_type, "perf")
         
         
         ##################                
@@ -223,7 +214,7 @@ if __name__ == '__main__':
             model_data2 = data_tcga_stnorm10_comb
             
         ################################################################################################
-        #For training and test data, take the union of tiles from stained normed and nostained normed tiles
+        #For training and test data
         ################################################################################################
         id_data_dir = os.path.join(args.proj_dir, args.id_folder)
         
@@ -254,35 +245,23 @@ if __name__ == '__main__':
         test_ids = test_ids1 + test_ids2
         
 
-        if args.train_cohort != 'comb_stnormAndnostnorm_OPX_TCGA':
-            #Exclude tile info data, sample ID, patient ID, do not needed it for training
-            test_data1 = [item[:-3] for item in test_data1]   
-            test_data2 = [item[:-3] for item in test_data2]   
-            test_data = [item[:-3] for item in test_data]   
-            val_data = [item[:-3] for item in val_data]
-        else:
+        if args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA': 
             #Keep feature1, label, tf,1 dlabel, feature2, tf2
             test_data1 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data1]
             test_data2 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data2]
             test_data = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data]
             val_data = [(item[0], item[1], item[2],  item[6], item[8]) for item in val_data]
-        
-        
-        if args.train_cohort == 'union_stnormAndnostnorm_OPX_TCGA':
-            #The following two  are the same
-            ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_union]
-            ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_union]
-            nep_ids0 = nep_id
-            nep_ids1 = nep_id
-        elif args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA':
-            #The following two  are the same
-            ext_data_nep_st0 = [(item[0], item[1], item[2], item[6], item[8]) for item in data_ol0_nep_comb]            
-            ext_data_nep_st1 = [(item[0], item[1], item[2], item[6], item[8]) for item in data_ol0_nep_comb]
-            nep_ids0 = nep_id
-            nep_ids1 = nep_id
         else:
-            ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_stnorm0]
-            ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1]
+            #Exclude tile info data, sample ID, patient ID, do not needed it for training
+            test_data1 = [item[:-3] for item in test_data1]   
+            test_data2 = [item[:-3] for item in test_data2]   
+            test_data = [item[:-3] for item in test_data]   
+            val_data = [item[:-3] for item in val_data]
+        
+        
+        ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_stnorm0] #no st norm
+        ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1] #st normed
+        ext_data_nep_union = [item[:-3] for item in data_ol0_nep_union]
 
 
     
@@ -295,7 +274,8 @@ if __name__ == '__main__':
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         val_loader   = DataLoader(dataset=val_data,  batch_size=1, shuffle=False)            
         ext_loader_st0   = DataLoader(dataset=ext_data_nep_st0,  batch_size=1, shuffle=False)
-        ext_loader_st1   = DataLoader(dataset=ext_data_nep_st1,  batch_size=1, shuffle=False)   
+        ext_loader_st1   = DataLoader(dataset=ext_data_nep_st1,  batch_size=1, shuffle=False) 
+        ext_loader_union   = DataLoader(dataset=ext_data_nep_union,  batch_size=1, shuffle=False)
         
         
         ####################################################
@@ -342,19 +322,24 @@ if __name__ == '__main__':
         output_pred_perf(model, test_loader1, test_ids1, SELECTED_LABEL, conf, train_cohort1, out_path_pred, out_path_pref, criterion_da, device)
         
         # Test 2
-        output_pred_perf(model, test_loader2, test_ids2, SELECTED_LABEL, conf, train_cohort2 + "2", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf(model, test_loader2, test_ids2, SELECTED_LABEL, conf, train_cohort2 , out_path_pred, out_path_pref, criterion_da, device)
         
         
         #Test Comb
-        output_pred_perf(model, test_loader, test_ids, SELECTED_LABEL, conf, "TEST_COMB" + "2", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf(model, test_loader, test_ids, SELECTED_LABEL, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
 
         
         #External Validation 1 (z_nostnorm_nep)
-        output_pred_perf(model, ext_loader_st0, nep_ids0, SELECTED_LABEL, conf, "z_nostnorm_NEP" + "2", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf(model, ext_loader_st0, nep_ids0, SELECTED_LABEL, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
 
         
         #External Validation 2 (normed nep)
-        output_pred_perf(model, ext_loader_st1, nep_ids1, SELECTED_LABEL, conf, "NEP" + "2", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf(model, ext_loader_st1, nep_ids1, SELECTED_LABEL, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
+        
+        
+        #External Validation 3 (union)
+        output_pred_perf(model, ext_loader_union, nep_id, SELECTED_LABEL, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
+
 
 
         #TODO
