@@ -26,9 +26,9 @@ from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_cu
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
 from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf
 from train_utils import FocalLoss, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
-from train_utils import str2bool, clean_data, get_train_test_val_data_cohort, random_sample_tiles
+from train_utils import str2bool, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
-from train_utils import load_data
+from train_utils import load_data, get_final_model_data
 from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
 from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample
 warnings.filterwarnings("ignore")
@@ -68,15 +68,19 @@ parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda devi
 parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
+parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--out_folder', default= 'pred_out_063025', type=str, help='out folder name')
+#parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
+
+############################################################################################################
+#Training Para 
+############################################################################################################
+parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
+parser.add_argument('--sample_training_n', default= 0, type=int, help='random sample K tiles')
+parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
 parser.add_argument('--f_alpha', default= 0.9, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 6, type=float, help='focal gamma')
 parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
-parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
-parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
-parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
-parser.add_argument('--out_folder', default= 'pred_out_061825_new2', type=str, help='out folder name')
-#parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
 
 
 ############################################################################################################
@@ -99,33 +103,44 @@ parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use sep
 if __name__ == '__main__':
     
     args = parser.parse_args()
-    #args.GRL = False
-    #args.s_fold  = 0
     args.train_flag = True
-    #args.mutation = 'MT'
-    #args.train_epoch = 10
+
     
     fold_list = [0,1,2,3,4]
     for f in fold_list:
         
         args.s_fold = f
-    
-    
-        ####################################
-        ######      USERINPUT       ########
-        ####################################
-        #Feature
-        SELECTED_FEATURE = get_feature_idexes(args.fe_method, include_tumor_fraction = False)
-        N_FEATURE = len(SELECTED_FEATURE)
         
-    
-        #Label
-        SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.train_cohort)
-        print(SELECTED_LABEL)
-        print(selected_label_index)
+        ##################
+        ###### DIR  ######
+        ##################
+        proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
+        data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
+        id_data_dir = os.path.join(proj_dir, 'intermediate_data', "3B_Train_TEST_IDS")
+        
+        
+        ####################################
+        #Load data
+        ####################################            
+        loaded_data, selected_label = get_final_model_data(data_dir, id_data_dir, args.train_cohort, args.mutation, args.fe_method, args.tumor_frac, args.s_fold)
+        train_data, train_ids = loaded_data['train']
+        val_data, val_ids = loaded_data['val']
+        test_data, test_ids = loaded_data['test']
+        test_data1, test_ids1 = loaded_data['test1']
+        test_data2, test_ids2 = loaded_data['test2']
+        ext_data_st0, nep_ids0  = loaded_data['ext_data_st0']
+        ext_data_st1, nep_ids1 = loaded_data['ext_data_st1']
+        ext_data_union, nep_ids = loaded_data['ext_data_union']
 
-                        
+        
+        #Feature and Label N
+        N_FEATURE =  train_data[0][0].shape[1]
+        N_LABELS  =  train_data[0][1].shape[1]
+        
+
+        ####################################               
         #Model Config
+        ####################################
         config_dir = "myconf.yml"
         with open(config_dir, "r") as ymlfile:
             c = yaml.load(ymlfile, Loader=yaml.FullLoader)
@@ -134,10 +149,10 @@ if __name__ == '__main__':
         conf.D_feat = N_FEATURE
         conf.D_inner = args.DIM_OUT
         conf.n_class = 1
-        conf.wandb_mode = 'disabled'
         conf.lr = args.lr
-        conf.n_task = len(SELECTED_LABEL)
+        conf.n_task = N_LABELS
         conf.sample_training_n = args.sample_training_n
+        conf.batch_train = args.batch_train
         conf.batchsize = args.batchsize
         conf.learning_method = args.learning_method
         conf.arch = args.arch
@@ -159,17 +174,12 @@ if __name__ == '__main__':
             
 
             
-        ##################
-        ###### DIR  ######
-        ##################
-        proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'        
-    
         ######################
         #Create output-dir
         ######################
         folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/" 
         outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                               'trainCohort_' + args.train_cohort + '_GRL' + str(args.GRL),
+                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n) + '_GRL' + str(args.GRL),
                                args.learning_method,
                                folder_name1,
                                'FOLD' + str(args.s_fold),
@@ -332,46 +342,15 @@ if __name__ == '__main__':
         # ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1] #st normed
         # ext_data_nep_union = [item[:-3] for item in data_ol0_nep_union]
         
-        
-        # #write to pt
-        # torch.save({"data": train_data, "id": train_ids}, 'train_data.pt')
-        # torch.save({"data": test_data1, "id": test_ids1}, 'test_data1.pt')
-        # torch.save({"data": test_data2, "id": test_ids2}, 'test_data2.pt')
-        # torch.save({"data": test_data, "id": test_ids}, 'test_data.pt')
-        # torch.save({"data": val_data, "id": val_ids}, 'val_data.pt')
-        # torch.save({"data": ext_data_nep_st0, "id": nep_ids0}, 'ext_data_nep_st0.pt')
-        # torch.save({"data": ext_data_nep_st1, "id": nep_ids1}, 'ext_data_nep_st1.pt')
-        # torch.save({"data": ext_data_nep_union, "id": nep_id}, 'ext_data_nep_union.pt')
-        
-        
-        
-        #Load data
-        if args.train_cohort == 'z_nostnorm_OPX_TCGA':
-            train_cohort1 = 'z_nostnorm_OPX'
-            train_cohort2 = 'z_nostnorm_TCGA_PRAD'
-            
-        else:
-            train_cohort1 = 'OPX'
-            train_cohort2 = 'TCGA_PRAD'
-
-            
-        train_data, train_ids = load_data("train_data.pt")
-        test_data1, test_ids1 = load_data("test_data1.pt")
-        test_data2, test_ids2 = load_data("test_data2.pt")
-        test_data, test_ids = load_data("test_data.pt")
-        val_data, val_ids = load_data("val_data.pt")
-        ext_data_nep_st0, nep_ids0 = load_data("ext_data_nep_st0.pt")
-        ext_data_nep_st1, nep_ids1 = load_data("ext_data_nep_st1.pt")
-        ext_data_nep_union, nep_id = load_data("ext_data_nep_union.pt")
-
-
 
         
-        
-        
+        ####################################################
+        #Training with sampling
+        ####################################################
+        if conf.sample_training_n > 0:
+            #Random Sample 1000 tiles or oriingal N tiles (if total number is < 1000) for training data
+            random_sample_tiles(train_data, k = conf.sample_training_n, random_seed = 42)
 
-            
-    
         
         ####################################################
         #Dataloader for training
@@ -381,9 +360,9 @@ if __name__ == '__main__':
         test_loader2  = DataLoader(dataset=test_data2, batch_size=1, shuffle=False)
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         val_loader   = DataLoader(dataset=val_data,  batch_size=1, shuffle=False)            
-        ext_loader_st0   = DataLoader(dataset=ext_data_nep_st0,  batch_size=1, shuffle=False)
-        ext_loader_st1   = DataLoader(dataset=ext_data_nep_st1,  batch_size=1, shuffle=False) 
-        ext_loader_union   = DataLoader(dataset=ext_data_nep_union,  batch_size=1, shuffle=False)
+        ext_loader_st0   = DataLoader(dataset=ext_data_st0,  batch_size=1, shuffle=False)
+        ext_loader_st1   = DataLoader(dataset=ext_data_st1,  batch_size=1, shuffle=False) 
+        ext_loader_union   = DataLoader(dataset=ext_data_union,  batch_size=1, shuffle=False)
         
 
         ####################################################
@@ -600,28 +579,28 @@ if __name__ == '__main__':
     
             
             # VAL
-            output_pred_perf(model2, val_loader, val_ids, SELECTED_LABEL, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, val_loader, val_ids, selected_label, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
              
             
             # Test 1
-            output_pred_perf(model2, test_loader1, test_ids1, SELECTED_LABEL, conf, train_cohort1, out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", out_path_pred, out_path_pref, criterion_da, device)
             
             # Test 2
-            output_pred_perf(model2, test_loader2, test_ids2, SELECTED_LABEL, conf, train_cohort2 , out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, test_loader2, test_ids2, selected_label, conf, "TEST_TCGA" , out_path_pred, out_path_pref, criterion_da, device)
             
             
             #Test Comb
-            output_pred_perf(model2, test_loader, test_ids, SELECTED_LABEL, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
     
             
             #External Validation 1 (z_nostnorm_nep)
-            output_pred_perf(model2, ext_loader_st0, nep_ids0, SELECTED_LABEL, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
     
             
             #External Validation 2 (normed nep)
-            output_pred_perf(model2, ext_loader_st1, nep_ids1, SELECTED_LABEL, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, ext_loader_st1, nep_ids1, selected_label, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
             
             
             #External Validation 3 (union)
-            output_pred_perf(model2, ext_loader_union, nep_id, SELECTED_LABEL, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf(model2, ext_loader_union, nep_ids, selected_label, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
 

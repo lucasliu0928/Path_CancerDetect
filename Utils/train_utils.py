@@ -29,16 +29,7 @@ def str2bool(value):
         return False
 
 
-def load_model_ready_data(data_path, cohort, pixel_overlap, fe_method, tumor_frac):
-    
-    feature_path =  os.path.join(data_path, 
-                                 cohort, 
-                                 "IMSIZE250_OL" + str(pixel_overlap), 
-                                 'feature_' + fe_method, 
-                                 'TFT' + str(tumor_frac))
-    model_ready_data = torch.load(os.path.join(feature_path, cohort + '_data.pth'))
-    
-    return model_ready_data
+
         
 def get_feature_idexes(method, include_tumor_fraction = True):
     
@@ -1055,22 +1046,7 @@ def get_train_test_val_data(data_pool_train, data_pool_test, id_df, fold):
     return (train_data_final, train_sp_ids_final), (val_data_final, val_sp_ids_final), (test_data_final, test_sp_ids_final)
 
     
-def update_label(indata, select_label_index):
-    r'''
-    Input:   Model Ready data
-    Returns: Model ready data, List of ids
-    -------
-    '''
-    #Get ordered sample IDs in indata
-    ids  = [x[-2] for x in indata] #The 2nd to the last one is sample ID, the last one is patient ID     
-    
-    #Update label
-    indata_final = [(x[0], x[1][:,select_label_index], x[2], x[3],x[4],x[5]) for x in indata]
 
-    print(f'N:  {len(ids)}')
-    print(f'DS: {len(indata_final)}')
-
-    return indata_final,ids
 
 
 def update_to_agg_feature(indata):
@@ -1235,26 +1211,23 @@ def predict_clustercnn(net, data_loader, criterion, device, n_task = 7):
 
 
 
+def update_label(indata, select_label_index):
+    r'''
+    Input:   Model Ready data
+    Returns: Model ready data, List of ids
+    -------
+    '''
+    
+    #Update label
+    indata_final = [(x[0], x[1][:,select_label_index], x[2], x[3],x[4],x[5]) for x in indata]
+
+    print(f'DS: {len(indata_final)}')
+
+    return indata_final
 
 
-def clean_data(data_path, cohort_name, pixel_overlap, fe_method, tumor_frac, label_index):
-    # cohort_name = 'z_nostnorm_OPX'
-    # pixel_overlap = args.train_overlap
-    # fe_method = args.fe_method
-    # tumor_frac = args.tumor_frac
-    # label_index = selected_label_index
-    
-    #Load data
-    model_data = load_model_ready_data(data_path, cohort_name, pixel_overlap, fe_method, tumor_frac)
-    
-    
-    #Clean (updated label and remove reduant info)
-    model_data, ids = update_label(model_data, label_index)
-    
-    return model_data, ids
 
-
-def get_train_test_val_data_cohort(data_dir, cohort_name , model_data, tumor_frac, s_fold):
+def get_train_test_val_data_singlecohort(data_dir, cohort_name , model_data, tumor_frac, s_fold):
     
     #data_dir = proj_dir + 'intermediate_data/3B_Train_TEST_IDS'
     
@@ -1448,4 +1421,258 @@ def load_data(data_path):
     loaded = torch.load(data_path)
     data = loaded['data']
     ids =  loaded['id']
-    return data, ids      
+    return data, ids    
+
+
+def load_model_ready_data(data_path, cohort, pixel_overlap, fe_method, tumor_frac):
+    
+    feature_path =  os.path.join(data_path, 
+                                 cohort, 
+                                 "IMSIZE250_OL" + str(pixel_overlap), 
+                                 'feature_' + fe_method, 
+                                 'TFT' + str(tumor_frac))
+    try:
+        model_ready_data = torch.load(os.path.join(feature_path, cohort + '_data.pth'))
+    
+    except FileNotFoundError:
+        model_ready_data = None
+    
+    return model_ready_data
+
+def get_cohort_data(data_path, cohort_name, fe_method, tumor_frac):
+    
+    #Load data
+    data_ol100 = load_model_ready_data(data_path, cohort_name, 100, fe_method, tumor_frac) #overlap 100
+    data_ol0   = load_model_ready_data(data_path, cohort_name, 0, fe_method, tumor_frac) #overlap 0
+    
+    #Combine
+    data_comb = {'OL100': data_ol100, 'OL0': data_ol0}
+    
+    return data_comb
+
+
+def get_final_split_data(id_data_dir, train_cohort1, model_data1, train_cohort2, model_data2, tumor_frac, s_fold):
+    
+
+    (train_data1, train_ids1), (val_data1, val_ids1), (test_data1, test_ids1) = get_train_test_val_data_singlecohort(id_data_dir, 
+                                                                                                               train_cohort1 ,
+                                                                                                               model_data = model_data1, 
+                                                                                                               tumor_frac = tumor_frac, 
+                                                                                                               s_fold = s_fold)
+    
+    
+    if train_cohort2 is not None:
+        (train_data2, train_ids2), (val_data2, val_ids2), (test_data2, test_ids2) = get_train_test_val_data_singlecohort(id_data_dir, 
+                                                                                                                   train_cohort2 ,
+                                                                                                                   model_data = model_data2, 
+                                                                                                                   tumor_frac = tumor_frac, 
+                                                                                                                   s_fold = s_fold)
+    
+    else:
+        (train_data2, train_ids2), (val_data2, val_ids2), (test_data2, test_ids2) = (None, None), (None, None), (None, None)
+    
+    
+    train_data = train_data1 + train_data2
+    train_ids = train_ids1 + train_ids2
+    
+    val_data = val_data1 + val_data2
+    val_ids = val_ids1 + val_ids2
+    
+    test_data = test_data1 + test_data2 
+    test_ids = test_ids1 + test_ids2
+    
+    return {
+            "train": (train_data, train_ids),
+            "val": (val_data, val_ids),
+            "test": (test_data, test_ids),
+            "test1": (test_data1, test_ids1),
+            "test2": (test_data2, test_ids2)
+            }
+
+
+
+def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_method, tumor_frac, s_fold):
+    #OPX data
+    data_opx_stnorm0 = get_cohort_data(data_dir, "z_nostnorm_OPX", fe_method, tumor_frac)
+    data_opx_stnorm1 = get_cohort_data(data_dir, "OPX", fe_method, tumor_frac) #TODO: Check OPX_001 was removed beased no cancer detected in stnormed
+
+
+    #TCGA data
+    data_tcga_stnorm0 = get_cohort_data(data_dir, "z_nostnorm_TCGA_PRAD", fe_method, tumor_frac)
+    data_tcga_stnorm1 = get_cohort_data(data_dir, "TCGA_PRAD", fe_method, tumor_frac)
+
+    
+    #Neptune
+    data_nep_stnorm0 = get_cohort_data(data_dir, "z_nostnorm_Neptune", fe_method, tumor_frac)
+    data_nep_stnorm1 = get_cohort_data(data_dir, "Neptune", fe_method, tumor_frac)
+    
+
+    ################################################
+    # Combine stnorm and nostnorm 
+    ################################################
+    #OPX
+    data_ol100_opx_union = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL100'], data_opx_stnorm1['OL100'], method = 'union')
+    data_ol0_opx_union   = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL0'], data_opx_stnorm1['OL0'], method = 'union')
+    data_opx_stnorm10_union = {'OL100': data_ol100_opx_union, 'OL0': data_ol0_opx_union}
+
+    data_ol100_opx_comb = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL100'],  data_opx_stnorm1['OL100'], method = 'combine_all')
+    data_ol0_opx_comb = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL0'], data_opx_stnorm1['OL0'], method = 'combine_all')
+    data_opx_stnorm10_comb = {'OL100': data_ol100_opx_comb, 'OL0': data_ol0_opx_comb}
+
+    #TCGA
+    data_ol100_tcga_union = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL100'], data_tcga_stnorm1['OL100'], method = 'union')
+    data_ol0_tcga_union = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL0'], data_tcga_stnorm0['OL0'], method = 'union')
+    data_tcga_stnorm10_union = {'OL100': data_ol100_tcga_union, 'OL0': data_ol0_tcga_union}
+
+    data_ol100_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL100'], data_tcga_stnorm1['OL100'], method = 'combine_all')
+    data_ol0_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL0'], data_tcga_stnorm0['OL0'], method = 'combine_all')
+    data_tcga_stnorm10_comb = {'OL100': data_ol100_tcga_comb, 'OL0': data_ol0_tcga_comb}
+    
+    #NEP
+    data_ol0_nep_union = combine_data_from_stnorm_and_nostnorm(data_nep_stnorm0['OL0'], data_nep_stnorm1['OL0'], method = 'union')
+    data_nep_stnorm10_union = {'OL100': None, 'OL0': data_ol0_nep_union}
+    data_ol0_nep_comb = combine_data_from_stnorm_and_nostnorm(data_nep_stnorm0['OL0'], data_nep_stnorm1['OL0'], method = 'combine_all')
+    data_nep_stnorm10_comb = {'OL100': None, 'OL0': data_ol0_nep_comb}
+    
+    ################################################
+    #Get Train, test, val data
+    ################################################    
+    train_cohort_map = {
+        'OPX': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm1,
+            'train_cohort2': None,
+            'model_data2': None
+        },
+        'TCGA': {
+            'train_cohort1': 'TCGA_PRAD',
+            'model_data1': data_tcga_stnorm1,
+            'train_cohort2': None,
+            'model_data2': None
+        },
+        'z_nostnorm_OPX': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm0,
+            'train_cohort2': None,
+            'model_data2': None
+        },
+        'z_nostnorm_TCGA_PRAD': {
+            'train_cohort1': 'TCGA_PRAD',
+            'model_data1': data_tcga_stnorm0,
+            'train_cohort2': None,
+            'model_data2': None
+        },
+        'z_nostnorm_OPX_TCGA': {
+            'train_cohort1': 'z_nostnorm_OPX',
+            'model_data1': data_opx_stnorm0,
+            'train_cohort2': 'z_nostnorm_TCGA_PRAD',
+            'model_data2': data_tcga_stnorm0
+        },
+        'OPX_TCGA': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm1,
+            'train_cohort2': 'TCGA_PRAD',
+            'model_data2': data_tcga_stnorm1
+        },
+        'union_STNandNSTN_OPX_TCGA': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm10_union,
+            'train_cohort2': 'TCGA_PRAD',
+            'model_data2': data_tcga_stnorm10_union
+        },
+        'comb_STNandNSTN_OPX_TCGA': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm10_comb,
+            'train_cohort2': 'TCGA_PRAD',
+            'model_data2': data_tcga_stnorm10_comb
+        }
+    }
+    
+    if train_cohort in train_cohort_map:
+        config = train_cohort_map[train_cohort]
+        train_cohort1 = config['train_cohort1']
+        model_data1 = config['model_data1']
+        train_cohort2 = config['train_cohort2']
+        model_data2 = config['model_data2']
+    else:
+        raise ValueError(f"Unknown training cohort: {train_cohort}")
+
+    
+    
+    #Get Train, validation and test
+    split_data = get_final_split_data(id_data_dir,
+                                    train_cohort1,
+                                    model_data1, 
+                                    train_cohort2, 
+                                    model_data2, 
+                                    tumor_frac, 
+                                    s_fold)
+    
+    train_data, _ = split_data["train"]
+    val_data, _ = split_data["val"]
+    test_data, _ = split_data["test"]
+    test_data1, _ = split_data["test1"]
+    test_data2, _ = split_data["test2"]
+    
+    ext_data_st0 =  data_nep_stnorm0['OL0']
+    ext_data_st1 =  data_nep_stnorm1['OL0']
+    ext_data_union =  data_nep_stnorm10_union['OL0']
+    
+    
+    #Get sanple ID:
+    train_ids =  [x[-2] for x in train_data]
+    val_ids =  [x[-2] for x in val_data]
+    test_ids =  [x[-2] for x in test_data]
+    test_ids1 =  [x[-2] for x in test_data1]
+    test_ids2 =  [x[-2] for x in test_data2]
+    nep_ids0 =  [x[-2] for x in ext_data_st0]
+    nep_ids1 =  [x[-2] for x in ext_data_st1]
+    nep_ids =  [x[-2] for x in ext_data_union]
+    
+    
+    #Update labels
+    selected_labels, selected_label_index = get_selected_labels(mutation, train_cohort)
+    print(selected_labels)
+    print(selected_label_index)
+
+    train_data = update_label(train_data, selected_label_index)
+    val_data = update_label(val_data, selected_label_index)
+    test_data = update_label(test_data, selected_label_index)
+    test_data1 = update_label(test_data1, selected_label_index)
+    test_data2 = update_label(test_data2, selected_label_index)
+    ext_data_st0 = update_label(ext_data_st0, selected_label_index)
+    ext_data_st1 = update_label(ext_data_st1, selected_label_index)
+    ext_data_union = update_label(ext_data_union, selected_label_index)
+    
+    
+    #update item for model
+            
+    if train_cohort == 'comb_STNandNSTN_OPX_TCGA': 
+        #Keep feature1, label, tf,1 dlabel, feature2, tf2
+        train_data = [(item[0], item[1], item[2], item[3], item[7], item[9]) for item in train_data]
+        test_data1 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data1]
+        test_data2 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data2]
+        test_data = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data]
+        val_data = [(item[0], item[1], item[2],  item[6], item[8]) for item in val_data]
+    else:
+        #Exclude tile info data, sample ID, patient ID, do not needed it for training
+        train_data = [item[:-3] for item in train_data]
+        test_data1 = [item[:-3] for item in test_data1]   
+        test_data2 = [item[:-3] for item in test_data2]   
+        test_data = [item[:-3] for item in test_data]   
+        val_data = [item[:-3] for item in val_data]
+    
+    ext_data_st0 = [item[:-3] for item in ext_data_st0] #no st norm
+    ext_data_st1 = [item[:-3] for item in ext_data_st1] #st normed
+    ext_data_union = [item[:-3] for item in ext_data_union]
+
+    
+    return {'train': (train_data, train_ids),
+            'val': (val_data, val_ids),
+            'test': (test_data, test_ids),
+            'test1': (test_data1, test_ids1),
+            'test2': (test_data2, test_ids2),
+            'ext_data_st0': (ext_data_st0, nep_ids0),
+            'ext_data_st1': (ext_data_st1, nep_ids1),
+            'ext_data_union': (ext_data_union, nep_ids)
+        }, selected_labels
