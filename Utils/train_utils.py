@@ -59,24 +59,17 @@ def has_seven_csv_files(folder_path):
     csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv') and os.path.isfile(os.path.join(folder_path, f))]
     return len(csv_files) == 6
 
-def get_selected_labels(mutation_name, hr_type, train_cohort):
+def get_selected_labels(mutation_name, train_cohort):
     
-    all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI_POS"]    
+    all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]    
     
     if mutation_name == 'MT':
         if 'TCGA' in train_cohort:
-            selected = ["AR" ,hr_type, "PTEN","RB1","TP53","MSI_POS"]   #without TMB
+            selected = ["AR" , "HR2", "PTEN","RB1","TP53","MSI"]   #without TMB
         else:
-            selected = ["AR", hr_type, "PTEN","RB1","TP53","TMB","MSI_POS"]   
+            selected = ["AR",  "HR2", "PTEN","RB1","TP53","TMB","MSI"]   
     else:
-        if mutation_name == 'MSI_POS':
-            selected = ['MSI_POS']
-        else: 
             selected = mutation_name.split('_')
-            if 'HR' in selected:
-                selected = [hr_type if x == 'HR' else x for x in selected]
-            if 'MSI' in selected:
-                selected = ['MSI_POS' if x == 'MSI' else x for x in selected]
 
     #get label index in all labels
     selected_index = []
@@ -84,6 +77,7 @@ def get_selected_labels(mutation_name, hr_type, train_cohort):
         selected_index.append(all_labels.index(l))
     
     return selected, selected_index
+
     
 class pull_tiles(Dataset):
     def __init__(self, tile_info, deepzoom_tiles, tile_levels):
@@ -1445,4 +1439,13 @@ def combine_data_from_stnorm_and_nostnorm(indata_stnorm, indata_stnorm_no, metho
                  
         comb_data_list.append(comb_data)
         
-    return comb_data_list         
+    return comb_data_list   
+
+
+
+
+def load_data(data_path):
+    loaded = torch.load(data_path)
+    data = loaded['data']
+    ids =  loaded['id']
+    return data, ids      

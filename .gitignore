@@ -17,6 +17,8 @@
 *.sh
 *.txt
 */venv_*/
+*.pt
 
 # Don't ignore this one
 !requirements_predict.txt
+

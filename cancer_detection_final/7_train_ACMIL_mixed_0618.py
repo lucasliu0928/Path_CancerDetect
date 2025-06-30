@@ -24,11 +24,13 @@ sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
 from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
+from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf
 from train_utils import FocalLoss, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import str2bool, clean_data, get_train_test_val_data_cohort, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
-from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, predict_v2, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
-from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, predict_v2_sp_nost_andst
+from train_utils import load_data
+from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
+from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample
 warnings.filterwarnings("ignore")
 
 
@@ -67,16 +69,15 @@ parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutatio
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'union_stnormAndnostnorm_OPX_TCGA', type=str, help='TCGA_PRAD or OPX or z_nostnorm_OPX_TCGA or union_stnormAndnostnorm_OPX_TCGA or comb_stnormAndnostnorm_OPX_TCGA')
-parser.add_argument('--external_cohort1', default= 'Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
-parser.add_argument('--external_cohort2', default= 'z_nostnorm_Neptune', type=str, help='TCGA_PRAD or OPX or Neptune')
-parser.add_argument('--f_alpha', default= 0.2, type=float, help='focal alpha')
+parser.add_argument('--f_alpha', default= 0.9, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 6, type=float, help='focal gamma')
-parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
 parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
 parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
 parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
 parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
 parser.add_argument('--out_folder', default= 'pred_out_061825_new2', type=str, help='out folder name')
+#parser.add_argument('--hr_type', default= "HR2", type=str, help='HR version 1 or 2 (2 only include 3 genes)')
+
 
 ############################################################################################################
 #     Model Para
@@ -91,6 +92,8 @@ parser.add_argument('--arch', default='ga_mt', type=str, help='e.g., ga_mt, or g
 parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use seperate focal parameters for each mutation')
 
 
+
+
             
             
 if __name__ == '__main__':
@@ -98,13 +101,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
     #args.GRL = False
     #args.s_fold  = 0
-    #args.train_flag = True
+    args.train_flag = True
     #args.mutation = 'MT'
     #args.train_epoch = 10
     
     fold_list = [0,1,2,3,4]
     for f in fold_list:
+        
         args.s_fold = f
+    
     
         ####################################
         ######      USERINPUT       ########
@@ -115,9 +120,10 @@ if __name__ == '__main__':
         
     
         #Label
-        SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.hr_type, args.train_cohort)
+        SELECTED_LABEL, selected_label_index = get_selected_labels(args.mutation, args.train_cohort)
         print(SELECTED_LABEL)
         print(selected_label_index)
+
                         
         #Model Config
         config_dir = "myconf.yml"
@@ -133,6 +139,9 @@ if __name__ == '__main__':
         conf.n_task = len(SELECTED_LABEL)
         conf.sample_training_n = args.sample_training_n
         conf.batchsize = args.batchsize
+        conf.learning_method = args.learning_method
+        conf.arch = args.arch
+        conf.GRL = args.GRL
        
         
         if args.learning_method == 'abmil':
@@ -164,7 +173,7 @@ if __name__ == '__main__':
                                args.learning_method,
                                folder_name1,
                                'FOLD' + str(args.s_fold),
-                               args.mutation + 'HR_TYPE' + args.hr_type)
+                               args.mutation)
         outdir1 =  outdir0  + "/saved_model/"
         outdir2 =  outdir0  + "/model_para/"
         outdir3 =  outdir0  + "/logs/"
@@ -182,194 +191,186 @@ if __name__ == '__main__':
         print(device)
 
             
-        ################################################
-        #     Model ready data 
-        ################################################
-        data_path = proj_dir + 'intermediate_data/5_model_ready_data'
+        # ################################################
+        # #     Model ready data 
+        # ################################################
+        # data_path = proj_dir + 'intermediate_data/5_combined_data'
         
-        #OPX data
-        data_ol100_opx_stnorm0, _ = clean_data(data_path, 'z_nostnorm_OPX',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol100_opx_stnorm1, _ = clean_data(data_path, 'OPX',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol0_opx_stnorm0, _ = clean_data(data_path, 'z_nostnorm_OPX',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol0_opx_stnorm1, _ = clean_data(data_path, 'OPX',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_opx_stnorm0 = {'OL100': data_ol100_opx_stnorm0, 'OL0': data_ol0_opx_stnorm0}
-        data_opx_stnorm1 = {'OL100': data_ol100_opx_stnorm1, 'OL0': data_ol0_opx_stnorm1}
+        # #OPX data
+        # data_ol100_opx_stnorm0, _ = clean_data(data_path, 'z_nostnorm_OPX',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol100_opx_stnorm1, _ = clean_data(data_path, 'OPX',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol0_opx_stnorm0, _ = clean_data(data_path, 'z_nostnorm_OPX',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol0_opx_stnorm1, _ = clean_data(data_path, 'OPX',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_opx_stnorm0 = {'OL100': data_ol100_opx_stnorm0, 'OL0': data_ol0_opx_stnorm0}
+        # data_opx_stnorm1 = {'OL100': data_ol100_opx_stnorm1, 'OL0': data_ol0_opx_stnorm1}
     
-        #TCGA data
-        data_ol100_tcga_stnorm0, _ = clean_data(data_path, 'z_nostnorm_TCGA_PRAD',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol100_tcga_stnorm1, _ = clean_data(data_path, 'TCGA_PRAD',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol0_tcga_stnorm0, _ = clean_data(data_path, 'z_nostnorm_TCGA_PRAD',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol0_tcga_stnorm1, _ = clean_data(data_path, 'TCGA_PRAD',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_tcga_stnorm0 = {'OL100': data_ol100_tcga_stnorm0, 'OL0': data_ol0_tcga_stnorm0}
-        data_tcga_stnorm1 = {'OL100': data_ol100_tcga_stnorm1, 'OL0': data_ol0_tcga_stnorm1}
+        # #TCGA data
+        # data_ol100_tcga_stnorm0, _ = clean_data(data_path, 'z_nostnorm_TCGA_PRAD',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol100_tcga_stnorm1, _ = clean_data(data_path, 'TCGA_PRAD',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol0_tcga_stnorm0, _ = clean_data(data_path, 'z_nostnorm_TCGA_PRAD',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol0_tcga_stnorm1, _ = clean_data(data_path, 'TCGA_PRAD',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_tcga_stnorm0 = {'OL100': data_ol100_tcga_stnorm0, 'OL0': data_ol0_tcga_stnorm0}
+        # data_tcga_stnorm1 = {'OL100': data_ol100_tcga_stnorm1, 'OL0': data_ol0_tcga_stnorm1}
         
-        #Neptune
-        data_ol0_nep_stnorm0, nep_ids0   = clean_data(data_path, 'z_nostnorm_Neptune', args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        data_ol0_nep_stnorm1, nep_ids1   = clean_data(data_path, 'Neptune', args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # #Neptune
+        # data_ol0_nep_stnorm0, nep_ids0   = clean_data(data_path, 'z_nostnorm_Neptune', args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
+        # data_ol0_nep_stnorm1, nep_ids1   = clean_data(data_path, 'Neptune', args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
     
-        #Combine stnorm and nostnorm
-        data_ol100_opx_union = combine_data_from_stnorm_and_nostnorm(data_ol100_opx_stnorm0, data_ol100_opx_stnorm1, method = 'union')
-        data_ol100_opx_comb = combine_data_from_stnorm_and_nostnorm(data_ol100_opx_stnorm0, data_ol100_opx_stnorm1, method = 'combine_all')
+        # #Combine stnorm and nostnorm
+        # data_ol100_opx_union = combine_data_from_stnorm_and_nostnorm(data_ol100_opx_stnorm0, data_ol100_opx_stnorm1, method = 'union')
+        # data_ol100_opx_comb = combine_data_from_stnorm_and_nostnorm(data_ol100_opx_stnorm0, data_ol100_opx_stnorm1, method = 'combine_all')
         
-        data_ol0_opx_union = combine_data_from_stnorm_and_nostnorm(data_ol0_opx_stnorm0, data_ol0_opx_stnorm1, method = 'union')
-        data_ol0_opx_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_opx_stnorm0, data_ol0_opx_stnorm1, method = 'combine_all')
+        # data_ol0_opx_union = combine_data_from_stnorm_and_nostnorm(data_ol0_opx_stnorm0, data_ol0_opx_stnorm1, method = 'union')
+        # data_ol0_opx_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_opx_stnorm0, data_ol0_opx_stnorm1, method = 'combine_all')
         
-        data_opx_stnorm10_union = {'OL100': data_ol100_opx_union, 'OL0': data_ol0_opx_union}
-        data_opx_stnorm10_comb = {'OL100': data_ol100_opx_comb, 'OL0': data_ol0_opx_comb}
+        # data_opx_stnorm10_union = {'OL100': data_ol100_opx_union, 'OL0': data_ol0_opx_union}
+        # data_opx_stnorm10_comb = {'OL100': data_ol100_opx_comb, 'OL0': data_ol0_opx_comb}
 
         
-        data_ol100_tcga_union = combine_data_from_stnorm_and_nostnorm(data_ol100_tcga_stnorm0, data_ol100_tcga_stnorm1, method = 'union')
-        data_ol100_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_ol100_tcga_stnorm0, data_ol100_tcga_stnorm1, method = 'combine_all')
+        # data_ol100_tcga_union = combine_data_from_stnorm_and_nostnorm(data_ol100_tcga_stnorm0, data_ol100_tcga_stnorm1, method = 'union')
+        # data_ol100_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_ol100_tcga_stnorm0, data_ol100_tcga_stnorm1, method = 'combine_all')
         
-        data_ol0_tcga_union = combine_data_from_stnorm_and_nostnorm(data_ol0_tcga_stnorm0, data_ol0_tcga_stnorm1, method = 'union')
-        data_ol0_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_tcga_stnorm0, data_ol0_tcga_stnorm1, method = 'combine_all')
+        # data_ol0_tcga_union = combine_data_from_stnorm_and_nostnorm(data_ol0_tcga_stnorm0, data_ol0_tcga_stnorm1, method = 'union')
+        # data_ol0_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_tcga_stnorm0, data_ol0_tcga_stnorm1, method = 'combine_all')
         
-        data_tcga_stnorm10_union = {'OL100': data_ol100_tcga_union, 'OL0': data_ol0_tcga_union}
-        data_tcga_stnorm10_comb = {'OL100': data_ol100_tcga_comb, 'OL0': data_ol0_tcga_comb}
+        # data_tcga_stnorm10_union = {'OL100': data_ol100_tcga_union, 'OL0': data_ol0_tcga_union}
+        # data_tcga_stnorm10_comb = {'OL100': data_ol100_tcga_comb, 'OL0': data_ol0_tcga_comb}
         
         
-        data_ol0_nep_union = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'union')
-        nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_union)]
-        data_ol0_nep_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'combine_all')
-        nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_comb)]
+        # data_ol0_nep_union = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'union')
+        # nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_union)]
+        # data_ol0_nep_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'combine_all')
+        # nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_comb)]
     
-        #TODO Actual: Check OPX_001 was removed beased no cancer detected in stnormed
-        ################################################
-        #Get Train, test, val data
-        ################################################    
-        id_data_dir = proj_dir + 'intermediate_data/3B_Train_TEST_IDS'
+        # #TODO Actual: Check OPX_001 was removed beased no cancer detected in stnormed
+        # ################################################
+        # #Get Train, test, val data
+        # ################################################    
+        # id_data_dir = proj_dir + 'intermediate_data/3B_Train_TEST_IDS'
         
+        # if args.train_cohort == 'z_nostnorm_OPX_TCGA':
+        #     train_cohort1 = 'z_nostnorm_OPX'
+        #     model_data1 = data_opx_stnorm0
+        #     train_cohort2 = 'z_nostnorm_TCGA_PRAD'
+        #     model_data2 = data_tcga_stnorm0
+            
+        # elif args.train_cohort == 'OPX_TCGA':
+        #     train_cohort1 = 'OPX'
+        #     model_data1 = data_opx_stnorm1
+        #     train_cohort2 = 'TCGA_PRAD'
+        #     model_data2 = data_tcga_stnorm1
+            
+        # elif args.train_cohort == 'union_stnormAndnostnorm_OPX_TCGA':
+        #     train_cohort1 = 'OPX'
+        #     model_data1 = data_opx_stnorm10_union
+        #     train_cohort2 = 'TCGA_PRAD'
+        #     model_data2 = data_tcga_stnorm10_union
+        # elif args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA':
+        #     train_cohort1 = 'OPX'
+        #     model_data1 = data_opx_stnorm10_comb
+        #     train_cohort2 = 'TCGA_PRAD'
+        #     model_data2 = data_tcga_stnorm10_comb
+            
+
+            
+        # ################################################################################################
+        # #For training and test data, take the union of tiles from stained normed and nostained normed tiles
+        # ################################################################################################
+        
+        # (train_data1, train_ids1), (val_data1, val_ids1), (test_data1, test_ids1) = get_train_test_val_data_cohort(id_data_dir, 
+        #                                                                                                            train_cohort1 ,
+        #                                                                                                            model_data = model_data1, 
+        #                                                                                                            tumor_frac = args.tumor_frac, 
+        #                                                                                                            s_fold = args.s_fold)
+        
+        # (train_data2, train_ids2), (val_data2, val_ids2), (test_data2, test_ids2) = get_train_test_val_data_cohort(id_data_dir, 
+        #                                                                                                            train_cohort2 ,
+        #                                                                                                            model_data = model_data2, 
+        #                                                                                                            tumor_frac = args.tumor_frac, 
+        #                                                                                                            s_fold = args.s_fold)
+        
+        
+
+
+            
+    
+        # ################################################################################
+        # #Get Final train and test and val data
+        # ################################################################################
+        # train_data = train_data1 + train_data2
+        # train_ids = train_ids1 + train_ids2
+        
+        # val_data = val_data1 + val_data2
+        # val_ids = val_ids1 + val_ids2
+        
+        # test_data = test_data1 + test_data2 #put two test together
+        # test_ids = test_ids1 + test_ids2
+        
+        # if args.train_cohort != 'comb_stnormAndnostnorm_OPX_TCGA':
+        #     if conf.sample_training_n > 0:
+        #         #Random Sample 1000 tiles or oriingal N tiles (if total number is < 1000) for training data
+        #         random_sample_tiles(train_data, k = conf.sample_training_n, random_seed = 42)
+
+        # if args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA': 
+        #     #Keep feature1, label, tf,1 dlabel, feature2, tf2
+        #     train_data = [(item[0], item[1], item[2], item[3], item[7], item[9]) for item in train_data]
+        #     test_data1 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data1]
+        #     test_data2 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data2]
+        #     test_data = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data]
+        #     val_data = [(item[0], item[1], item[2],  item[6], item[8]) for item in val_data]
+        # else:
+        #     #Exclude tile info data, sample ID, patient ID, do not needed it for training
+        #     train_data = [item[:-3] for item in train_data]
+        #     test_data1 = [item[:-3] for item in test_data1]   
+        #     test_data2 = [item[:-3] for item in test_data2]   
+        #     test_data = [item[:-3] for item in test_data]   
+        #     val_data = [item[:-3] for item in val_data]
+        
+
+        
+        # ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_stnorm0] #no st norm
+        # ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1] #st normed
+        # ext_data_nep_union = [item[:-3] for item in data_ol0_nep_union]
+        
+        
+        # #write to pt
+        # torch.save({"data": train_data, "id": train_ids}, 'train_data.pt')
+        # torch.save({"data": test_data1, "id": test_ids1}, 'test_data1.pt')
+        # torch.save({"data": test_data2, "id": test_ids2}, 'test_data2.pt')
+        # torch.save({"data": test_data, "id": test_ids}, 'test_data.pt')
+        # torch.save({"data": val_data, "id": val_ids}, 'val_data.pt')
+        # torch.save({"data": ext_data_nep_st0, "id": nep_ids0}, 'ext_data_nep_st0.pt')
+        # torch.save({"data": ext_data_nep_st1, "id": nep_ids1}, 'ext_data_nep_st1.pt')
+        # torch.save({"data": ext_data_nep_union, "id": nep_id}, 'ext_data_nep_union.pt')
+        
+        
+        
+        #Load data
         if args.train_cohort == 'z_nostnorm_OPX_TCGA':
             train_cohort1 = 'z_nostnorm_OPX'
-            model_data1 = data_opx_stnorm0
             train_cohort2 = 'z_nostnorm_TCGA_PRAD'
-            model_data2 = data_tcga_stnorm0
             
-        elif args.train_cohort == 'OPX_TCGA':
-            train_cohort1 = 'OPX'
-            model_data1 = data_opx_stnorm1
-            train_cohort2 = 'TCGA_PRAD'
-            model_data2 = data_tcga_stnorm1
-            
-        elif args.train_cohort == 'union_stnormAndnostnorm_OPX_TCGA':
-            train_cohort1 = 'OPX'
-            model_data1 = data_opx_stnorm10_union
-            train_cohort2 = 'TCGA_PRAD'
-            model_data2 = data_tcga_stnorm10_union
-        elif args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA':
-            train_cohort1 = 'OPX'
-            model_data1 = data_opx_stnorm10_comb
-            train_cohort2 = 'TCGA_PRAD'
-            model_data2 = data_tcga_stnorm10_comb
-            
-        #TODO
-        ################################################################################################
-        #For training and test data, take the union of tiles from stained normed and nostained normed tiles
-        ################################################################################################
-        
-        (train_data1, train_ids1), (val_data1, val_ids1), (test_data1, test_ids1) = get_train_test_val_data_cohort(id_data_dir, 
-                                                                                                                   train_cohort1 ,
-                                                                                                                   model_data = model_data1, 
-                                                                                                                   tumor_frac = args.tumor_frac, 
-                                                                                                                   s_fold = args.s_fold)
-        
-        (train_data2, train_ids2), (val_data2, val_ids2), (test_data2, test_ids2) = get_train_test_val_data_cohort(id_data_dir, 
-                                                                                                                   train_cohort2 ,
-                                                                                                                   model_data = model_data2, 
-                                                                                                                   tumor_frac = args.tumor_frac, 
-                                                                                                                   s_fold = args.s_fold)
-        
-        
-
-
-            
-    
-        ################################################################################
-        #Get Final train and test and val data
-        ################################################################################
-        train_data = train_data1 + train_data2
-        train_ids = train_ids1 + train_ids2
-        
-        val_data = val_data1 + val_data2
-        val_ids = val_ids1 + val_ids2
-        
-        test_data = test_data1 + test_data2 #put two test together
-        test_ids = test_ids1 + test_ids2
-        
-        if args.train_cohort != 'comb_stnormAndnostnorm_OPX_TCGA':
-            if conf.sample_training_n > 0:
-                #Random Sample 1000 tiles or oriingal N tiles (if total number is < 1000) for training data
-                random_sample_tiles(train_data, k = conf.sample_training_n, random_seed = 42)
-
-        if args.train_cohort != 'comb_stnormAndnostnorm_OPX_TCGA':
-            #Exclude tile info data, sample ID, patient ID, do not needed it for training
-            train_data = [item[:-3] for item in train_data]
-            test_data1 = [item[:-3] for item in test_data1]   
-            test_data2 = [item[:-3] for item in test_data2]   
-            test_data = [item[:-3] for item in test_data]   
-            val_data = [item[:-3] for item in val_data]
         else:
-            #Keep feature1, label, tf,1 dlabel, feature2, tf2
-            train_data = [(item[0], item[1], item[2], item[3], item[7], item[9]) for item in train_data]
-            test_data1 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data1]
-            test_data2 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data2]
-            test_data = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data]
-            val_data = [(item[0], item[1], item[2],  item[6], item[8]) for item in val_data]
-        
-        
-        if args.train_cohort == 'union_stnormAndnostnorm_OPX_TCGA':
-            #The following two  are the same
-            ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_union]
-            ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_union]
-            nep_ids0 = nep_id
-            nep_ids1 = nep_id
-        elif args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA':
-            #The following two  are the same
-            ext_data_nep_st0 = [(item[0], item[1], item[2], item[6], item[8]) for item in data_ol0_nep_comb]            
-            ext_data_nep_st1 = [(item[0], item[1], item[2], item[6], item[8]) for item in data_ol0_nep_comb]
-            nep_ids0 = nep_id
-            nep_ids1 = nep_id
-        else:
-            ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_stnorm0]
-            ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1]
-        
-        
+            train_cohort1 = 'OPX'
+            train_cohort2 = 'TCGA_PRAD'
+
+            
+        train_data, train_ids = load_data("train_data.pt")
+        test_data1, test_ids1 = load_data("test_data1.pt")
+        test_data2, test_ids2 = load_data("test_data2.pt")
+        test_data, test_ids = load_data("test_data.pt")
+        val_data, val_ids = load_data("val_data.pt")
+        ext_data_nep_st0, nep_ids0 = load_data("ext_data_nep_st0.pt")
+        ext_data_nep_st1, nep_ids1 = load_data("ext_data_nep_st1.pt")
+        ext_data_nep_union, nep_id = load_data("ext_data_nep_union.pt")
+
+
 
         
         
-        # ################################################################################
-        # #up sampling HR
-        # from collections import defaultdict
-    
-        # class_0 = []  
-        # class_1 = []  
         
-        # for sample in train_data:
-        #     label = sample[1].squeeze().tolist()  # Convert from tensor([[a, b]]) to [a, b]
-        
-        #     if label[1] == 1:  # [1, 1] or [1, 0] → class 1
-        #         class_1.append(sample)
-        #     else:              # [0, 1] or [0, 0] → class 0
-        #         class_0.append(sample)
-                
-                
-        # if len(class_0) > len(class_1):
-        #     minority = class_1
-        #     majority = class_0
-        # else:
-        #     minority = class_0
-        #     majority = class_1
-        
-        # diff = abs(len(class_0) - len(class_1))
-        
-        # import random
-    
-        # upsampled_minority = random.choices(minority, k=diff)
-        
-        # balanced_data = majority + minority + upsampled_minority
-        # random.shuffle(balanced_data)
-        # train_data = balanced_data
-        # ################################################################################
+
+            
     
         
         ####################################################
@@ -381,9 +382,10 @@ if __name__ == '__main__':
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         val_loader   = DataLoader(dataset=val_data,  batch_size=1, shuffle=False)            
         ext_loader_st0   = DataLoader(dataset=ext_data_nep_st0,  batch_size=1, shuffle=False)
-        ext_loader_st1   = DataLoader(dataset=ext_data_nep_st1,  batch_size=1, shuffle=False)   
+        ext_loader_st1   = DataLoader(dataset=ext_data_nep_st1,  batch_size=1, shuffle=False) 
+        ext_loader_union   = DataLoader(dataset=ext_data_nep_union,  batch_size=1, shuffle=False)
         
-        
+
         ####################################################
         # define network
         ####################################################
@@ -581,196 +583,45 @@ if __name__ == '__main__':
                 model2 = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
             model2.to(device)
             
+            
+            ###################################################
+            #  TEST
+            ###################################################        
             # Load the checkpoint
             #checkpoint = torch.load(ckpt_dir + 'checkpoint-best.pth')
-            mode_idxes = args.train_epoch-1
-            checkpoint = torch.load(outdir11 + 'checkpoint_epoch'+ str(mode_idxes) + '.pth')
-            
-            
-            # Load the state_dict into the model
+            mode_idxes = conf.train_epoch-1
+            checkpoint = torch.load(os.path.join(outdir11 ,'checkpoint_epoch'+ str(mode_idxes) + '.pth'))
             model2.load_state_dict(checkpoint['model'])
             
             
-            
-            ###################################################
-            # Val
-            ###################################################
-            #TODO
-            if args.train_with_samplingSTandNOST:
-                y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2_sp_nost_andst(model2, val_loader, device, conf, 'Test', criterion_da = criterion_da)
-            else:
-                y_pred_tasks_val,  y_predprob_task_val, y_true_task_val = predict_v2(model2, val_loader, device, conf, 'Test', criterion_da = criterion_da)
-    
-    
-            all_pred_df0, all_perf_df0 = get_performance_alltask(conf.n_task, y_true_task_val, y_predprob_task_val, val_ids, SELECTED_LABEL, 
-                                                               calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-                
-            all_pred_df0.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + "VAL_" + "_pred_df.csv",index = False)
-            all_perf_df0.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + "VAL_" + "_perf.csv",index = True)
-            print("VAL:",round(all_perf_df0['AUC'].mean(),2))
-            
-            
-            
-            ###################################################
-            #           Test 1
-            ###################################################   
-            if args.train_with_samplingSTandNOST:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, test_loader1, device, conf, 'Test', criterion_da= criterion_da)
-            else:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader1, device, conf, 'Test', criterion_da= criterion_da)
-    
-    
-            # #Get embeddings
-            # embedding_opx = get_emebddings(model2, test_loader11, device, criterion_da = criterion_da)
-            # embedding_tcga = get_emebddings(model2, test_loader22, device, criterion_da = criterion_da)
-            # embedding_nep = get_emebddings(model2, ext_loader2, device, criterion_da = criterion_da)
-    
+            out_path_pred = os.path.join(outdir44)
+            out_path_pref = os.path.join(outdir55)
             
     
-            # from sklearn.linear_model import LogisticRegression
-            # import numpy as np
-        
-            # # Step 1: Fit Platt scaling (logistic regression) on validation set
-            # platt_model = LogisticRegression()
-            # platt_model.fit(np.array(y_predprob_task_test[i]).reshape(-1, 1), np.array(y_true_task_test[i]))
-            # calibrated_probs = platt_model.predict_proba(np.array(y_predprob_task_test[i]).reshape(-1, 1))[:, 1]
-        
+            
+            # VAL
+            output_pred_perf(model2, val_loader, val_ids, SELECTED_LABEL, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
+             
+            
+            # Test 1
+            output_pred_perf(model2, test_loader1, test_ids1, SELECTED_LABEL, conf, train_cohort1, out_path_pred, out_path_pref, criterion_da, device)
+            
+            # Test 2
+            output_pred_perf(model2, test_loader2, test_ids2, SELECTED_LABEL, conf, train_cohort2 , out_path_pred, out_path_pref, criterion_da, device)
+            
+            
+            #Test Comb
+            output_pred_perf(model2, test_loader, test_ids, SELECTED_LABEL, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
     
             
-            all_pred_df1, all_perf_df1 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, test_ids1, SELECTED_LABEL, 
-                                                               calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-                
-            all_pred_df1.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_pred_df.csv",index = False)
-            all_perf_df1.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_perf.csv",index = True)
-            print(train_cohort1 + ":",  round(all_perf_df1['AUC'].mean(),2))
-        
-        
-            #plot boxplot of pred prob by mutation class
-            boxplot_predprob_by_mutationclass(all_pred_df1, outdir44)
-        
-            #plot roc curve by mutation class
-            for i in range(conf.n_task):
-                cur_pred_df = all_pred_df1.loc[all_pred_df1['OUTCOME'] == SELECTED_LABEL[i]]
-                plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-                
-                
-            # #bootstrap perforance
-            # ci_list = []
-            # for i in range(conf.n_task):
-            #     print(i)
-            #     cur_pred_df = all_pred_df1.loc[all_pred_df1['OUTCOME'] == SELECTED_LABEL[i]]
-            #     cur_ci_df = bootstrap_ci_from_df(cur_pred_df, y_true_col='Y_True', y_pred_col='Pred_Class', y_prob_col='Pred_Prob', num_bootstrap=1000, ci=95, seed=42)
-            #     cur_ci_df['OUTCOME'] = SELECTED_LABEL[i]
-            #     ci_list.append(cur_ci_df)
-            # ci_final_df = pd.concat(ci_list)
-            # print(ci_final_df)
-            # ci_final_df.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort1 + "_perf_bootstrap2.csv",index = True)
-            
-            ###################################################
-            #           Test 2
-            ###################################################  
-            if args.train_with_samplingSTandNOST:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, test_loader2, device, conf, 'Test', criterion_da= criterion_da)
-            else:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader2, device, conf, 'Test', criterion_da= criterion_da)
-    
+            #External Validation 1 (z_nostnorm_nep)
+            output_pred_perf(model2, ext_loader_st0, nep_ids0, SELECTED_LABEL, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
     
             
-            all_pred_df2, all_perf_df2 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, test_ids2, SELECTED_LABEL, 
-                                                               calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-                
-            all_pred_df2.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + train_cohort2 + "_pred_df.csv",index = False)
-            all_perf_df2.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + train_cohort2 + "_perf.csv",index = True)
-            print(train_cohort2 + ":",  round(all_perf_df2['AUC'].mean(),2))
-        
-        
-            #plot boxplot of pred prob by mutation class
-            boxplot_predprob_by_mutationclass(all_pred_df2, outdir44)
-        
-            #plot roc curve by mutation class
-            for i in range(conf.n_task):
-                cur_pred_df = all_pred_df2.loc[all_pred_df2['OUTCOME'] == SELECTED_LABEL[i]]
-                plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-        
-    
+            #External Validation 2 (normed nep)
+            output_pred_perf(model2, ext_loader_st1, nep_ids1, SELECTED_LABEL, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
             
-            ###################################################
-            #Test comb
-            ###################################################
+            
+            #External Validation 3 (union)
+            output_pred_perf(model2, ext_loader_union, nep_id, SELECTED_LABEL, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
 
-            if args.train_with_samplingSTandNOST:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, test_loader, device, conf, 'Test_comb', criterion_da= criterion_da)
-            else:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, test_loader, device, conf, 'Test_comb', criterion_da= criterion_da)
-    
-    
-    
-            
-            all_pred_df3, all_perf_df3 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, test_ids, SELECTED_LABEL, 
-                                                               calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-                
-            all_pred_df3.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + 'TEST_COMB' + "_pred_df.csv",index = False)
-            all_perf_df3.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + 'TEST_COMB' + "_perf.csv",index = True)
-            print("TEST_COMB:", round(all_perf_df3['AUC'].mean(),2))
-        
-        
-            #plot boxplot of pred prob by mutation class
-            boxplot_predprob_by_mutationclass(all_pred_df3, outdir44)
-        
-            #plot roc curve by mutation class
-            for i in range(conf.n_task):
-                cur_pred_df = all_pred_df3.loc[all_pred_df3['OUTCOME'] == SELECTED_LABEL[i]]
-                plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-            
-            ###################################################
-            #           external validation  1
-            ###################################################  
-            if args.train_with_samplingSTandNOST:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, ext_loader_st0, device, conf, 'EXT_noSTnorm', criterion_da= criterion_da)
-            else:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, ext_loader_st0, device, conf, 'EXT_noSTnorm', criterion_da= criterion_da)
-    
-
-            all_pred_df4, all_perf_df4 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, nep_ids0, SELECTED_LABEL, 
-                                                               calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-                
-            all_pred_df4.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + 'z_nostnorm_NEP' + "_pred_df.csv",index = False)
-            all_perf_df4.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + 'z_nostnorm_NEP' + "_perf.csv",index = True)
-            print("z_nostnorm_NEP:", round(all_perf_df4['AUC'].mean(),2))
-            
-        
-            #plot boxplot of pred prob by mutation class
-            boxplot_predprob_by_mutationclass(all_pred_df4, outdir44)
-        
-            #plot roc curve by mutation class
-            for i in range(conf.n_task):
-                cur_pred_df = all_pred_df4.loc[all_pred_df4['OUTCOME'] == SELECTED_LABEL[i]]
-                plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-                
-                
-                
-            ###################################################
-            #           external validation 2
-            ###################################################   
-            if args.train_with_samplingSTandNOST:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2_sp_nost_andst(model2, ext_loader_st1, device, conf, 'EXT_STnorm', criterion_da= criterion_da)
-            else:
-                y_pred_tasks_test, y_predprob_task_test, y_true_task_test = predict_v2(model2, ext_loader_st1, device, conf, 'EXT_STnorm', criterion_da= criterion_da)
-    
-            
-            all_pred_df5, all_perf_df5 = get_performance_alltask(conf.n_task, y_true_task_test, y_predprob_task_test, nep_ids1, SELECTED_LABEL, 
-                                                               calibration = False, ytrue_val = y_true_task_val, ypredprob_val = y_predprob_task_val)
-                
-            all_pred_df5.to_csv(outdir44 + "/n_token" + str(conf.n_token) + "_" + 'NEP' + "_pred_df.csv",index = False)
-            all_perf_df5.to_csv(outdir55 + "/n_token" + str(conf.n_token) + "_" + 'NEP' + "_perf.csv",index = True)
-            print("NEP:",round(all_perf_df5['AUC'].mean(),2))
-        
-        
-            #plot boxplot of pred prob by mutation class
-            boxplot_predprob_by_mutationclass(all_pred_df5, outdir44)
-        
-            #plot roc curve by mutation class
-            for i in range(conf.n_task):
-                cur_pred_df = all_pred_df5.loc[all_pred_df5['OUTCOME'] == SELECTED_LABEL[i]]
-                plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), outdir44, SELECTED_LABEL[i])
-    

@@ -50,7 +50,7 @@ feature_path = os.path.join(proj_dir,'intermediate_data','4_tile_feature', args.
 ################################################
 #Create output dir
 ################################################
-outdir =  os.path.join(proj_dir + 'intermediate_data/5_model_ready_data',
+outdir =  os.path.join(proj_dir + 'intermediate_data/5_combined_data',
                        args.cohort_name, 
                        folder_name, 
                        'feature_' + args.fe_method, 
@@ -80,7 +80,7 @@ elif 'TCGA_PRAD' in args.cohort_name:
 selected_ids = list(all_tile_info_df[id_col].unique())    
 selected_ids.sort()
 
-# info_path2 =   os.path.join(proj_dir,'intermediate_data','Old_5_model_ready_data', cohort_name, folder_name, "feature_retccl", "TFT0.9")
+# info_path2 =   os.path.join(proj_dir,'intermediate_data','Old_5_combined_data', cohort_name, folder_name, "feature_retccl", "TFT0.9")
 # all_tile_info_list = torch.load(info_path2 + "/OPX_info.pth")
 # all_tile_info_df2 = pd.concat(all_tile_info_list)
 # check_ids = list(all_tile_info_df2['SAMPLE_ID'].unique())
