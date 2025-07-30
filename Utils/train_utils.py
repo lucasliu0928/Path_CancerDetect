@@ -985,10 +985,53 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
+
+class FocalLoss_logitadj(nn.Module):
+    def __init__(self, alpha=1, gamma=1, prior_prob = 0.04, tau = 2.0, reduction='mean'):
+        r'''
+        if alpha = -1, gamma = 0, then it is = CE loss
+        '''
+        super(FocalLoss_logitadj, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+        self.prior_prob = prior_prob
+        self.tau = tau
+
+    def forward(self, pred_logits, target):
+        
+        if not (0 <= self.alpha <= 1) and self.alpha != -1:
+            raise ValueError(f"Invalid alpha value: {self.alpha}. alpha must be in the range [0,1] or -1 for ignore.")
+        
+        # Compute logit adjustment term
+        adjustment = self.tau * torch.log(torch.tensor(self.prior_prob))
+        pred_logits_adjusted = pred_logits + (-adjustment)
+        
+        ce_loss = F.binary_cross_entropy_with_logits(pred_logits_adjusted, target, reduction='none')
+        pred = pred_logits_adjusted.sigmoid()
+        pt = torch.where(target == 1, pred, 1 - pred)
+        loss =  ((1.0 - pt) ** self.gamma) * ce_loss
+        
+        if self.alpha != -1:
+            alpha_t = target*self.alpha + (1.0 - target)*(1.0 - self.alpha)
+            loss = alpha_t*loss
+            
+
+        
+        
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+        
+        
 #This one is for muti-class, where pt = exp(...)
 class FocalLossv2(nn.Module):
     def __init__(self, alpha=1, gamma=2, reduction='mean'):
-        super(FocalLoss, self).__init__()
+        super(FocalLossv2, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
@@ -1259,24 +1302,24 @@ def random_sample_tiles(indata, k = 1000, random_seed = 42):
     
     for i in range(len(indata)):
         # Unpack the tuple
-        features, labels, tf, domain_label, other_info, sample_id, patient_id = indata[i]
-        
+        #features, labels, tf, domain_label, other_info, sample_id, patient_id = indata[i]
+        features, labels, tf  = indata[i]
 
         num_tiles = features.size(0)
         sample_indices = random.sample(range(num_tiles), min(k, num_tiles)) # Ensure k does not exceed number of rows
         sample_indices.sort()
         sampled_feature = features[sample_indices]  
-        sampled_tileinfo = other_info.iloc[sample_indices,].reset_index(drop=True)
+        #sampled_tileinfo = other_info.iloc[sample_indices,].reset_index(drop=True)
         sampled_tf = tf[sample_indices]
         
         # Recreate the tuple with updated features
         indata[i] = (
             sampled_feature,
             labels,
-            sampled_tf,
-            sampled_tileinfo,
-            sample_id,
-            patient_id
+            sampled_tf
+            #sampled_tileinfo,
+            #sample_id,
+            #patient_id
         )
         
         

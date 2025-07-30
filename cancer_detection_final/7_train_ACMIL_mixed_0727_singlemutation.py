@@ -24,13 +24,13 @@ sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
 from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
-from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf,output_pred_perf_with_logit
-from train_utils import FocalLoss, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
+from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf_with_logit
+from train_utils import FocalLoss,FocalLoss_logitadj, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import str2bool, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
 from train_utils import load_data, get_final_model_data
 from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
-from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample
+from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, get_slide_feature
 warnings.filterwarnings("ignore")
 
 
@@ -50,9 +50,8 @@ import wandb
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/ACMIL-main/acmil/bin/activate
 #Run: python3 -u 7_train_ACMIL_mixed_0618.py --mutation MT --GRL False --train_cohort OPX_TCGA --train_flag True --batchsize 1 --use_sep_cri False --sample_training_n 1000 --out_folder pred_out_061825_sample1000tiles_trainOPX_TCGA_GRLFALSE --f_alpha 0.2 --f_gamma 6 
 
-
 #Train n tmux train1
-#python3 -u 7_train_ACMIL_mixed_0618.py  --sample_training_n 0 --out_folder pred_out_063025 --f_alpha 0.9 --f_gamma 6 --mutation MT --GRL False --train_cohort union_STNandNSTN_OPX_TCGA --train_flag True --batchsize 1  --batch_train False --use_sep_cri False
+#python3 -u 7_train_ACMIL_mixed_0727_singlemutation.py  --sample_training_n 0 --out_folder pred_out_063025 --f_alpha 0.9 --f_gamma 6 --mutation MT --GRL False --train_cohort union_STNandNSTN_OPX_TCGA --train_flag True --batchsize 1  --batch_train False --use_sep_cri False
 
 ############################################################################################################
 #Parser
@@ -64,7 +63,7 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='MT', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
@@ -74,10 +73,10 @@ parser.add_argument('--out_folder', default= 'pred_out_063025_new', type=str, he
 #Training Para 
 ############################################################################################################
 parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
-parser.add_argument('--sample_training_n', default= 0, type=int, help='random sample K tiles')
+parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
 parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
-parser.add_argument('--f_alpha', default= 0.9, type=float, help='focal alpha')
-parser.add_argument('--f_gamma', default= 6.0, type=float, help='focal gamma')
+parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
+parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
 parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
 
 
@@ -85,10 +84,10 @@ parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient
 #     Model Para
 ############################################################################################################
 parser.add_argument('--batch_train', type=str2bool, default=False,  help='if use batch train')
-parser.add_argument('--batchsize', default=1, type=int, help='training batch size')
+parser.add_argument('--batchsize', default=32, type=int, help='training batch size')
 #parser.add_argument('--DROPOUT', default=0, type=int, help='drop out rate')
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
-parser.add_argument('--train_epoch', default=50, type=int, help='')
+parser.add_argument('--train_epoch', default=100, type=int, help='')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga_mt', type=str, help='e.g., ga_mt, or ga')
 parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use seperate focal parameters for each mutation')
@@ -101,11 +100,14 @@ parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use sep
 if __name__ == '__main__':
     
     args = parser.parse_args()
-    #args.train_flag = True
-    args.out_folder = 'pred_out_063025_new'
+    args.train_flag = True
+    args.out_folder = 'pred_out_072925v2'
+    args.batch_train = True
+    fold_list = [0,1,2,3,4]
+    #args.train_epoch = 2
 
     
-    fold_list = [0,1,2,3,4]
+    #fold_list = [0,1,2,3,4]
     for f in fold_list:
         
         args.s_fold = f
@@ -116,7 +118,7 @@ if __name__ == '__main__':
         proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
         data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
         id_data_dir = os.path.join(proj_dir, 'intermediate_data', "3B_Train_TEST_IDS")
-        
+
         
         ####################################
         #Load data
@@ -189,7 +191,8 @@ if __name__ == '__main__':
         outdir3 =  outdir0  + "/logs/"
         outdir4 =  outdir0  + "/predictions/"
         outdir5 =  outdir0  + "/perf/"
-        outdir_list = [outdir0,outdir1,outdir2,outdir3,outdir4,outdir5]
+        outdir6 =  outdir0  + "/trained_features/"
+        outdir_list = [outdir0,outdir1,outdir2,outdir3,outdir4,outdir5,outdir6]
         
         for out_path in outdir_list:
             create_dir_if_not_exists(out_path)
@@ -485,8 +488,9 @@ if __name__ == '__main__':
             for out_path in outdir_list:
                 create_dir_if_not_exists(out_path)
             
+            #criterion = FocalLoss_logitadj(alpha=focal_alpha, gamma=focal_gamma,prior_prob = 0.04,tau = 10, reduction='mean')
             criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
-            
+        
             ####################################
             #Ouput hyper para
             ####################################
@@ -496,6 +500,10 @@ if __name__ == '__main__':
                 yaml.dump(conf, file, sort_keys=False)
             
             if args.train_flag == True:
+                
+                
+
+                        
                 ####################################################
                 #            Train 
                 ####################################################
@@ -527,8 +535,7 @@ if __name__ == '__main__':
                                                             criterion_da = criterion_da)
                         val_auc, val_acc, val_f1, val_loss = evaluate_multitask(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
                         test_auc1, test_acc1, test_f11, test_loss1 = evaluate_multitask(model, criterion, test_loader1, device, conf, 'Test', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                    #test_auc2, test_acc2, test_f12, test_loss2 = evaluate_multitask(model, criterion, test_loader2, device, conf, 'TCGA', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                    
+                        
                     save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
                         save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
                     if val_f1 + val_auc > best_state['val_f1'] + best_state['val_auc']:
@@ -576,11 +583,32 @@ if __name__ == '__main__':
             out_path_pred = os.path.join(outdir44)
             out_path_pref = os.path.join(outdir55)
             
-    
+            # Get features
+            #TODO
+            def output_trained_feature(net, dataloader, ids, cohort_name, task, conf, device):
+                fea = get_slide_feature(net, dataloader, conf, device)
+                fea = pd.DataFrame(fea['task' + str(task)].cpu())
+                fea.to_hdf(outdir6 + cohort_name + "_feature.h5", key='feature', mode='w')
+                ids_df = pd.DataFrame(ids)
+                ids_df.to_hdf(outdir6 + cohort_name + "_feature.h5", key='id', mode='a')
             
+            # #fLod eature
+            # feature_df = pd.read_hdf(os.path.join(outdir6 + "Train_feature.h5"), key='feature')
+            # feature_df.columns = feature_df.columns.astype(str)
+            # feature_df.reset_index(drop = True, inplace = True)
+            
+            output_trained_feature(model2, train_loader, train_ids, "Train", 0, conf, device)
+            output_trained_feature(model2, val_loader, val_ids, "VAL", 0, conf, device)
+            output_trained_feature(model2, test_loader1, test_ids1, "TEST_OPX", 0, conf, device)
+            output_trained_feature(model2, test_loader2, test_ids2, "TEST_TCGA", 0, conf, device)
+            output_trained_feature(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
+            output_trained_feature(model2, ext_loader_st0, nep_ids0, "z_nostnorm_NEP", 0, conf, device)
+            output_trained_feature(model2, ext_loader_st1, nep_ids1, "NEP", 0, conf, device)
+            output_trained_feature(model2, ext_loader_union, nep_ids, "NEP_union", 0, conf, device)
+
             # VAL
             output_pred_perf_with_logit(model2, val_loader, val_ids, selected_label, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
-             
+
             
             # Test 1
             output_pred_perf_with_logit(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", out_path_pred, out_path_pref, criterion_da, device)
@@ -591,7 +619,7 @@ if __name__ == '__main__':
             
             #Test Comb
             output_pred_perf_with_logit(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
-
+    
             
             #External Validation 1 (z_nostnorm_nep)
             output_pred_perf_with_logit(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)

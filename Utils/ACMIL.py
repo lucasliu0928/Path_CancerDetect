@@ -22,6 +22,22 @@ from timm.utils import accuracy
 import torchmetrics
 import wandb
 
+
+class decouple_classifier(nn.Module):
+    def __init__(self, n_channels, n_classes, droprate=0.0):
+        super(decouple_classifier, self).__init__()
+        self.fc = nn.Linear(n_channels, n_classes)
+        self.droprate = droprate
+        if self.droprate != 0.0:
+            self.dropout = torch.nn.Dropout(p=self.droprate)
+
+    def forward(self, x):
+
+        if self.droprate != 0.0:
+            x = self.dropout(x)
+        x = self.fc(x)
+        return x
+    
 #Gradiant reverse layer
 class GradReverse(torch.autograd.Function):
     @staticmethod
@@ -710,6 +726,27 @@ def train_one_epoch_multitask_minibatch_randomSample(model, criterion, data_load
                 log_items.append(f"domain_loss: {loss_d.item():.4f}")
             print(" | ".join(log_items))
             
+
+@torch.no_grad()
+def get_slide_feature(net, data_loader, conf, device):
+    net.eval()
+    
+    features_pertask = {f"task{i}": [] for i in range(conf.n_task)}
+
+    for data in data_loader:
+        
+        image_patches = data[0].to(device, dtype=torch.float32)        
+        _, _, _, bag_feat_list = net(image_patches)
+        
+        # Append each feature to its corresponding list
+        for i, feat in enumerate(bag_feat_list):
+            features_pertask[f"task{i}"].append(feat)
+    
+    #Per task, each key in dict store all samples's feature [n_sample, n_features]
+    for i in range(conf.n_task):
+        features_pertask[f"task{i}"] = torch.concat(features_pertask[f"task{i}"])
+        
+    return features_pertask
 
 # Disable gradient calculation during evaluation
 @torch.no_grad()

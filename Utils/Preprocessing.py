@@ -12,6 +12,14 @@ def extract_before_second_underscore(s):
     if len(parts) > 2:
         return '_'.join(parts[:2])
     return s
+
+def extract_before_third_dash(s):
+    parts = s.split('-')
+    if len(parts) > 2:
+        return '-'.join(parts[:3])
+    return s
+
+
     
 def preprocess_mutation_data(indata, select_labels, hr_gene_list = ['BRCA1','BRCA2','PALB2'], id_col = 'OPX_Number'):    
     indata = indata.copy()
