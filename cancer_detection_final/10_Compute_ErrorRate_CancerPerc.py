@@ -49,16 +49,18 @@ merged['tumor_tile_ratio'] = (merged['high_tumor_tile_count'] / merged['total_ti
 merged['tumor_tile_ratio'] = round(merged['tumor_tile_ratio'],10)
 
 #Get pred df for each slide
-root_dir = proj_dir  + "pred_out_061825_union_1000tiles_trainOPX_TCGA_GRLFALSE/trainCohort_union_stnormAndnostnorm_OPX_TCGA_GRLFalse/acmil/uni2/"
+root_dir = proj_dir  + "pred_out_072925v2/trainCohort_union_STNandNSTN_OPX_TCGA_Samples1000_GRLFalse/acmil/uni2/"
 root_dir = root_dir + 'TrainOL100_TestOL0_TFT0.9/FOLD4/MTHR_TYPEHR2/predictions/'
-pred_dir = root_dir  + 'GAMMA_6.0_ALPHA_0.9/'
+pred_dir = root_dir  + 'GAMMA_0_ALPHA_-1/'
 
 selected_out = 'HR2'
 pred_df = pd.read_csv(pred_dir + "n_token3_NEP_pred_df.csv")
 pred_df = pred_df.loc[pred_df['OUTCOME'] == selected_out]
 
 
-
+root_dir = "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_072925v2/"
+root_dir = root_dir + "trainCohort_union_STNandNSTN_OPX_TCGA_Samples1000_GRLFalse/acmil/uni2/TrainOL100_TestOL0_TFT0.9/"
+root_dir = root_dir + selected_out + '/perf/GAMMA_0_ALPHA_-1/'
 
 # Rename SAMPLE_IDs in pred_df to match merged_df's column name
 pred_df = pred_df.rename(columns={"SAMPLE_IDs": "SAMPLE_ID"})

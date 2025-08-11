@@ -162,7 +162,7 @@ class FocalLoss_twologits(nn.Module):
             gamma (float): focusing parameter.
             reduction (str): 'mean', 'sum', or 'none'.
         '''
-        super(FocalLoss, self).__init__()
+        super(FocalLoss_twologits, self).__init__()
         if isinstance(alpha, (float, int)):
             self.alpha = [1 - alpha, alpha]
         elif isinstance(alpha, list):
@@ -215,7 +215,7 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
@@ -379,7 +379,7 @@ if __name__ == '__main__':
         
 
         #Construct model
-        model = decouple_classifier(n_channels = 128, n_classes = 2, droprate = 0.8)
+        model = decouple_classifier(n_channels = 128, n_classes = 2, droprate = 0.2) #0.8
 
         #Optimizer
         import torch.optim as optim
@@ -388,10 +388,10 @@ if __name__ == '__main__':
         #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
         
         #Loss
-        focal_alpha = 0.2
-        focal_gamma = 6
-        loss_func = FocalLoss_twologits(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
-        #loss_func = nn.CrossEntropyLoss()
+        #focal_alpha = -1
+        #focal_gamma = 0
+        #loss_func = FocalLoss_twologits(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
+        loss_func = nn.CrossEntropyLoss()
         
         # --- Compute Empirical Class Priors ---
         class_counts = np.bincount(train_data.y.numpy())
@@ -452,6 +452,9 @@ if __name__ == '__main__':
         perf_df1['Cohort'] = 'Train_OPX_TCGA'
         print(perf_df1)
         
+        #plot boxplot of pred prob by mutation class
+        boxplot_predprob_by_mutationclass(pred_df1, "Train_OPX_TCGA", outdir4, "Pred_Prob_adj")
+        
         #pred_df, perf_df = eval_decouple(model, val_data, list(val_df['ID']), val_data.y, args.mutation, use_adjusted  ,class_priors, tau = 1.0, THRES = 0.5)
         #print(perf_df)
         
@@ -459,7 +462,7 @@ if __name__ == '__main__':
         perf_df2['Cohort'] = 'Test_OPX_TCGA'
         print(perf_df2)
         pred_df2.to_csv(os.path.join(outdir4, "Test_OPX_TCGA_pred_df.csv"),index = False)
-
+        boxplot_predprob_by_mutationclass(pred_df2, "Test_OPX_TCGA", outdir4, "Pred_Prob_adj")
         
         #pred_df, perf_df = eval_decouple(model, test_data1, list(test_df1['ID']), test_data1.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
         #print(perf_df)
@@ -471,12 +474,14 @@ if __name__ == '__main__':
         perf_df3['Cohort'] = 'NEP_ST0'
         print(perf_df3)
         perf_df3.to_csv(os.path.join(outdir4,  "NEP_ST0_pred_df.csv"),index = False)
+        boxplot_predprob_by_mutationclass(pred_df3, "NEP_ST0", outdir4, "Pred_Prob_adj")
 
         
         pred_df4, perf_df4 = eval_decouple(model, nep_data_st1, list(nep_df_st1['ID']), nep_data_st1.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
         perf_df4['Cohort'] = 'NEP_ST1'
         print(perf_df4)
         pred_df4.to_csv(os.path.join(outdir4,  "NEP_ST1_pred_df.csv"),index = False)
+        boxplot_predprob_by_mutationclass(pred_df4, "NEP_ST1", outdir4, "Pred_Prob_adj")
 
         
         
@@ -496,6 +501,6 @@ if __name__ == '__main__':
     for metric in metrics:
         formatted_df[metric] = agg_df[metric].apply(lambda x: f"{x['mean']:.2f} ± {x['std']:.2f}", axis=1)
 
-    formatted_df.to_csv(os.path.join(outdir5, "/all_perf.csv"),index = True)
+    formatted_df.to_csv(os.path.join(outdir5, args.mutation + "_all_perf.csv"),index = True)
 
-
+    print(formatted_df)

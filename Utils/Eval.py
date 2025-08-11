@@ -247,7 +247,7 @@ def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=No
     return ci_df.T
 
 
-def boxplot_predprob_by_mutationclass(pred_df, cohort_name, outdir):
+def boxplot_predprob_by_mutationclass(pred_df, cohort_name, outdir, prob_col = "Pred_Prob"):
     # Get unique outcomes
     outcomes = pred_df['OUTCOME'].unique()
     n_outcomes = len(outcomes)
@@ -260,7 +260,7 @@ def boxplot_predprob_by_mutationclass(pred_df, cohort_name, outdir):
     for i, outcome in enumerate(outcomes):
         for y_val in [0, 1]:
             group = pred_df[(pred_df['OUTCOME'] == outcome) & (pred_df['Y_True'] == y_val)]
-            data_to_plot.append(group['Pred_Prob'].values)
+            data_to_plot.append(group[prob_col].values)
             labels.append(f"{outcome}\nY={y_val}")
             positions.append(i * 3 + y_val)  # spread boxes for each group
     

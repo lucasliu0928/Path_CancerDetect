@@ -60,53 +60,67 @@ def compute_meanstd_perf(indata, cohort_name):
     return summary_list
 
 # Define the root directory containing all the GAMMA_* folders
-root_dir = "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_063025/"
-root_dir = root_dir + "trainCohort_union_STNandNSTN_OPX_TCGA_Samples0_GRLFalse/acmil/uni2/TrainOL100_TestOL0_TFT0.9/"
+root_dir = "/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_072925v2/"
+root_dir = root_dir + "trainCohort_union_STNandNSTN_OPX_TCGA_Samples1000_GRLFalse/acmil/uni2/TrainOL100_TestOL0_TFT0.9/"
+
+
 
 folds_list = ['FOLD0','FOLD1', 'FOLD2', 'FOLD3','FOLD4']
-# Initialize a list to hold DataFrames
-holdout_test_perf_dfs = []
-val_perf_dfs = []
-nep1_perf_dfs = []
-nep2_perf_dfs = []
-nep3_perf_dfs = []
+mutations = ['AR', 'HR2', 'PTEN', 'RB1', 'TP53', 'MSI']
 
-for f in folds_list:
-    dirpath = root_dir + f + '/'
-    perfpath = dirpath + 'MT/perf/GAMMA_6.0_ALPHA_0.9/'
+
+mutation_perf_list = []
+
+for mutation in mutations:
+    # Initialize a list to hold DataFrames
+    holdout_test_perf_dfs = []
+    val_perf_dfs = []
+    nep1_perf_dfs = []
+    nep2_perf_dfs = []
+    nep3_perf_dfs = []
     
-    val_df = pd.read_csv(perfpath + 'n_token3_VAL_perf.csv')
-    val_df['FOLD'] = f
-    holdout_test_df = pd.read_csv(perfpath + 'n_token3_TEST_COMB_perf.csv')
-    holdout_test_df['FOLD'] = f
-    nep_df1 = pd.read_csv(perfpath + 'n_token3_NEP_perf.csv')
-    nep_df1['FOLD'] = f
-    nep_df2 = pd.read_csv(perfpath + 'n_token3_z_nostnorm_NEP_perf.csv')
-    nep_df2['FOLD'] = f
-    nep_df3 = pd.read_csv(perfpath + 'n_token3_NEP_union_perf.csv')
-    nep_df3['FOLD'] = f
+    for f in folds_list:
+        dirpath = root_dir + f + '/'
+        perfpath = dirpath + mutation + '/perf/GAMMA_0_ALPHA_-1/'
+        
+        val_df = pd.read_csv(perfpath + 'n_token3_VAL_perf.csv')
+        val_df['FOLD'] = f
+        holdout_test_df = pd.read_csv(perfpath + 'n_token3_TEST_COMB_perf.csv')
+        holdout_test_df['FOLD'] = f
+        nep_df1 = pd.read_csv(perfpath + 'n_token3_NEP_perf.csv')
+        nep_df1['FOLD'] = f
+        nep_df2 = pd.read_csv(perfpath + 'n_token3_z_nostnorm_NEP_perf.csv')
+        nep_df2['FOLD'] = f
+        nep_df3 = pd.read_csv(perfpath + 'n_token3_NEP_union_perf.csv')
+        nep_df3['FOLD'] = f
+        
+        val_perf_dfs.append(val_df)
+        holdout_test_perf_dfs.append(holdout_test_df)
+        nep1_perf_dfs.append(nep_df1)
+        nep2_perf_dfs.append(nep_df2)
+        nep3_perf_dfs.append(nep_df3)
     
-    val_perf_dfs.append(val_df)
-    holdout_test_perf_dfs.append(holdout_test_df)
-    nep1_perf_dfs.append(nep_df1)
-    nep2_perf_dfs.append(nep_df2)
-    nep3_perf_dfs.append(nep_df3)
+    val_perf_dfs= pd.concat(val_perf_dfs)
+    holdout_test_perf_dfs= pd.concat(holdout_test_perf_dfs)
+    nep1_perf_dfs= pd.concat(nep1_perf_dfs)
+    nep2_perf_dfs= pd.concat(nep2_perf_dfs)    
+    nep3_perf_dfs= pd.concat(nep3_perf_dfs)  
+    
+    val_perf_dfs = compute_meanstd_perf(val_perf_dfs, cohort_name = 'VAL')
+    holdout_test_perf_dfs = compute_meanstd_perf(holdout_test_perf_dfs, cohort_name = 'HOLD_OUT_TEST_TCGA_OPX')
+    nep1_perf_dfs = compute_meanstd_perf(nep1_perf_dfs, cohort_name = 'NEP_STN')
+    nep2_perf_dfs = compute_meanstd_perf(nep2_perf_dfs, cohort_name = 'NEP_noSTN')
+    nep3_perf_dfs = compute_meanstd_perf(nep3_perf_dfs, cohort_name = 'NEP_union')
+    
+    final_df = pd.concat([val_perf_dfs,holdout_test_perf_dfs,nep1_perf_dfs,nep2_perf_dfs, nep3_perf_dfs])
+    final_df = final_df[['COHORT','OUTCOME','AUC', 'Recall', 'PR_AUC', 'Specificity', 'ACC', 'Precision', 'F1', 'F2', 'F3']]
+    final_df = final_df.loc[final_df['AUC'] != 'nan ± nan']
 
-val_perf_dfs= pd.concat(val_perf_dfs)
-holdout_test_perf_dfs= pd.concat(holdout_test_perf_dfs)
-nep1_perf_dfs= pd.concat(nep1_perf_dfs)
-nep2_perf_dfs= pd.concat(nep2_perf_dfs)    
-nep3_perf_dfs= pd.concat(nep3_perf_dfs)  
+    mutation_perf_list.append(final_df)
+    
 
-val_perf_dfs = compute_meanstd_perf(val_perf_dfs, cohort_name = 'VAL')
-holdout_test_perf_dfs = compute_meanstd_perf(holdout_test_perf_dfs, cohort_name = 'HOLD_OUT_TEST_TCGA_OPX')
-nep1_perf_dfs = compute_meanstd_perf(nep1_perf_dfs, cohort_name = 'NEP_STN')
-nep2_perf_dfs = compute_meanstd_perf(nep2_perf_dfs, cohort_name = 'NEP_noSTN')
-nep3_perf_dfs = compute_meanstd_perf(nep3_perf_dfs, cohort_name = 'NEP_union')
-
-final_df = pd.concat([val_perf_dfs,holdout_test_perf_dfs,nep1_perf_dfs,nep2_perf_dfs, nep3_perf_dfs])
-final_df = final_df[['COHORT','OUTCOME','AUC', 'Recall', 'PR_AUC', 'Specificity', 'ACC', 'Precision', 'F1', 'F2', 'F3']]
-final_df.to_csv(root_dir + "allfolds_perf2.csv",index = False, encoding='utf-8-sig')
+all_final_df = pd.concat(mutation_perf_list)
+all_final_df.to_csv(root_dir + "allfolds_perf.csv",index = False, encoding='utf-8-sig')
 
 
 
