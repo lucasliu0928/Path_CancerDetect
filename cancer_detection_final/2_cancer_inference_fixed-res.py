@@ -30,6 +30,8 @@ parser.add_argument('--mag_target_prob', default='2.5', type=float, help='magnif
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
 parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
+
 parser.add_argument('--select_idx_start', type=int)
 parser.add_argument('--select_idx_end', type=int)
 
@@ -104,9 +106,12 @@ if __name__ == '__main__':
     ############################################################################################################
     #Load normalization norm target image
     ############################################################################################################
-    tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
-    norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
-            
+    if args.stain_norm == "norm":
+        tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
+        norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
+    elif args.stain_norm == "no_norm":
+        norm_target_img = None
+                
     ############################################################################################################
     #START
     ############################################################################################################
