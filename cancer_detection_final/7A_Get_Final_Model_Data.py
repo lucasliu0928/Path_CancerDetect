@@ -40,10 +40,7 @@ parser.add_argument('--fe_method', default='uni2', type=str, help='feature extra
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
-parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_063025_new', type=str, help='out folder name')
 
 
 
@@ -53,11 +50,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     args.train_flag = True
-    args.out_folder = '7_model_data'
-    args.batch_train = True
-    #fold_list = [0,1,2,3,4]
-    fold_list = [0]
-    #args.train_epoch = 2
+    fold_list = [0,1,2,3,4]
 
     
     #fold_list = [0,1,2,3,4]
@@ -71,6 +64,8 @@ if __name__ == '__main__':
         proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
         data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
         id_data_dir = os.path.join(proj_dir, 'intermediate_data', "3B_Train_TEST_IDS")
+        outdir = os.path.join(proj_dir, 'intermediate_data', "7_model_data", args.train_cohort)
+        create_dir_if_not_exists(outdir)
 
         
         ####################################
@@ -85,6 +80,8 @@ if __name__ == '__main__':
         ext_data_st0, nep_ids0  = loaded_data['ext_data_st0']
         ext_data_st1, nep_ids1 = loaded_data['ext_data_st1']
         ext_data_union, nep_ids = loaded_data['ext_data_union']
+        
+        torch.save(data, os.path.join(outdir, args.cohort_name + '_data.pth'))
 
         
  

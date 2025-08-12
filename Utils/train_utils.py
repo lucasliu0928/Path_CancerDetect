@@ -1581,18 +1581,27 @@ def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_metho
     #Get Train, test, val data
     ################################################    
     train_cohort_map = {
+        #stain normed
         'OPX': {
             'train_cohort1': 'OPX',
             'model_data1': data_opx_stnorm1,
             'train_cohort2': None,
             'model_data2': None
         },
-        'TCGA': {
+        'TCGA_PRAD': {
             'train_cohort1': 'TCGA_PRAD',
             'model_data1': data_tcga_stnorm1,
             'train_cohort2': None,
             'model_data2': None
         },
+        'Neptune': {
+            'train_cohort1': 'Neptune',
+            'model_data1': data_nep_stnorm1,
+            'train_cohort2': None,
+            'model_data2': None
+        },
+        
+        #no stain normed
         'z_nostnorm_OPX': {
             'train_cohort1': 'OPX',
             'model_data1': data_opx_stnorm0,
@@ -1605,24 +1614,99 @@ def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_metho
             'train_cohort2': None,
             'model_data2': None
         },
+        'z_nostnorm_Neptune': {
+            'train_cohort1': 'Neptune',
+            'model_data1': data_nep_stnorm0,
+            'train_cohort2': None,
+            'model_data2': None
+        },
+        
+        #two corhot, no st
         'z_nostnorm_OPX_TCGA': {
             'train_cohort1': 'z_nostnorm_OPX',
             'model_data1': data_opx_stnorm0,
             'train_cohort2': 'z_nostnorm_TCGA_PRAD',
             'model_data2': data_tcga_stnorm0
         },
+        'z_nostnorm_OPX_NEP': {
+            'train_cohort1': 'z_nostnorm_OPX',
+            'model_data1': data_opx_stnorm0,
+            'train_cohort2': 'z_nostnorm_Neptune',
+            'model_data2': data_nep_stnorm0
+        },
+        'z_nostnorm_TCGA_NEP': {
+            'train_cohort1': 'z_nostnorm_TCGA_PRAD',
+            'model_data1': data_tcga_stnorm0,
+            'train_cohort2': 'z_nostnorm_Neptune',
+            'model_data2': data_nep_stnorm0
+        },
+        
+        #two corhot, st
         'OPX_TCGA': {
             'train_cohort1': 'OPX',
             'model_data1': data_opx_stnorm1,
             'train_cohort2': 'TCGA_PRAD',
-            'model_data2': data_tcga_stnorm1
+            'model_data2': data_tcga_stnorm1,
+            'ext_cohort':  'Neptune',
+            'ext_data_nost':  data_nep_stnorm0['OL0'],
+            'ext_data_st':    data_nep_stnorm1['OL0'],
+            'ext_data_union': data_nep_stnorm10_union['OL0']
         },
+        'OPX_NEP': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm1,
+            'train_cohort2': 'Neptune',
+            'model_data2': data_nep_stnorm1,
+            'ext_cohort':  'TCGA_PRAD',
+            'ext_data_nost':  data_tcga_stnorm0['OL0'],
+            'ext_data_st':    data_tcga_stnorm1['OL0'],
+            'ext_data_union': data_tcga_stnorm10_union['OL0']
+        },
+        'TCGA_NEP': {
+            'train_cohort1': 'TCGA_PRAD',
+            'model_data1': data_tcga_stnorm1,
+            'train_cohort2': 'Neptune',
+            'model_data2': data_nep_stnorm1,
+            'ext_cohort':  'OPX',
+            'ext_data_nost':  data_opx_stnorm0['OL0'],
+            'ext_data_st':    data_opx_stnorm1['OL0'],
+            'ext_data_union': data_opx_stnorm10_union['OL0']
+        },
+        
+        #two cohort, union of st and no-st
         'union_STNandNSTN_OPX_TCGA': {
             'train_cohort1': 'OPX',
             'model_data1': data_opx_stnorm10_union,
             'train_cohort2': 'TCGA_PRAD',
-            'model_data2': data_tcga_stnorm10_union
+            'model_data2': data_tcga_stnorm10_union,
+            'ext_cohort':  'Neptune',
+            'ext_data_nost':  data_nep_stnorm0['OL0'],
+            'ext_data_st':    data_nep_stnorm1['OL0'],
+            'ext_data_union': data_nep_stnorm10_union['OL0'],
+
         },
+        'union_STNandNSTN_OPX_NEP': {
+            'train_cohort1': 'OPX',
+            'model_data1': data_opx_stnorm10_union,
+            'train_cohort2': 'Neptune',
+            'model_data2': data_nep_stnorm10_union,
+            'ext_cohort':  'TCGA_PRAD',
+            'ext_data_nost':  data_tcga_stnorm0['OL0'],
+            'ext_data_st':    data_tcga_stnorm1['OL0'],
+            'ext_data_union': data_tcga_stnorm10_union['OL0'],
+        },
+        'union_STNandNSTN_TCGA_NEP': {
+            'train_cohort1': 'TCGA_PRAD',
+            'model_data1': data_tcga_stnorm10_union,
+            'train_cohort2': 'Neptune',
+            'model_data2': data_nep_stnorm10_union,
+            'ext_cohort':  'OPX',
+            'ext_data_nost':  data_opx_stnorm0['OL0'],
+            'ext_data_st':    data_opx_stnorm1['OL0'],
+            'ext_data_union': data_opx_stnorm10_union['OL0'],
+        },
+        
+        #two cohort, combine and later sampling
         'comb_STNandNSTN_OPX_TCGA': {
             'train_cohort1': 'OPX',
             'model_data1': data_opx_stnorm10_comb,
@@ -1637,6 +1721,11 @@ def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_metho
         model_data1 = config['model_data1']
         train_cohort2 = config['train_cohort2']
         model_data2 = config['model_data2']
+        ext_cohort = config['ext_cohort']
+        ext_data_st0 = config['ext_data_nost']
+        ext_data_st1 = config['ext_data_st']
+        ext_data_union = config['ext_data_union']
+        
     else:
         raise ValueError(f"Unknown training cohort: {train_cohort}")
 
@@ -1657,20 +1746,16 @@ def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_metho
     test_data1, _ = split_data["test1"]
     test_data2, _ = split_data["test2"]
     
-    ext_data_st0 =  data_nep_stnorm0['OL0']
-    ext_data_st1 =  data_nep_stnorm1['OL0']
-    ext_data_union =  data_nep_stnorm10_union['OL0']
-    
-    
+
     #Get sanple ID:
     train_ids =  [x[-2] for x in train_data]
     val_ids =  [x[-2] for x in val_data]
     test_ids =  [x[-2] for x in test_data]
     test_ids1 =  [x[-2] for x in test_data1]
     test_ids2 =  [x[-2] for x in test_data2]
-    nep_ids0 =  [x[-2] for x in ext_data_st0]
-    nep_ids1 =  [x[-2] for x in ext_data_st1]
-    nep_ids =  [x[-2] for x in ext_data_union]
+    ext_ids0 =  [x[-2] for x in ext_data_st0]
+    ext_ids1 =  [x[-2] for x in ext_data_st1]
+    ext_ids =  [x[-2] for x in ext_data_union]
     
     
     #Update labels
@@ -1715,7 +1800,7 @@ def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_metho
             'test': (test_data, test_ids),
             'test1': (test_data1, test_ids1),
             'test2': (test_data2, test_ids2),
-            'ext_data_st0': (ext_data_st0, nep_ids0),
-            'ext_data_st1': (ext_data_st1, nep_ids1),
-            'ext_data_union': (ext_data_union, nep_ids)
+            'ext_data_st0': (ext_data_st0, ext_ids0),
+            'ext_data_st1': (ext_data_st1, ext_ids1),
+            'ext_data_union': (ext_data_union, ext_ids)
         }, selected_labels
