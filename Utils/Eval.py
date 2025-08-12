@@ -18,8 +18,9 @@ from torchmetrics import ROC
 import os
 from torcheval.metrics import BinaryAUROC, BinaryAUPRC
 
-from sklearn.isotonic import IsotonicRegression
 
+from sklearn.isotonic import IsotonicRegression
+from ACMIL import compute_loss_singletask
 
 def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_class).ravel() #CM
@@ -426,6 +427,8 @@ def predict_v2_logit(net, data_loader, device, conf, criterion_da = None):
     return y_pred_tasks, y_predprob_task, y_true_tasks,y_logit_tasks
 
 
+
+
 def predict_v2_sp_nost_andst(net, data_loader, device, conf, header, criterion_da = None):    
     y_pred = []
     y_true = []
@@ -566,6 +569,70 @@ def output_pred_perf_with_logit(model, data_loader, ids, selected_label, conf, c
         plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), out_path_pred, cohort_name ,selected_label[i])
         
 
+def predict_v2_logit_singletask(net, criterion, data_loader, device, conf):    
+    # Set the network to evaluation mode
+    net.eval()
+
+    y_pred_prob = []
+    y_pred_logit = []
+    y_true = []
+    total_loss = 0
+    for data_it, data in enumerate(data_loader):
+        image_patches = data[0].to(device, dtype=torch.float32)
+        labels = data[1][0].to(device)
+        tf = data[2].to(device, dtype=torch.float32)
+    
+    
+        #Run model
+        branch_preds, slide_preds, branch_att_raw, bag_att , bag_feat = net(image_patches)
+        
+        
+        #Get predictions
+        pred_prob = torch.sigmoid(slide_preds)
+        y_pred_prob.append(pred_prob)
+        y_pred_logit.append(slide_preds)
+        y_true.append(labels)
+        
+        #Compute loss
+        loss, diff_loss, loss0,  loss1 = compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf)
+        total_loss += loss
+        avg_loss = total_loss/(data_it+1)
+        
+
+    #Concatenate all pred and labels
+    all_pred_prob  = torch.cat(y_pred_prob, dim=0)
+    all_pred_logit  = torch.cat(y_pred_logit, dim=0)
+    all_labels = torch.cat(y_true, dim=0)    
+    #all_pred_class = (all_pred_prob > thres).int()     
+    
+    
+    return  all_pred_prob, all_pred_logit, all_labels
+
+def output_pred_perf_with_logit_singletask(model, data_loader, ids, selected_label, conf, cohort_name, criterion, out_path_pred, out_path_pref, criterion_da, device, calibration = False):
+   
+    y_predprob, y_logit, y_true = predict_v2_logit_singletask(model, criterion, data_loader, device, conf)
+    
+
+    all_pred_df, all_perf_df = get_performance_withlogit(y_predprob.squeeze().detach().cpu(), 
+                                                         y_true.squeeze().detach().cpu(),
+                                                         y_logit.squeeze().detach().cpu(), 
+                                                         ids, 
+                                                         selected_label[0], 
+                                                         THRES = np.quantile(y_predprob.squeeze().detach().cpu(),0.5))
+
+    all_pred_df.to_csv(os.path.join(out_path_pred, "n_token" + str(conf.n_token) + "_" + cohort_name + "_pred_df.csv"),index = False)
+    all_perf_df.to_csv(os.path.join(out_path_pref, "n_token" + str(conf.n_token) + "_" + cohort_name + "_perf.csv"),index = True)
+    print(cohort_name + ":",round(all_perf_df['AUC'].mean(),2))
+    
+    #plot boxplot of pred prob by mutation class
+    boxplot_predprob_by_mutationclass(all_pred_df, cohort_name, out_path_pred)
+
+    #plot roc curve by mutation class
+    for i in range(conf.n_task):
+        cur_pred_df = all_pred_df.loc[all_pred_df['OUTCOME'] == selected_label[i]]
+        plot_roc_curve(list(cur_pred_df['Pred_Prob']),list(cur_pred_df['Y_True']), out_path_pred, cohort_name ,selected_label[i])
+        
+                
 import torch.nn.functional as F
 def predict_with_logit_adjustment(model, x, class_priors, tau=1.0):
     model.eval()
@@ -605,3 +672,5 @@ def eval_decouple(net, indata, ids, y_true, outcome, use_adjusted, class_priors,
 
     return pred_df, perf_df
         
+
+

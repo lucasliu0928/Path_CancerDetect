@@ -24,12 +24,12 @@ sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
 from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
 from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
-from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf_with_logit
+from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf_with_logit_singletask
 from train_utils import FocalLoss,FocalLoss_logitadj, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import str2bool, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
 from train_utils import load_data, get_final_model_data
-from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask
+from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask, get_slide_feature_singletask
 from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
 from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, get_slide_feature
 warnings.filterwarnings("ignore")
@@ -232,15 +232,7 @@ if __name__ == '__main__':
         ####################################################
         if args.arch == 'ga':
             model = ACMIL_GA_singletask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-        elif args.arch == 'ga_mt':
-            if args.GRL == False:
-                model = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-            else:
-                model = ACMIL_GA_MultiTask_DA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-        else:
-            model = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
         model.to(device)
-        
         
         if args.GRL == False:
             criterion_da = None 
@@ -321,15 +313,8 @@ if __name__ == '__main__':
         #Load model
         if args.arch == 'ga':
             model2 = ACMIL_GA_singletask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-        elif args.arch == 'ga_mt':
-            if args.GRL == False:
-                model2 = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-            else:
-                model2 = ACMIL_GA_MultiTask_DA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-        else:
-            model2 = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
+
         model2.to(device)
-        
         
         ###################################################
         #  TEST
@@ -344,54 +329,73 @@ if __name__ == '__main__':
         out_path_pred = os.path.join(outdir44)
         out_path_pref = os.path.join(outdir55)
         
+        
+        
+        
+        
         # Get features
         #TODO
-        def output_trained_feature(net, dataloader, ids, cohort_name, task, conf, device):
-            fea = get_slide_feature(net, dataloader, conf, device)
-            fea = pd.DataFrame(fea['task' + str(task)].cpu())
+        #Add label to the feature h5, and plot umap
+        def output_trained_feature_singletask(net, dataloader, ids, cohort_name, task, conf, device):
+            fea, lab = get_slide_feature_singletask(net, train_loader, device)
+            fea = pd.DataFrame(fea.cpu())
             fea.to_hdf(outdir6 + cohort_name + "_feature.h5", key='feature', mode='w')
             ids_df = pd.DataFrame(ids)
             ids_df.to_hdf(outdir6 + cohort_name + "_feature.h5", key='id', mode='a')
+            label_df = pd.DataFrame(lab.detach().cpu())
+            label_df.to_hdf(outdir6 + cohort_name + "_feature.h5", key='label', mode='a')
+            
+            #combine all
+            comb_df = pd.concat([ids_df,label_df,fea], axis = 1)
+            
+            return comb_df
         
         # #fLod eature
         # feature_df = pd.read_hdf(os.path.join(outdir6 + "Train_feature.h5"), key='feature')
         # feature_df.columns = feature_df.columns.astype(str)
         # feature_df.reset_index(drop = True, inplace = True)
         
-        output_trained_feature(model2, train_loader, train_ids, "Train", 0, conf, device)
-        output_trained_feature(model2, val_loader, val_ids, "VAL", 0, conf, device)
-        output_trained_feature(model2, test_loader1, test_ids1, "TEST_OPX", 0, conf, device)
-        output_trained_feature(model2, test_loader2, test_ids2, "TEST_TCGA", 0, conf, device)
-        output_trained_feature(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
-        output_trained_feature(model2, ext_loader_st0, nep_ids0, "z_nostnorm_NEP", 0, conf, device)
-        output_trained_feature(model2, ext_loader_st1, nep_ids1, "NEP", 0, conf, device)
-        output_trained_feature(model2, ext_loader_union, nep_ids, "NEP_union", 0, conf, device)
+        comb_df_train = output_trained_feature_singletask(model2, train_loader, train_ids, "Train", 0, conf, device)
+        comb_df_val = output_trained_feature_singletask(model2, val_loader, val_ids, "VAL", 0, conf, device)
+        comb_df_test1 = output_trained_feature_singletask(model2, test_loader1, test_ids1, "TEST_OPX", 0, conf, device)
+        comb_df_test2 = output_trained_feature_singletask(model2, test_loader2, test_ids2, "TEST_TCGA", 0, conf, device)
+        comb_df_test = output_trained_feature_singletask(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
+        comb_df_nep_st0 = output_trained_feature_singletask(model2, ext_loader_st0, nep_ids0, "z_nostnorm_NEP", 0, conf, device)
+        comb_df_nep_st1 = output_trained_feature_singletask(model2, ext_loader_st1, nep_ids1, "NEP", 0, conf, device)
+        comb_df_nep = output_trained_feature_singletask(model2, ext_loader_union, nep_ids, "NEP_union", 0, conf, device)
+        
+        
+
+
+        
+
+                
 
         # VAL
-        output_pred_perf_with_logit(model2, val_loader, val_ids, selected_label, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, val_loader, val_ids, selected_label, conf, "VAL", criterion, out_path_pred, out_path_pref, criterion_da, device)
 
         
         # Test 1
-        output_pred_perf_with_logit(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", criterion, out_path_pred, out_path_pref, criterion_da, device)
         
         # Test 2
-        output_pred_perf_with_logit(model2, test_loader2, test_ids2, selected_label, conf, "TEST_TCGA" , out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, test_loader2, test_ids2, selected_label, conf, "TEST_TCGA" , criterion, out_path_pred, out_path_pref, criterion_da, device)
         
         
         #Test Comb
-        output_pred_perf_with_logit(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", criterion, out_path_pred, out_path_pref, criterion_da, device)
 
         
         #External Validation 1 (z_nostnorm_nep)
-        output_pred_perf_with_logit(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", criterion, out_path_pred, out_path_pref, criterion_da, device)
 
         
         #External Validation 2 (normed nep)
-        output_pred_perf_with_logit(model2, ext_loader_st1, nep_ids1, selected_label, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, ext_loader_st1, nep_ids1, selected_label, conf, "NEP", criterion, out_path_pred, out_path_pref, criterion_da, device)
         
         
         #External Validation 3 (union)
-        output_pred_perf_with_logit(model2, ext_loader_union, nep_ids, selected_label, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, ext_loader_union, nep_ids, selected_label, conf, "NEP_union" , criterion, out_path_pred, out_path_pref, criterion_da, device)
 
 
 

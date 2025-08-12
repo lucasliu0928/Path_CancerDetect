@@ -904,9 +904,10 @@ def get_slide_feature(net, data_loader, conf, device):
 
     for data in data_loader:
         
-        image_patches = data[0].to(device, dtype=torch.float32)        
-        _, _, _, bag_feat_list = net(image_patches)
+        image_patches = data[0].to(device, dtype=torch.float32)      
         
+        _, _, _, bag_feat_list = net(image_patches)
+
         # Append each feature to its corresponding list
         for i, feat in enumerate(bag_feat_list):
             features_pertask[f"task{i}"].append(feat)
@@ -916,6 +917,26 @@ def get_slide_feature(net, data_loader, conf, device):
         features_pertask[f"task{i}"] = torch.concat(features_pertask[f"task{i}"])
         
     return features_pertask
+
+
+@torch.no_grad()
+def get_slide_feature_singletask(net, data_loader, device):
+    net.eval()
+    
+    features_list = [] 
+    label_list = []
+    for data in data_loader:
+        
+        image_patches = data[0].to(device, dtype=torch.float32)   
+        label = data[1][0].to(device)   
+        label_list.append(label)        
+        bag_feat = net.forward_feature(image_patches)
+        features_list.append(bag_feat)
+
+    features = torch.concat(features_list, dim = 0)
+    labels = torch.concat(label_list, dim = 0)
+        
+    return features, labels
 
 
 # Disable gradient calculation during evaluation
@@ -1172,3 +1193,7 @@ def evaluate_multitask_randomSample(net, criterion, data_loader, device, conf, h
           .format(top1=metric_logger.acc1, losses=metric_logger.loss, AUROC=auroc, F1=f1_score))
 
     return auroc, metric_logger.acc1.global_avg, f1_score, metric_logger.loss.global_avg
+
+
+
+
