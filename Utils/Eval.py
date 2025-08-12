@@ -16,6 +16,7 @@ from misc_utils import minmax_normalize
 import torch
 from torchmetrics import ROC
 import os
+from torcheval.metrics import BinaryAUROC, BinaryAUPRC
 
 from sklearn.isotonic import IsotonicRegression
 

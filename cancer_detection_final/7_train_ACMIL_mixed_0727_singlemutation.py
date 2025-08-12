@@ -29,6 +29,7 @@ from train_utils import FocalLoss,FocalLoss_logitadj, get_feature_idexes, get_se
 from train_utils import str2bool, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
 from train_utils import load_data, get_final_model_data
+from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask
 from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
 from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, get_slide_feature
 warnings.filterwarnings("ignore")
@@ -74,7 +75,7 @@ parser.add_argument('--out_folder', default= 'pred_out_063025_new', type=str, he
 ############################################################################################################
 parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
 parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
-parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
+parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train with sampling from ST and non-ST tiles')
 parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
 parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
@@ -89,7 +90,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='training batch si
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
 parser.add_argument('--train_epoch', default=100, type=int, help='')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-parser.add_argument('--arch', default='ga_mt', type=str, help='e.g., ga_mt, or ga')
+parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
 parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use seperate focal parameters for each mutation')
 
 
@@ -101,9 +102,10 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     args.train_flag = True
-    args.out_folder = 'pred_out_072925v2'
+    args.out_folder = 'pred_out_081125'
     args.batch_train = True
-    fold_list = [0,1,2,3,4]
+    #fold_list = [0,1,2,3,4]
+    fold_list = [0]
     #args.train_epoch = 2
 
     
@@ -203,150 +205,7 @@ if __name__ == '__main__':
         device = torch.device(args.cuda_device if torch.cuda.is_available() else "cpu")
         print(device)
 
-            
-        # ################################################
-        # #     Model ready data 
-        # ################################################
-        # data_path = proj_dir + 'intermediate_data/5_combined_data'
-        
-        # #OPX data
-        # data_ol100_opx_stnorm0, _ = clean_data(data_path, 'z_nostnorm_OPX',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol100_opx_stnorm1, _ = clean_data(data_path, 'OPX',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol0_opx_stnorm0, _ = clean_data(data_path, 'z_nostnorm_OPX',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol0_opx_stnorm1, _ = clean_data(data_path, 'OPX',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_opx_stnorm0 = {'OL100': data_ol100_opx_stnorm0, 'OL0': data_ol0_opx_stnorm0}
-        # data_opx_stnorm1 = {'OL100': data_ol100_opx_stnorm1, 'OL0': data_ol0_opx_stnorm1}
-    
-        # #TCGA data
-        # data_ol100_tcga_stnorm0, _ = clean_data(data_path, 'z_nostnorm_TCGA_PRAD',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol100_tcga_stnorm1, _ = clean_data(data_path, 'TCGA_PRAD',args.train_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol0_tcga_stnorm0, _ = clean_data(data_path, 'z_nostnorm_TCGA_PRAD',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol0_tcga_stnorm1, _ = clean_data(data_path, 'TCGA_PRAD',args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_tcga_stnorm0 = {'OL100': data_ol100_tcga_stnorm0, 'OL0': data_ol0_tcga_stnorm0}
-        # data_tcga_stnorm1 = {'OL100': data_ol100_tcga_stnorm1, 'OL0': data_ol0_tcga_stnorm1}
-        
-        # #Neptune
-        # data_ol0_nep_stnorm0, nep_ids0   = clean_data(data_path, 'z_nostnorm_Neptune', args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-        # data_ol0_nep_stnorm1, nep_ids1   = clean_data(data_path, 'Neptune', args.test_overlap, args.fe_method, args.tumor_frac, selected_label_index)
-    
-        # #Combine stnorm and nostnorm
-        # data_ol100_opx_union = combine_data_from_stnorm_and_nostnorm(data_ol100_opx_stnorm0, data_ol100_opx_stnorm1, method = 'union')
-        # data_ol100_opx_comb = combine_data_from_stnorm_and_nostnorm(data_ol100_opx_stnorm0, data_ol100_opx_stnorm1, method = 'combine_all')
-        
-        # data_ol0_opx_union = combine_data_from_stnorm_and_nostnorm(data_ol0_opx_stnorm0, data_ol0_opx_stnorm1, method = 'union')
-        # data_ol0_opx_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_opx_stnorm0, data_ol0_opx_stnorm1, method = 'combine_all')
-        
-        # data_opx_stnorm10_union = {'OL100': data_ol100_opx_union, 'OL0': data_ol0_opx_union}
-        # data_opx_stnorm10_comb = {'OL100': data_ol100_opx_comb, 'OL0': data_ol0_opx_comb}
 
-        
-        # data_ol100_tcga_union = combine_data_from_stnorm_and_nostnorm(data_ol100_tcga_stnorm0, data_ol100_tcga_stnorm1, method = 'union')
-        # data_ol100_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_ol100_tcga_stnorm0, data_ol100_tcga_stnorm1, method = 'combine_all')
-        
-        # data_ol0_tcga_union = combine_data_from_stnorm_and_nostnorm(data_ol0_tcga_stnorm0, data_ol0_tcga_stnorm1, method = 'union')
-        # data_ol0_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_tcga_stnorm0, data_ol0_tcga_stnorm1, method = 'combine_all')
-        
-        # data_tcga_stnorm10_union = {'OL100': data_ol100_tcga_union, 'OL0': data_ol0_tcga_union}
-        # data_tcga_stnorm10_comb = {'OL100': data_ol100_tcga_comb, 'OL0': data_ol0_tcga_comb}
-        
-        
-        # data_ol0_nep_union = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'union')
-        # nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_union)]
-        # data_ol0_nep_comb = combine_data_from_stnorm_and_nostnorm(data_ol0_nep_stnorm0, data_ol0_nep_stnorm1, method = 'combine_all')
-        # nep_id = [entry[-2] for i, entry in enumerate(data_ol0_nep_comb)]
-    
-        # #TODO Actual: Check OPX_001 was removed beased no cancer detected in stnormed
-        # ################################################
-        # #Get Train, test, val data
-        # ################################################    
-        # id_data_dir = proj_dir + 'intermediate_data/3B_Train_TEST_IDS'
-        
-        # if args.train_cohort == 'z_nostnorm_OPX_TCGA':
-        #     train_cohort1 = 'z_nostnorm_OPX'
-        #     model_data1 = data_opx_stnorm0
-        #     train_cohort2 = 'z_nostnorm_TCGA_PRAD'
-        #     model_data2 = data_tcga_stnorm0
-            
-        # elif args.train_cohort == 'OPX_TCGA':
-        #     train_cohort1 = 'OPX'
-        #     model_data1 = data_opx_stnorm1
-        #     train_cohort2 = 'TCGA_PRAD'
-        #     model_data2 = data_tcga_stnorm1
-            
-        # elif args.train_cohort == 'union_stnormAndnostnorm_OPX_TCGA':
-        #     train_cohort1 = 'OPX'
-        #     model_data1 = data_opx_stnorm10_union
-        #     train_cohort2 = 'TCGA_PRAD'
-        #     model_data2 = data_tcga_stnorm10_union
-        # elif args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA':
-        #     train_cohort1 = 'OPX'
-        #     model_data1 = data_opx_stnorm10_comb
-        #     train_cohort2 = 'TCGA_PRAD'
-        #     model_data2 = data_tcga_stnorm10_comb
-            
-
-            
-        # ################################################################################################
-        # #For training and test data, take the union of tiles from stained normed and nostained normed tiles
-        # ################################################################################################
-        
-        # (train_data1, train_ids1), (val_data1, val_ids1), (test_data1, test_ids1) = get_train_test_val_data_cohort(id_data_dir, 
-        #                                                                                                            train_cohort1 ,
-        #                                                                                                            model_data = model_data1, 
-        #                                                                                                            tumor_frac = args.tumor_frac, 
-        #                                                                                                            s_fold = args.s_fold)
-        
-        # (train_data2, train_ids2), (val_data2, val_ids2), (test_data2, test_ids2) = get_train_test_val_data_cohort(id_data_dir, 
-        #                                                                                                            train_cohort2 ,
-        #                                                                                                            model_data = model_data2, 
-        #                                                                                                            tumor_frac = args.tumor_frac, 
-        #                                                                                                            s_fold = args.s_fold)
-        
-        
-
-
-            
-    
-        # ################################################################################
-        # #Get Final train and test and val data
-        # ################################################################################
-        # train_data = train_data1 + train_data2
-        # train_ids = train_ids1 + train_ids2
-        
-        # val_data = val_data1 + val_data2
-        # val_ids = val_ids1 + val_ids2
-        
-        # test_data = test_data1 + test_data2 #put two test together
-        # test_ids = test_ids1 + test_ids2
-        
-        # if args.train_cohort != 'comb_stnormAndnostnorm_OPX_TCGA':
-        #     if conf.sample_training_n > 0:
-        #         #Random Sample 1000 tiles or oriingal N tiles (if total number is < 1000) for training data
-        #         random_sample_tiles(train_data, k = conf.sample_training_n, random_seed = 42)
-
-        # if args.train_cohort == 'comb_stnormAndnostnorm_OPX_TCGA': 
-        #     #Keep feature1, label, tf,1 dlabel, feature2, tf2
-        #     train_data = [(item[0], item[1], item[2], item[3], item[7], item[9]) for item in train_data]
-        #     test_data1 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data1]
-        #     test_data2 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data2]
-        #     test_data = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data]
-        #     val_data = [(item[0], item[1], item[2],  item[6], item[8]) for item in val_data]
-        # else:
-        #     #Exclude tile info data, sample ID, patient ID, do not needed it for training
-        #     train_data = [item[:-3] for item in train_data]
-        #     test_data1 = [item[:-3] for item in test_data1]   
-        #     test_data2 = [item[:-3] for item in test_data2]   
-        #     test_data = [item[:-3] for item in test_data]   
-        #     val_data = [item[:-3] for item in val_data]
-        
-
-        
-        # ext_data_nep_st0 = [item[:-3] for item in data_ol0_nep_stnorm0] #no st norm
-        # ext_data_nep_st1 = [item[:-3] for item in data_ol0_nep_stnorm1] #st normed
-        # ext_data_nep_union = [item[:-3] for item in data_ol0_nep_union]
-        
-
-        
         ####################################################
         #Training with sampling
         ####################################################
@@ -372,7 +231,7 @@ if __name__ == '__main__':
         # define network
         ####################################################
         if args.arch == 'ga':
-            model = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
+            model = ACMIL_GA_singletask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
         elif args.arch == 'ga_mt':
             if args.GRL == False:
                 model = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
@@ -387,248 +246,152 @@ if __name__ == '__main__':
             criterion_da = None 
         else:
             criterion_da = nn.BCEWithLogitsLoss()
-            
-    
-        # Define different values for alpha and gamma
-        if args.use_sep_cri:
-            alpha_values = [0.9, 0.9, 0.8, 0.9, 0.7, 0.9, 0.9]  # Example alpha values
-            gamma_values = [2,    2,    2,   2,  2,   2,  2]   # Example gamma values
-            
-            focal_gamma = 'use_sep_cri'
-            focal_alpha = 'use_sep_cri'
-            outdir11 = outdir1 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir22 = outdir2 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir33 = outdir3 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir44 = outdir4 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir55 = outdir5 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir_list = [outdir11,outdir22,outdir33,outdir44,outdir55]
-            for out_path in outdir_list:
-                create_dir_if_not_exists(out_path)
-                
-            # Create a list of FocalLoss criteria with different alpha and gamma
-            criterion = [FocalLoss(alpha=a, gamma=g, reduction='mean') for a, g in zip(alpha_values, gamma_values)]
-                
-            
-            ####################################
-            #Ouput hyper para
-            ####################################
-            conf.focal_alpha = alpha_values
-            conf.focal_gamma = gamma_values
-            with open(outdir22 + 'final_config.yml', 'w') as file:
-                yaml.dump(conf, file, sort_keys=False)
-                    
-            if args.train_flag == True:
-                ####################################################
-                #            Train 
-                ####################################################
-                set_seed(0)
-                # define optimizer, lr not important at this point
-                optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=conf.lr, weight_decay=conf.wd)
-                best_state = {'epoch':-1, 'val_acc':0, 'val_auc':0, 'val_f1':0, 'test_acc':0, 'test_auc':0, 'test_f1':0}
-                train_epoch = conf.train_epoch
-                for epoch in range(train_epoch):
-                    
-                    if args.train_with_samplingSTandNOST:
-                        train_one_epoch_multitask_minibatch_randomSample(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                                                            batch_train = args.batch_train, 
-                                                            accum_steps = args.batchsize, 
-                                                            print_every = 100,
-                                                            loss_method = args.loss_method, 
-                                                            use_sep_criterion = args.use_sep_cri, 
-                                                            criterion_da = criterion_da)
-                        val_auc, val_acc, val_f1, val_loss = evaluate_multitask_randomSample(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        test_auc1, test_acc1, test_f11, test_loss1 = evaluate_multitask_randomSample(model, criterion, test_loader1, device, conf, 'Test', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-
-                    else:
-                        #train_one_epoch_multitask(model, criterion, train_loader, optimizer0, device, epoch, conf, args.loss_method, use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        train_one_epoch_multitask_minibatch(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                                                            batch_train = args.batch_train, 
-                                                            accum_steps = args.batchsize, 
-                                                            print_every = 100,
-                                                            loss_method = args.loss_method, 
-                                                            use_sep_criterion = args.use_sep_cri, 
-                                                            criterion_da = criterion_da)
-                        val_auc, val_acc, val_f1, val_loss = evaluate_multitask(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        test_auc1, test_acc1, test_f11, test_loss1 = evaluate_multitask(model, criterion, test_loader1, device, conf, 'Test', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                    #test_auc2, test_acc2, test_f12, test_loss2 = evaluate_multitask(model, criterion, test_loader2, device, conf, 'TCGA', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                    
-                    save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
-                        save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
-                    if val_f1 + val_auc > best_state['val_f1'] + best_state['val_auc']:
-                        best_state['epoch'] = epoch
-                        best_state['val_auc'] = val_auc
-                        best_state['val_acc'] = val_acc
-                        best_state['val_f1'] = val_f1
-                        best_state['test_auc'] = test_auc1
-                        best_state['test_acc'] = test_acc1
-                        best_state['test_f1'] = test_f11
-                        save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
-            
-                print("Results on best epoch:")
-                print(best_state)
-                wandb.finish()
-            
-        else:
-            # focal_alpha = args.f_alpha
-            # focal_gamma = args.f_gamma
-            
-            #a_g_repairs = [(0.7,0),(0.7,7),(0.2,6), (0.8,9)]
-            #a_g_repairs = [(0.2,6), (0.3,6) , (0.4,6), (0.7,0),(0.7,7), (0.8,9)]
-            #a_g_repairs = [(0.9,6),(0.4,6), (1,0)]
-    
-            #for focal_alpha, focal_gamma in a_g_repairs:
         
-            focal_alpha, focal_gamma = args.f_alpha ,args.f_gamma
-            outdir11 = outdir1 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir22 = outdir2 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir33 = outdir3 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir44 = outdir4 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir55 = outdir5 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
-            outdir_list = [outdir11,outdir22,outdir33,outdir44,outdir55]
-            for out_path in outdir_list:
-                create_dir_if_not_exists(out_path)
-            
-            #criterion = FocalLoss_logitadj(alpha=focal_alpha, gamma=focal_gamma,prior_prob = 0.04,tau = 10, reduction='mean')
-            criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
         
-            ####################################
-            #Ouput hyper para
-            ####################################
-            conf.focal_alpha = focal_alpha
-            conf.focal_gamma = focal_gamma
-            with open(outdir22 + 'final_config.yml', 'w') as file:
-                yaml.dump(conf, file, sort_keys=False)
-            
-            if args.train_flag == True:
-                
-                
-
-                        
-                ####################################################
-                #            Train 
-                ####################################################
-                set_seed(0)
-                # define optimizer, lr not important at this point
-                optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=conf.lr, weight_decay=conf.wd)
-                best_state = {'epoch':-1, 'val_acc':0, 'val_auc':0, 'val_f1':0, 'test_acc':0, 'test_auc':0, 'test_f1':0}
-                train_epoch = conf.train_epoch
-                for epoch in range(train_epoch):
-                    if args.train_with_samplingSTandNOST:
-                        train_one_epoch_multitask_minibatch_randomSample(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                                                            batch_train = args.batch_train, 
-                                                            accum_steps = args.batchsize, 
-                                                            print_every = 100,
-                                                            loss_method = args.loss_method, 
-                                                            use_sep_criterion = args.use_sep_cri, 
-                                                            criterion_da = criterion_da)
-                        val_auc, val_acc, val_f1, val_loss = evaluate_multitask_randomSample(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        test_auc1, test_acc1, test_f11, test_loss1 = evaluate_multitask_randomSample(model, criterion, test_loader1, device, conf, 'Test', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-
-                    else:
-                        #train_one_epoch_multitask(model, criterion, train_loader, optimizer0, device, epoch, conf, args.loss_method, use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        train_one_epoch_multitask_minibatch(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                                                            batch_train = args.batch_train, 
-                                                            accum_steps = args.batchsize, 
-                                                            print_every = 100,
-                                                            loss_method = args.loss_method, 
-                                                            use_sep_criterion = args.use_sep_cri, 
-                                                            criterion_da = criterion_da)
-                        val_auc, val_acc, val_f1, val_loss = evaluate_multitask(model, criterion, val_loader, device, conf, 'Val', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        test_auc1, test_acc1, test_f11, test_loss1 = evaluate_multitask(model, criterion, test_loader1, device, conf, 'Test', use_sep_criterion = args.use_sep_cri, criterion_da = criterion_da)
-                        
-                    save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
-                        save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
-                    if val_f1 + val_auc > best_state['val_f1'] + best_state['val_auc']:
-                        best_state['epoch'] = epoch
-                        best_state['val_auc'] = val_auc
-                        best_state['val_acc'] = val_acc
-                        best_state['val_f1'] = val_f1
-                        best_state['test_auc'] = test_auc1
-                        best_state['test_acc'] = test_acc1
-                        best_state['test_f1'] = test_f11
-                        save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
-            
-                print("Results on best epoch:")
-                print(best_state)
-                wandb.finish()
-                
+        ####################################
+        #Set out folder
+        ####################################
+        
+        focal_alpha, focal_gamma = args.f_alpha ,args.f_gamma
+        outdir11 = outdir1 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+        outdir22 = outdir2 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+        outdir33 = outdir3 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+        outdir44 = outdir4 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+        outdir55 = outdir5 + 'GAMMA_' + str(focal_gamma) + '_ALPHA_' + str(focal_alpha) + '/'
+        outdir_list = [outdir11,outdir22,outdir33,outdir44,outdir55]
+        for out_path in outdir_list:
+            create_dir_if_not_exists(out_path)
+        
+        #criterion = FocalLoss_logitadj(alpha=focal_alpha, gamma=focal_gamma,prior_prob = 0.04,tau = 10, reduction='mean')
+        criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
     
+        ####################################
+        #Ouput hyper para
+        ####################################
+        conf.focal_alpha = focal_alpha
+        conf.focal_gamma = focal_gamma
+        with open(outdir22 + 'final_config.yml', 'w') as file:
+            yaml.dump(conf, file, sort_keys=False)
+        
+        if args.train_flag == True:
             
-            ###################################################
-            #  TEST
-            ###################################################
-            #Load model
-            if args.arch == 'ga':
-                model2 = ACMIL_GA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-            elif args.arch == 'ga_mt':
-                if args.GRL == False:
-                    model2 = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
-                else:
-                    model2 = ACMIL_GA_MultiTask_DA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
+            
+
+                    
+            ####################################################
+            #            Train 
+            ####################################################
+            set_seed(0)
+            # define optimizer, lr not important at this point
+            optimizer0 = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=conf.lr, weight_decay=conf.wd)
+            best_state = {'epoch':-1, 'val_roc':0, 'test_roc':0}
+            train_epoch = conf.train_epoch
+            for epoch in range(train_epoch):
+                
+                train_one_epoch_singletask(model, criterion, train_loader, optimizer0, device, epoch, conf, 
+                                           print_every = 100,
+                                           loss_method = args.loss_method)
+                val_loss, val_roc, val_pr = evaluate_singletask(model, criterion, val_loader, device, conf, 
+                                                                         thres = 0.5,
+                                                                         cohort_name = "VAL")
+                test_loss, test_roc, test_pr = evaluate_singletask(model, criterion, test_loader1, device, conf, 
+                                                                         thres = 0.5,
+                                                                         cohort_name = "TEST_OPX")
+                test_loss2, test_roc2, test_pr2 = evaluate_singletask(model, criterion, test_loader2, device, conf, 
+                                                                         thres = 0.5,
+                                                                         cohort_name = "TEST_TCGA")
+
+                save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
+                    save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
+                if  val_roc > best_state['val_roc']:
+                    best_state['epoch'] = epoch
+                    best_state['val_roc'] = val_roc
+                    best_state['test_roc'] = test_roc
+                    save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
+        
+            print("Results on best epoch:")
+            print(best_state)
+            wandb.finish()
+            
+
+        
+        ###################################################
+        #  TEST
+        ###################################################
+        #Load model
+        if args.arch == 'ga':
+            model2 = ACMIL_GA_singletask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
+        elif args.arch == 'ga_mt':
+            if args.GRL == False:
+                model2 = ACMIL_GA_MultiTask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
             else:
-                model2 = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
-            model2.to(device)
-            
-            
-            ###################################################
-            #  TEST
-            ###################################################        
-            # Load the checkpoint
-            #checkpoint = torch.load(ckpt_dir + 'checkpoint-best.pth')
-            mode_idxes = conf.train_epoch-1
-            checkpoint = torch.load(os.path.join(outdir11 ,'checkpoint_epoch'+ str(mode_idxes) + '.pth'))
-            model2.load_state_dict(checkpoint['model'])
-            
-            
-            out_path_pred = os.path.join(outdir44)
-            out_path_pref = os.path.join(outdir55)
-            
-            # Get features
-            #TODO
-            def output_trained_feature(net, dataloader, ids, cohort_name, task, conf, device):
-                fea = get_slide_feature(net, dataloader, conf, device)
-                fea = pd.DataFrame(fea['task' + str(task)].cpu())
-                fea.to_hdf(outdir6 + cohort_name + "_feature.h5", key='feature', mode='w')
-                ids_df = pd.DataFrame(ids)
-                ids_df.to_hdf(outdir6 + cohort_name + "_feature.h5", key='id', mode='a')
-            
-            # #fLod eature
-            # feature_df = pd.read_hdf(os.path.join(outdir6 + "Train_feature.h5"), key='feature')
-            # feature_df.columns = feature_df.columns.astype(str)
-            # feature_df.reset_index(drop = True, inplace = True)
-            
-            output_trained_feature(model2, train_loader, train_ids, "Train", 0, conf, device)
-            output_trained_feature(model2, val_loader, val_ids, "VAL", 0, conf, device)
-            output_trained_feature(model2, test_loader1, test_ids1, "TEST_OPX", 0, conf, device)
-            output_trained_feature(model2, test_loader2, test_ids2, "TEST_TCGA", 0, conf, device)
-            output_trained_feature(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
-            output_trained_feature(model2, ext_loader_st0, nep_ids0, "z_nostnorm_NEP", 0, conf, device)
-            output_trained_feature(model2, ext_loader_st1, nep_ids1, "NEP", 0, conf, device)
-            output_trained_feature(model2, ext_loader_union, nep_ids, "NEP_union", 0, conf, device)
+                model2 = ACMIL_GA_MultiTask_DA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop, n_task = conf.n_task)
+        else:
+            model2 = ACMIL_MHA(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop=conf.mask_drop)
+        model2.to(device)
+        
+        
+        ###################################################
+        #  TEST
+        ###################################################        
+        # Load the checkpoint
+        #checkpoint = torch.load(ckpt_dir + 'checkpoint-best.pth')
+        mode_idxes = conf.train_epoch-1
+        checkpoint = torch.load(os.path.join(outdir11 ,'checkpoint_epoch'+ str(mode_idxes) + '.pth'))
+        model2.load_state_dict(checkpoint['model'])
+        
+        
+        out_path_pred = os.path.join(outdir44)
+        out_path_pref = os.path.join(outdir55)
+        
+        # Get features
+        #TODO
+        def output_trained_feature(net, dataloader, ids, cohort_name, task, conf, device):
+            fea = get_slide_feature(net, dataloader, conf, device)
+            fea = pd.DataFrame(fea['task' + str(task)].cpu())
+            fea.to_hdf(outdir6 + cohort_name + "_feature.h5", key='feature', mode='w')
+            ids_df = pd.DataFrame(ids)
+            ids_df.to_hdf(outdir6 + cohort_name + "_feature.h5", key='id', mode='a')
+        
+        # #fLod eature
+        # feature_df = pd.read_hdf(os.path.join(outdir6 + "Train_feature.h5"), key='feature')
+        # feature_df.columns = feature_df.columns.astype(str)
+        # feature_df.reset_index(drop = True, inplace = True)
+        
+        output_trained_feature(model2, train_loader, train_ids, "Train", 0, conf, device)
+        output_trained_feature(model2, val_loader, val_ids, "VAL", 0, conf, device)
+        output_trained_feature(model2, test_loader1, test_ids1, "TEST_OPX", 0, conf, device)
+        output_trained_feature(model2, test_loader2, test_ids2, "TEST_TCGA", 0, conf, device)
+        output_trained_feature(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
+        output_trained_feature(model2, ext_loader_st0, nep_ids0, "z_nostnorm_NEP", 0, conf, device)
+        output_trained_feature(model2, ext_loader_st1, nep_ids1, "NEP", 0, conf, device)
+        output_trained_feature(model2, ext_loader_union, nep_ids, "NEP_union", 0, conf, device)
 
-            # VAL
-            output_pred_perf_with_logit(model2, val_loader, val_ids, selected_label, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
+        # VAL
+        output_pred_perf_with_logit(model2, val_loader, val_ids, selected_label, conf, "VAL", out_path_pred, out_path_pref, criterion_da, device)
 
-            
-            # Test 1
-            output_pred_perf_with_logit(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", out_path_pred, out_path_pref, criterion_da, device)
-            
-            # Test 2
-            output_pred_perf_with_logit(model2, test_loader2, test_ids2, selected_label, conf, "TEST_TCGA" , out_path_pred, out_path_pref, criterion_da, device)
-            
-            
-            #Test Comb
-            output_pred_perf_with_logit(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
-    
-            
-            #External Validation 1 (z_nostnorm_nep)
-            output_pred_perf_with_logit(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
-    
-            
-            #External Validation 2 (normed nep)
-            output_pred_perf_with_logit(model2, ext_loader_st1, nep_ids1, selected_label, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
-            
-            
-            #External Validation 3 (union)
-            output_pred_perf_with_logit(model2, ext_loader_union, nep_ids, selected_label, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
+        
+        # Test 1
+        output_pred_perf_with_logit(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", out_path_pred, out_path_pref, criterion_da, device)
+        
+        # Test 2
+        output_pred_perf_with_logit(model2, test_loader2, test_ids2, selected_label, conf, "TEST_TCGA" , out_path_pred, out_path_pref, criterion_da, device)
+        
+        
+        #Test Comb
+        output_pred_perf_with_logit(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", out_path_pred, out_path_pref, criterion_da, device)
+
+        
+        #External Validation 1 (z_nostnorm_nep)
+        output_pred_perf_with_logit(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", out_path_pred, out_path_pref, criterion_da, device)
+
+        
+        #External Validation 2 (normed nep)
+        output_pred_perf_with_logit(model2, ext_loader_st1, nep_ids1, selected_label, conf, "NEP", out_path_pred, out_path_pref, criterion_da, device)
+        
+        
+        #External Validation 3 (union)
+        output_pred_perf_with_logit(model2, ext_loader_union, nep_ids, selected_label, conf, "NEP_union" , out_path_pred, out_path_pref, criterion_da, device)
+
+
 

@@ -21,6 +21,7 @@ from utils.utils import MetricLogger, SmoothedValue, adjust_learning_rate
 from timm.utils import accuracy
 import torchmetrics
 import wandb
+from torcheval.metrics import BinaryAUROC, BinaryAUPRC
 
 
 class decouple_classifier(nn.Module):
@@ -102,7 +103,106 @@ class Attention_Gated(nn.Module):
         return A  ### K x N
 
 
+class ACMIL_GA_singletask(nn.Module):
+    """
+    Single-task Attention-Gated MIL head.
+    Modified from original implementation: https://github.com/dazhangyu123/ACMIL/blob/main/architecture/transformer.py#L291
+    
+    Args:
+        conf: An object with attributes:
+              - D_feat (int): input feature dim
+              - D_inner (int): hidden/inner feature dim
+              - n_class (int): number of classes
+        D (int): attention hidden dimension.
+        droprate (float): dropout prob for classifiers.
+        n_token (int): number of attention tokens/heads (K).
+        n_masked_patch (int): how many top-attended patches to consider for masking.
+        mask_drop (float): fraction (0..1) of those top patches to drop at random.
+        
+    """
 
+    def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0):
+        super(ACMIL_GA_singletask, self).__init__()
+        
+        #Linear layer for dim reduction
+        self.dimreduction = DimReduction(conf.D_feat, conf.D_inner)
+        
+        #Attention layer
+        self.attention = Attention_Gated(conf.D_inner, D, n_token)
+        
+        #Classifer
+        self.classifier = nn.ModuleList()
+        for i in range(n_token):
+            self.classifier.append(Classifier_1fc(conf.D_inner, conf.n_class, droprate))
+        self.n_masked_patch = n_masked_patch
+        self.n_token = conf.n_token
+        self.Slide_classifier = Classifier_1fc(conf.D_inner, conf.n_class, droprate)
+        self.mask_drop = mask_drop
+
+
+    def forward(self, x): #x: N_Ttile x N_Feature
+        x = x[0]
+        x = self.dimreduction(x)  #torch.Size([N, 128])
+        
+        #Attention
+        A = self.attention(x)  ## K x N
+        
+        #Masked patch
+        if self.n_masked_patch > 0 and self.training:
+            A = self._apply_attention_mask(A)
+            
+        A_out = A
+        
+        # softmax over N 
+        A = F.softmax(A, dim=1)  # torch.Size([N_Tokens, N])
+        
+        #features for each branch            
+        afeat = torch.mm(A, x)   #torch.Size([N_Tokens, 128])
+        
+        outputs = []
+        for i, head in enumerate(self.classifier):
+            outputs.append(head(afeat[i]))
+        branch_pred = torch.stack(outputs, dim=0)
+        
+        #Bag Attention
+        bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
+        #Bag Feature
+        bag_feat = torch.mm(bag_A, x) #torch.Size([1, 128])
+        
+        #Bag Prediction
+        bag_pred =  self.Slide_classifier(bag_feat)
+            
+        return branch_pred, bag_pred, A_out.unsqueeze(0), bag_A, bag_feat #Branch prediction, bag prediction, brach_attention_raw, bag_attention_softmaxed, bag_feature
+    
+    def forward_feature(self, x, use_attention_mask=False): ## x: N x L
+        x = x[0]
+        x = self.dimreduction(x)
+        A = self.attention(x)  ## K x N
+
+
+        if self.n_masked_patch > 0 and use_attention_mask:
+            # Get the indices of the top-k largest values
+            A = self._apply_attention_mask(A)
+
+        A_out = A
+        bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
+        bag_feat = torch.mm(bag_A, x)
+        
+        return bag_feat    
+    
+    def _apply_attention_mask(self, A):
+        # Get the indices of the top-k largest values
+        k, n = A.shape
+        n_masked_patch = min(self.n_masked_patch, n)
+        _, indices = torch.topk(A, n_masked_patch, dim=-1) # Indices of top-k (per row/token)
+        rand_selected = torch.argsort(torch.rand(*indices.shape), dim=-1)[:,:int(n_masked_patch * self.mask_drop)] # Randomly choose a fraction of those to actually drop
+        masked_indices = indices[torch.arange(indices.shape[0]).unsqueeze(-1), rand_selected]
+        random_mask = torch.ones(k, n).to(A.device)
+        random_mask.scatter_(-1, masked_indices, 0)
+        A = A.masked_fill(random_mask == 0, -1e9)
+        
+        return A
+    
 class ACMIL_GA_MultiTask(nn.Module):
     def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0, n_task = 7):
         super(ACMIL_GA_MultiTask, self).__init__()
@@ -339,6 +439,75 @@ def get_emebddings(net, data_loader, device, criterion_da = None):
     return bag_feature_list
 
                    
+def train_one_epoch_singletask(model, criterion, data_loader, optimizer0, device, epoch, conf, 
+                                        print_every = 100,
+                                        loss_method = 'none'):
+
+    # Set the network to training mode
+    model.train()
+    total_loss = 0
+    for data_it, data in enumerate(data_loader):
+        
+        #Get data
+        image_patches = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+        labels = data[1][0].to(device)
+        tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
+    
+        #Adjust LR
+        adjust_learning_rate(optimizer0, epoch + data_it / len(data_loader), conf)
+        
+        #Run model
+        branch_preds, slide_preds, branch_att_raw, bag_att , bag_feat = model(image_patches)
+        
+        
+        #Compute loss
+        loss, diff_loss, loss0,  loss1 = compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf)
+        total_loss += loss
+        avg_loss = total_loss/(data_it+1)     
+        
+        #Backpropagate error and update parameters 
+        optimizer0.zero_grad()
+        loss.backward()
+        optimizer0.step()
+
+    
+        # === Manual Logging ===
+        if print_every > 0 :
+            if data_it % print_every == 0 or data_it == len(data_loader) - 1:
+                log_items = [
+                    f"EPOCH: {epoch}",
+                    f"[{data_it}/{len(data_loader)}]",
+                    f"lr: {optimizer0.param_groups[0]['lr']:.6f}",
+                    f"branch_loss: {loss0.item():.4f}",
+                    f"slide_loss: {loss1.item():.4f}",
+                    f"diff_loss: {diff_loss.item():.4f}",
+                    f"total_loss: {avg_loss.item():.4f}"
+                ]
+                print(" | ".join(log_items))
+
+
+def compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf):
+    # Compute loss
+    if conf.n_token > 1:
+        loss0 = criterion(branch_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
+    else:
+        loss0 = torch.tensor(0.)
+    loss1 = criterion(slide_preds, labels)
+    
+    
+    diff_loss = torch.tensor(0.).to(device, dtype=torch.float32)
+    attn = torch.softmax(branch_att_raw, dim=-1)
+    for i in range(conf.n_token):
+        for j in range(i + 1, conf.n_token):
+            diff_loss += torch.cosine_similarity(attn[:, i], attn[:, j], dim=-1).mean() / (
+                        conf.n_token * (conf.n_token - 1) / 2)
+    
+    loss = diff_loss + loss0 + loss1
+    
+    return loss, diff_loss, loss0,  loss1
+        
+
+
 
 
 def train_one_epoch_multitask(model, criterion, data_loader, optimizer0, device, epoch, conf, loss_method = 'none', use_sep_criterion = False, criterion_da = None):
@@ -747,6 +916,70 @@ def get_slide_feature(net, data_loader, conf, device):
         features_pertask[f"task{i}"] = torch.concat(features_pertask[f"task{i}"])
         
     return features_pertask
+
+
+# Disable gradient calculation during evaluation
+@torch.no_grad()
+def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort_name ):
+            
+    # Set the network to evaluation mode
+    net.eval()
+
+    y_pred_prob = []
+    y_pred_logit = []
+    y_true = []
+    total_loss = 0
+    for data_it, data in enumerate(data_loader):
+        image_patches = data[0].to(device, dtype=torch.float32)
+        labels = data[1][0].to(device)
+        tf = data[2].to(device, dtype=torch.float32)
+    
+    
+        #Run model
+        branch_preds, slide_preds, branch_att_raw, bag_att , bag_feat = net(image_patches)
+        
+        
+        #Get predictions
+        pred_prob = torch.sigmoid(slide_preds)
+        y_pred_prob.append(pred_prob)
+        y_pred_logit.append(slide_preds)
+        y_true.append(labels)
+        
+        #Compute loss
+        loss, diff_loss, loss0,  loss1 = compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf)
+        total_loss += loss
+        avg_loss = total_loss/(data_it+1)
+        
+
+    #Concatenate all pred and labels
+    all_pred_prob  = torch.cat(y_pred_prob, dim=0)
+    all_pred_logit  = torch.cat(y_pred_logit, dim=0)
+    all_labels = torch.cat(y_true, dim=0)    
+    all_pred_class = (all_pred_prob > thres).int()
+    
+    
+    #Get performance
+    roauc_metric = BinaryAUROC().to(device)
+    roauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+    roc_auc = roauc_metric.compute().item()
+    
+    
+    prauc_metric = BinaryAUPRC().to(device)
+    prauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+    pr_auc = prauc_metric.compute().item()
+
+    
+    # === Manual Logging ===
+    log_items = [
+        f"cohort_name: {cohort_name}",
+        f"total_loss: {avg_loss.item():.4f}",
+        f"roauc: {roc_auc:.4f}",
+        f"pr_auc: {pr_auc:.4f}",
+    ]
+    print(" | ".join(log_items))
+
+    return total_loss, roc_auc , pr_auc
+
 
 # Disable gradient calculation during evaluation
 @torch.no_grad()
