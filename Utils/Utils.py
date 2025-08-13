@@ -35,6 +35,8 @@ import random
 import torch
 from histomicstk import preprocessing,features
 from PIL import ImageCms, Image
+sys.path.insert(0, '../Utils/')
+from misc_utils import convert_img
 warnings.filterwarnings("ignore")
 
 

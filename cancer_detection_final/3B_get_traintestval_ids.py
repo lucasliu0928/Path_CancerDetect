@@ -26,9 +26,9 @@ import argparse
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
-parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default=0, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='z_nostnorm_OPX', type=str, help='data set name: OPX or TCGA_PRAD or Neptune' or 'z_nostnorm_OPX')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune' or 'z_nostnorm_OPX')
 parser.add_argument('--tile_info_path', default= '3A_otherinfo', type=str, help='tile info folder name')
 parser.add_argument('--out_folder', default= '3B_Train_TEST_IDS', type=str, help='out folder name')
 

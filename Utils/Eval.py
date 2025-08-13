@@ -149,7 +149,7 @@ def plot_roc_curve(y_pred, y_true, outdir, cohort_name, outcome_name):
     roc = ROC(task='binary')
     
     # Compute FPR, TPR, and thresholds
-    fpr, tpr, thresholds = roc(torch.tensor(y_pred), torch.tensor(y_true))
+    fpr, tpr, thresholds = roc(torch.tensor(y_pred), torch.tensor(y_true,dtype=torch.int32))
     
     # Plot ROC curve
     plt.figure()
@@ -610,6 +610,9 @@ def predict_v2_logit_singletask(net, criterion, data_loader, device, conf):
 
 def output_pred_perf_with_logit_singletask(model, data_loader, ids, selected_label, conf, cohort_name, criterion, out_path_pred, out_path_pref, criterion_da, device, calibration = False):
    
+    # data_loader = val_loader
+    # ids = val_ids
+
     y_predprob, y_logit, y_true = predict_v2_logit_singletask(model, criterion, data_loader, device, conf)
     
 

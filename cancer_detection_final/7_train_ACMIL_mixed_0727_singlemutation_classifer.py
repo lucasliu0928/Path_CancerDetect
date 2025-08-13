@@ -215,11 +215,11 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_063025_new', type=str, help='out folder name')
+parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--out_folder', default= 'pred_out_081225', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
@@ -229,7 +229,6 @@ parser.add_argument('--sample_training_n', default= 1000, type=int, help='random
 parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train flag')
 parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
-parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
 
 
 ############################################################################################################
@@ -245,8 +244,9 @@ parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 if __name__ == '__main__':
     set_seed(42)
     args = parser.parse_args()
-    args.out_folder = 'pred_out_072925v2_decoupled'
+    args.out_folder = 'pred_out_081225_V2_decoupled'
     fold_list = [0,1,2,3,4]
+    fold_list = [0]
     args.train_epoch = 100
 
     
@@ -274,7 +274,6 @@ if __name__ == '__main__':
     label_df = pd.concat([opx_label_df,tcga_label_df,nep_label_df])
     label_df.rename(columns = {'MSI_POS':'MSI'}, inplace = True)
             
-    #fold_list = [0,1,2,3,4]
     all_pref_df_list = []
     for f in fold_list:
         
@@ -287,17 +286,17 @@ if __name__ == '__main__':
         ######################
         folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/" 
         outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n) + '_GRL' + str(args.GRL),
+                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n),
                                args.learning_method,
                                folder_name1,
                                'FOLD' + str(args.s_fold),
-                               args.mutation, "decoupled")
+                               args.mutation)
         outdir1 =  outdir0  + "/saved_model/"
         outdir2 =  outdir0  + "/model_para/"
         outdir3 =  outdir0  + "/logs/"
         outdir4 =  outdir0  + "/predictions/"
         outdir5 =  os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n) + '_GRL' + str(args.GRL),
+                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n),
                                args.learning_method,
                                folder_name1, "perf")
         outdir_list = [outdir0,outdir1,outdir2,outdir3,outdir4,outdir5]
@@ -306,10 +305,8 @@ if __name__ == '__main__':
             create_dir_if_not_exists(out_path)
 
         #Load feature
-
-        
         feature_path =  os.path.join(proj_dir + "intermediate_data/" + args.out_folder.replace("_decoupled",""),
-                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n) + '_GRL' + str(args.GRL),
+                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n),
                                args.learning_method,
                                folder_name1,
                                'FOLD' + str(args.s_fold),
@@ -317,16 +314,27 @@ if __name__ == '__main__':
         
         
 
+        if args.train_cohort == "union_STNandNSTN_OPX_TCGA_NEP":
+            test_name1 = "TEST_OPX"
+            test_name2 = "TEST_TCGA_PRAD"
+            test_name3 = "TEST_Neptune"
+            ext_name1 = ""
+            ext_name2 = ""
+            ext_name = ""
+            
 
         #Load feature
         train_df = get_comb_feature_label(feature_path, label_df, "Train", args.mutation)
         val_df = get_comb_feature_label(feature_path, label_df, "VAL", args.mutation)
-        test_df1 = get_comb_feature_label(feature_path, label_df, "TEST_OPX", args.mutation)
-        test_df2 = get_comb_feature_label(feature_path, label_df, "TEST_TCGA", args.mutation)
+        test_df1 = get_comb_feature_label(feature_path, label_df, test_name1, args.mutation)
+        test_df2 = get_comb_feature_label(feature_path, label_df, test_name2, args.mutation)
+        test_df3 = get_comb_feature_label(feature_path, label_df, test_name3, args.mutation)
         test_df = get_comb_feature_label(feature_path, label_df, "TEST_COMB", args.mutation)
-        nep_df_st0 = get_comb_feature_label(feature_path, label_df, "z_nostnorm_NEP", args.mutation)
-        nep_df_st1 = get_comb_feature_label(feature_path, label_df, "NEP", args.mutation)
-        nep_df_union = get_comb_feature_label(feature_path, label_df, "NEP_union", args.mutation)
+        
+        if ext_name1 != "":
+            ext_df_st0 = get_comb_feature_label(feature_path, label_df, ext_name1, args.mutation)
+            ext_df_st1 = get_comb_feature_label(feature_path, label_df, ext_name2, args.mutation)
+            ext_df_union = get_comb_feature_label(feature_path, label_df, ext_name, args.mutation)
 
 
         f_indexes = [str(x) for x in range(0,128)]
@@ -334,10 +342,14 @@ if __name__ == '__main__':
         val_data = ModelReadyData(val_df, [str(x) for x in range(0,128)],args.mutation)
         test_data1 = ModelReadyData(test_df1, [str(x) for x in range(0,128)],args.mutation)
         test_data2 = ModelReadyData(test_df2, [str(x) for x in range(0,128)],args.mutation)
+        test_data3 = ModelReadyData(test_df3, [str(x) for x in range(0,128)],args.mutation)
         test_data = ModelReadyData(test_df, [str(x) for x in range(0,128)],args.mutation)
-        nep_data_st0 = ModelReadyData(nep_df_st0, [str(x) for x in range(0,128)],args.mutation)
-        nep_data_st1 = ModelReadyData(nep_df_st1, [str(x) for x in range(0,128)],args.mutation)
-        nep_data_union = ModelReadyData(nep_df_union, [str(x) for x in range(0,128)],args.mutation)
+        
+        
+        if ext_name1 != "":
+            ext_data_st0 = ModelReadyData(ext_df_st0, [str(x) for x in range(0,128)],args.mutation)
+            ext_data_st1 = ModelReadyData(ext_df_st1, [str(x) for x in range(0,128)],args.mutation)
+            ext_data_union = ModelReadyData(ext_df_union, [str(x) for x in range(0,128)],args.mutation)
 
         ##################
         #Select GPU
@@ -373,9 +385,11 @@ if __name__ == '__main__':
         test_loader2  = DataLoader(dataset=test_data2, batch_size=1, shuffle=False)
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         val_loader   = DataLoader(dataset=val_data,  batch_size=1, shuffle=False)            
-        ext_loader_st0   = DataLoader(dataset=nep_data_st0,  batch_size=1, shuffle=False)
-        ext_loader_st1   = DataLoader(dataset=nep_data_st1,  batch_size=1, shuffle=False) 
-        ext_loader_union   = DataLoader(dataset=nep_data_union,  batch_size=1, shuffle=False)
+        
+        if ext_name1 != "":
+            ext_loader_st0   = DataLoader(dataset=ext_data_st0,  batch_size=1, shuffle=False)
+            ext_loader_st1   = DataLoader(dataset=ext_data_st1,  batch_size=1, shuffle=False) 
+            ext_loader_union   = DataLoader(dataset=ext_data_union,  batch_size=1, shuffle=False)
         
 
         #Construct model
@@ -449,43 +463,65 @@ if __name__ == '__main__':
         use_adjusted  = True  
         tau = 1
         pred_df1, perf_df1 = eval_decouple(model, train_data, list(train_df['ID']), train_data.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        perf_df1['Cohort'] = 'Train_OPX_TCGA'
+        perf_df1['Cohort'] = 'Train'
         print(perf_df1)
         
+            
         #plot boxplot of pred prob by mutation class
-        boxplot_predprob_by_mutationclass(pred_df1, "Train_OPX_TCGA", outdir4, "Pred_Prob_adj")
+        boxplot_predprob_by_mutationclass(pred_df1, "Train", outdir4, "Pred_Prob_adj")
         
         #pred_df, perf_df = eval_decouple(model, val_data, list(val_df['ID']), val_data.y, args.mutation, use_adjusted  ,class_priors, tau = 1.0, THRES = 0.5)
         #print(perf_df)
-        
+
+        #Test Comb
         pred_df2, perf_df2 = eval_decouple(model, test_data, list(test_df['ID']), test_data.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        perf_df2['Cohort'] = 'Test_OPX_TCGA'
+        perf_df2['Cohort'] = 'Test_COMB'
         print(perf_df2)
-        pred_df2.to_csv(os.path.join(outdir4, "Test_OPX_TCGA_pred_df.csv"),index = False)
-        boxplot_predprob_by_mutationclass(pred_df2, "Test_OPX_TCGA", outdir4, "Pred_Prob_adj")
+        pred_df2.to_csv(os.path.join(outdir4, "Test_COMB.csv"),index = False)
+        boxplot_predprob_by_mutationclass(pred_df2, "Test_COMB", outdir4, "Pred_Prob_adj")
         
-        #pred_df, perf_df = eval_decouple(model, test_data1, list(test_df1['ID']), test_data1.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        #print(perf_df)
-        
-        #pred_df, perf_df = eval_decouple(model, test_data2, list(test_df2['ID']), test_data2.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        #print(perf_df)
-        
-        pred_df3, perf_df3 = eval_decouple(model, nep_data_st0, list(nep_df_st0['ID']), nep_data_st0.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        perf_df3['Cohort'] = 'NEP_ST0'
+        #Test1
+        pred_df3, perf_df3 = eval_decouple(model, test_data1, list(test_df1['ID']), test_data1.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
+        perf_df3['Cohort'] = test_name1
         print(perf_df3)
-        perf_df3.to_csv(os.path.join(outdir4,  "NEP_ST0_pred_df.csv"),index = False)
-        boxplot_predprob_by_mutationclass(pred_df3, "NEP_ST0", outdir4, "Pred_Prob_adj")
-
+        pred_df3.to_csv(os.path.join(outdir4, test_name1 + ".csv"),index = False)
+        boxplot_predprob_by_mutationclass(pred_df3, test_name1, outdir4, "Pred_Prob_adj")
         
-        pred_df4, perf_df4 = eval_decouple(model, nep_data_st1, list(nep_df_st1['ID']), nep_data_st1.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        perf_df4['Cohort'] = 'NEP_ST1'
+        #Test2
+        pred_df4, perf_df4 = eval_decouple(model, test_data2, list(test_df2['ID']), test_data2.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
+        perf_df4['Cohort'] = test_name2
         print(perf_df4)
-        pred_df4.to_csv(os.path.join(outdir4,  "NEP_ST1_pred_df.csv"),index = False)
-        boxplot_predprob_by_mutationclass(pred_df4, "NEP_ST1", outdir4, "Pred_Prob_adj")
+        pred_df4.to_csv(os.path.join(outdir4, test_name2 + ".csv"),index = False)
+        boxplot_predprob_by_mutationclass(pred_df4, test_name2, outdir4, "Pred_Prob_adj")
+        
+        #Test3
+        pred_df5, perf_df5 = eval_decouple(model, test_data3, list(test_df3['ID']), test_data3.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
+        perf_df5['Cohort'] = test_name3
+        print(perf_df5)
+        pred_df5.to_csv(os.path.join(outdir4, test_name3 + ".csv"),index = False)
+        boxplot_predprob_by_mutationclass(pred_df5, test_name3, outdir4, "Pred_Prob_adj")
+        
+        if ext_name1 != "":
+            #externel
+            pred_df6, perf_df6 = eval_decouple(model, ext_data_st0, list(ext_df_st0['ID']), ext_data_st0.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
+            perf_df6['Cohort'] = 'NEP_ST0'
+            print(perf_df6)
+            perf_df6.to_csv(os.path.join(outdir4,  "ext_ST0_pred_df.csv"),index = False)
+            boxplot_predprob_by_mutationclass(pred_df6, "ext_ST0", outdir4, "Pred_Prob_adj")
+    
+    
+            pred_df7, perf_df7 = eval_decouple(model, ext_data_st1, list(ext_df_st1['ID']), ext_data_st1.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
+            perf_df4['Cohort'] = 'NEP_ST1'
+            print(perf_df7)
+            pred_df7.to_csv(os.path.join(outdir4,  "ext_ST1_pred_df.csv"),index = False)
+            boxplot_predprob_by_mutationclass(pred_df7, "ext_ST1", outdir4, "Pred_Prob_adj")
 
         
-        
-        all_pref_df = pd.concat([perf_df1,perf_df2,perf_df3,perf_df4])
+        if ext_name1 != "":
+            all_pref_df = pd.concat([perf_df1,perf_df2,perf_df3,perf_df4,perf_df5,perf_df6,perf_df7])
+        else:
+            all_pref_df = pd.concat([perf_df1,perf_df2,perf_df3,perf_df4,perf_df5])
+            
         all_pref_df['FOLD'] = f
         all_pref_df_list.append(all_pref_df)
     

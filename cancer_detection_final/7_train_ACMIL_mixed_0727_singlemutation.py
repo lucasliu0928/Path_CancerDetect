@@ -22,16 +22,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
-from Eval import boxplot_predprob_by_mutationclass, get_performance, plot_roc_curve
-from Eval import bootstrap_ci_from_df, calibrate_probs_isotonic, get_performance_alltask
-from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf_with_logit_singletask
-from train_utils import FocalLoss,FocalLoss_logitadj, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
+from Eval import output_pred_perf_with_logit_singletask
+from train_utils import FocalLoss,FocalLoss_logitadj
 from train_utils import str2bool, random_sample_tiles
-from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
-from train_utils import load_data, get_final_model_data
+from train_utils import get_final_model_data
 from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask, get_slide_feature_singletask
-from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
-from ACMIL import train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, get_slide_feature
 warnings.filterwarnings("ignore")
 
 
@@ -44,15 +39,10 @@ from utils.utils import save_model, Struct
 import yaml
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 import argparse
-from architecture.transformer import ACMIL_GA #ACMIL_GA
-from architecture.transformer import ACMIL_MHA
 import wandb
 
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/ACMIL-main/acmil/bin/activate
-#Run: python3 -u 7_train_ACMIL_mixed_0618.py --mutation MT --GRL False --train_cohort OPX_TCGA --train_flag True --batchsize 1 --use_sep_cri False --sample_training_n 1000 --out_folder pred_out_061825_sample1000tiles_trainOPX_TCGA_GRLFALSE --f_alpha 0.2 --f_gamma 6 
-
-#Train n tmux train1
-#python3 -u 7_train_ACMIL_mixed_0727_singlemutation.py  --sample_training_n 0 --out_folder pred_out_063025 --f_alpha 0.9 --f_gamma 6 --mutation MT --GRL False --train_cohort union_STNandNSTN_OPX_TCGA --train_flag True --batchsize 1  --batch_train False --use_sep_cri False
+#python3 -u 7_train_ACMIL_mixed_0727_singlemutation.py  --sample_training_n 1000 --out_folder pred_out_081225 --train_flag True  --mutation HR2 --train_cohort union_STNandNSTN_TCGA_NEP
 
 ############################################################################################################
 #Parser
@@ -67,31 +57,26 @@ parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda devi
 parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_063025_new', type=str, help='out folder name')
+parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--out_folder', default= 'pred_out_081225_V3', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
 ############################################################################################################
 parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
 parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
-parser.add_argument('--train_with_samplingSTandNOST', type=str2bool, default=False, help='train with sampling from ST and non-ST tiles')
 parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
-parser.add_argument('--GRL', type=str2bool, default=False, help='Enable Gradient Reserse Layer for domain prediciton (yes/no, true/false)')
 
 
 ############################################################################################################
 #     Model Para
 ############################################################################################################
-parser.add_argument('--batch_train', type=str2bool, default=False,  help='if use batch train')
-parser.add_argument('--batchsize', default=32, type=int, help='training batch size')
 #parser.add_argument('--DROPOUT', default=0, type=int, help='drop out rate')
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
-parser.add_argument('--train_epoch', default=100, type=int, help='')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
-parser.add_argument('--use_sep_cri', type=str2bool, default=False, help='use seperate focal parameters for each mutation')
+parser.add_argument('--train_epoch', default=100, type=int, help='')
 
 
 
@@ -102,14 +87,10 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     args.train_flag = True
-    args.out_folder = 'pred_out_081125'
+    #args.out_folder = 'pred_out_081225'
     args.batch_train = True
-    #fold_list = [0,1,2,3,4]
-    fold_list = [0]
-    #args.train_epoch = 2
-
+    fold_list = [0,1,2,3,4]
     
-    #fold_list = [0,1,2,3,4]
     for f in fold_list:
         
         args.s_fold = f
@@ -126,14 +107,16 @@ if __name__ == '__main__':
         #Load data
         ####################################            
         loaded_data, selected_label = get_final_model_data(data_dir, id_data_dir, args.train_cohort, args.mutation, args.fe_method, args.tumor_frac, args.s_fold)
-        train_data, train_ids = loaded_data['train']
-        val_data, val_ids = loaded_data['val']
-        test_data, test_ids = loaded_data['test']
-        test_data1, test_ids1 = loaded_data['test1']
-        test_data2, test_ids2 = loaded_data['test2']
-        ext_data_st0, nep_ids0  = loaded_data['ext_data_st0']
-        ext_data_st1, nep_ids1 = loaded_data['ext_data_st1']
-        ext_data_union, nep_ids = loaded_data['ext_data_union']
+        train_data, train_ids, train_name = loaded_data['train']
+        val_data, val_ids, val_name = loaded_data['val']
+        test_data, test_ids, test_name = loaded_data['test']
+        test_data1, test_ids1, test_name1 = loaded_data['test1']
+        test_data2, test_ids2, test_name2 = loaded_data['test2']
+        test_data3, test_ids3, test_name3 = loaded_data['test3']
+
+        ext_data_st0, ext_ids0, ext_name1 = loaded_data['ext_data_st0']
+        ext_data_st1, ext_ids1, ext_name2 = loaded_data['ext_data_st1']
+        ext_data_union, ext_ids, ext_name = loaded_data['ext_data_union']
 
         
         #Feature and Label N
@@ -155,12 +138,8 @@ if __name__ == '__main__':
         conf.lr = args.lr
         conf.n_task = N_LABELS
         conf.sample_training_n = args.sample_training_n
-        conf.batch_train = args.batch_train
-        conf.batchsize = args.batchsize
         conf.learning_method = args.learning_method
         conf.arch = args.arch
-        conf.GRL = args.GRL
-        conf.train_with_samplingSTandNOST = args.train_with_samplingSTandNOST
        
         
         if args.learning_method == 'abmil':
@@ -183,7 +162,7 @@ if __name__ == '__main__':
         ######################
         folder_name1 = args.fe_method + '/TrainOL' + str(args.train_overlap) +  '_TestOL' + str(args.test_overlap) + '_TFT' + str(args.tumor_frac)  + "/" 
         outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n) + '_GRL' + str(args.GRL),
+                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n),
                                args.learning_method,
                                folder_name1,
                                'FOLD' + str(args.s_fold),
@@ -220,6 +199,7 @@ if __name__ == '__main__':
         train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
         test_loader1  = DataLoader(dataset=test_data1, batch_size=1, shuffle=False)
         test_loader2  = DataLoader(dataset=test_data2, batch_size=1, shuffle=False)
+        test_loader3  = DataLoader(dataset=test_data3, batch_size=1, shuffle=False)
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         val_loader   = DataLoader(dataset=val_data,  batch_size=1, shuffle=False)            
         ext_loader_st0   = DataLoader(dataset=ext_data_st0,  batch_size=1, shuffle=False)
@@ -233,13 +213,8 @@ if __name__ == '__main__':
         if args.arch == 'ga':
             model = ACMIL_GA_singletask(conf, n_token=conf.n_token, n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
         model.to(device)
-        
-        if args.GRL == False:
-            criterion_da = None 
-        else:
-            criterion_da = nn.BCEWithLogitsLoss()
-        
-        
+        criterion_da = None 
+
         ####################################
         #Set out folder
         ####################################
@@ -337,7 +312,7 @@ if __name__ == '__main__':
         #TODO
         #Add label to the feature h5, and plot umap
         def output_trained_feature_singletask(net, dataloader, ids, cohort_name, task, conf, device):
-            fea, lab = get_slide_feature_singletask(net, train_loader, device)
+            fea, lab = get_slide_feature_singletask(net, dataloader, device)
             fea = pd.DataFrame(fea.cpu())
             fea.to_hdf(outdir6 + cohort_name + "_feature.h5", key='feature', mode='w')
             ids_df = pd.DataFrame(ids)
@@ -355,47 +330,51 @@ if __name__ == '__main__':
         # feature_df.columns = feature_df.columns.astype(str)
         # feature_df.reset_index(drop = True, inplace = True)
         
-        comb_df_train = output_trained_feature_singletask(model2, train_loader, train_ids, "Train", 0, conf, device)
-        comb_df_val = output_trained_feature_singletask(model2, val_loader, val_ids, "VAL", 0, conf, device)
-        comb_df_test1 = output_trained_feature_singletask(model2, test_loader1, test_ids1, "TEST_OPX", 0, conf, device)
-        comb_df_test2 = output_trained_feature_singletask(model2, test_loader2, test_ids2, "TEST_TCGA", 0, conf, device)
+        comb_df_train = output_trained_feature_singletask(model2, train_loader, train_ids, train_name, 0, conf, device)
+        comb_df_val = output_trained_feature_singletask(model2, val_loader, val_ids, val_name, 0, conf, device)
+        comb_df_test1 = output_trained_feature_singletask(model2, test_loader1, test_ids1, "TEST_" + test_name1, 0, conf, device)
+        comb_df_test2 = output_trained_feature_singletask(model2, test_loader2, test_ids2, "TEST_"+ test_name2, 0, conf, device)
+        comb_df_test3 = output_trained_feature_singletask(model2, test_loader3, test_ids3, "TEST_"+ test_name3, 0, conf, device)
         comb_df_test = output_trained_feature_singletask(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
-        comb_df_nep_st0 = output_trained_feature_singletask(model2, ext_loader_st0, nep_ids0, "z_nostnorm_NEP", 0, conf, device)
-        comb_df_nep_st1 = output_trained_feature_singletask(model2, ext_loader_st1, nep_ids1, "NEP", 0, conf, device)
-        comb_df_nep = output_trained_feature_singletask(model2, ext_loader_union, nep_ids, "NEP_union", 0, conf, device)
         
-        
+        if len(ext_ids0) > 0:
+            comb_df_ext_st0 = output_trained_feature_singletask(model2, ext_loader_st0, ext_ids0, "EXT_" + ext_name1 + "_st0", 0, conf, device)
+            comb_df_ext_st1 = output_trained_feature_singletask(model2, ext_loader_st1, ext_ids1, "EXT_" + ext_name2 + "_st1", 0, conf, device)
+            #comb_df_nep = output_trained_feature_singletask(model2, ext_loader_union, ext_ids, ext_name + "union", 0, conf, device)
+            
 
-
-        
-
-                
 
         # VAL
-        output_pred_perf_with_logit_singletask(model2, val_loader, val_ids, selected_label, conf, "VAL", criterion, out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, val_loader, val_ids, selected_label, conf, val_name, criterion, out_path_pred, out_path_pref, criterion_da, device)
 
         
         # Test 1
-        output_pred_perf_with_logit_singletask(model2, test_loader1, test_ids1, selected_label, conf, "TEST_OPX", criterion, out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, test_loader1, test_ids1, selected_label, conf, "TEST_" + test_name1, criterion, out_path_pred, out_path_pref, criterion_da, device)
         
         # Test 2
-        output_pred_perf_with_logit_singletask(model2, test_loader2, test_ids2, selected_label, conf, "TEST_TCGA" , criterion, out_path_pred, out_path_pref, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model2, test_loader2, test_ids2, selected_label, conf, "TEST_"+ test_name2 , criterion, out_path_pred, out_path_pref, criterion_da, device)
         
-        
+        # Test 3
+        if  len(test_ids3) > 0:
+            output_pred_perf_with_logit_singletask(model2, test_loader3, test_ids3, selected_label, conf, "TEST_"+ test_name3 , criterion, out_path_pred, out_path_pref, criterion_da, device)
+
+
         #Test Comb
         output_pred_perf_with_logit_singletask(model2, test_loader, test_ids, selected_label, conf, "TEST_COMB", criterion, out_path_pred, out_path_pref, criterion_da, device)
 
         
-        #External Validation 1 (z_nostnorm_nep)
-        output_pred_perf_with_logit_singletask(model2, ext_loader_st0, nep_ids0, selected_label, conf, "z_nostnorm_NEP", criterion, out_path_pred, out_path_pref, criterion_da, device)
 
-        
-        #External Validation 2 (normed nep)
-        output_pred_perf_with_logit_singletask(model2, ext_loader_st1, nep_ids1, selected_label, conf, "NEP", criterion, out_path_pred, out_path_pref, criterion_da, device)
-        
-        
+        if len(ext_ids0) > 0:
+            #External Validation 1 (z_nostnorm_nep)
+            output_pred_perf_with_logit_singletask(model2, ext_loader_st0, ext_ids0, selected_label, conf, "EXT_" + ext_name1 + "_st0", criterion, out_path_pred, out_path_pref, criterion_da, device)
+    
+            
+            #External Validation 2 (normed nep)
+            output_pred_perf_with_logit_singletask(model2, ext_loader_st1, ext_ids, selected_label, conf, "EXT_" + ext_name2 + "_st1", criterion, out_path_pred, out_path_pref, criterion_da, device)
+            
+            
         #External Validation 3 (union)
-        output_pred_perf_with_logit_singletask(model2, ext_loader_union, nep_ids, selected_label, conf, "NEP_union" , criterion, out_path_pred, out_path_pref, criterion_da, device)
+        #output_pred_perf_with_logit_singletask(model2, ext_loader_union, ext_ids, selected_label, conf, "NEP_union" , criterion, out_path_pred, out_path_pref, criterion_da, device)
 
 
 

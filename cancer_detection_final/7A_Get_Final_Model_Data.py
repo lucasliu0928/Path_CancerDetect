@@ -81,7 +81,5 @@ if __name__ == '__main__':
         ext_data_st1, nep_ids1 = loaded_data['ext_data_st1']
         ext_data_union, nep_ids = loaded_data['ext_data_union']
         
-        torch.save(data, os.path.join(outdir, args.cohort_name + '_data.pth'))
-
         
  
