@@ -105,40 +105,51 @@ def run_elbow_method(feature_data, outdir, method = 'kmean', rs = 42):
     
     return wcss
 
-def run_clustering_on_training(train_data, selected_feature, outdir, method = 'kmean', rs = 42):
+def run_clustering_on_training(train_data, selected_feature, outdir, method = 'kmean', rs = 42 , use_bestk = False, use_pca = True, k = 10):
     #Get features data
     train_feature = train_data[selected_feature]
-
-    #PCA
-    pcs = get_pca_components(train_feature, n_components = 2)
+    
     
     #Feature scaling
     scaler = StandardScaler()
-    scaled_pcs = scaler.fit_transform(pcs)
+    scaled_feature = scaler.fit_transform(train_feature)
+    
+    if use_pca == True:
+        #PCA
+        updated_feature = get_pca_components(scaled_feature, n_components = 2)
+    else:
+        updated_feature = scaled_feature
+        
     
     #Run elbow
-    wcss = run_elbow_method(scaled_pcs, outdir, method = method, rs = rs)
+    wcss = run_elbow_method(updated_feature, outdir, method = method, rs = rs)
     bestk = find_elbow_point(wcss)
     
-    #Run with best k
-    model = KMeans(n_clusters=bestk, random_state = rs)
-    model.fit(scaled_pcs)
+    if use_bestk == True:
+        final_k = bestk
+    else:
+        final_k = k
+        
+    model = KMeans(n_clusters=final_k, random_state = rs)
+    model.fit(updated_feature)
     
-    return model, bestk
+    return model, scaler, final_k
 
-def get_cluster_labels(indata, selected_feature, model,  rs = 42):
+def get_cluster_labels(indata, selected_feature, model, scaler,  use_pca = True, rs = 42):
     #Get features data
     feature = indata[selected_feature]
 
-    #PCA
-    pcs = get_pca_components(feature, n_components = 2)
-    
     #Feature scaling
-    scaler = StandardScaler()
-    scaled_pcs = scaler.fit_transform(pcs)
+    scaled_feature = scaler.fit_transform(feature)
+    
+    if use_pca == True:
+        #PCA
+        updated_feature = get_pca_components(scaled_feature, n_components = 2)
+    else:
+        updated_feature = scaled_feature
 
     #Get cluster labels
-    cluster_labels = model.predict(scaled_pcs)
+    cluster_labels = model.predict(updated_feature)
     
     return cluster_labels       
 

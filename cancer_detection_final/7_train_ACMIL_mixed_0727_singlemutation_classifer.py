@@ -215,10 +215,10 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='RB1', type=str, help='Selected Mutation e.g., AR, MSI, HR2, PTEN, TP53, RB1, MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
 parser.add_argument('--out_folder', default= 'pred_out_081225', type=str, help='out folder name')
 
 ############################################################################################################
@@ -246,9 +246,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.out_folder = 'pred_out_081225_V2_decoupled'
     fold_list = [0,1,2,3,4]
-    fold_list = [0]
-    args.train_epoch = 100
-
     
     ##################
     ###### DIR  ######
@@ -321,6 +318,13 @@ if __name__ == '__main__':
             ext_name1 = ""
             ext_name2 = ""
             ext_name = ""
+        elif args.train_cohort == "union_STNandNSTN_OPX_NEP":
+            test_name1 = "TEST_OPX"
+            test_name2 = "TEST_Neptune"
+            test_name3 = ""
+            ext_name1 = "EXT_TCGA_PRAD_st0"
+            ext_name2 = "EXT_TCGA_PRAD_st1"
+            ext_name = ""
             
 
         #Load feature
@@ -328,13 +332,15 @@ if __name__ == '__main__':
         val_df = get_comb_feature_label(feature_path, label_df, "VAL", args.mutation)
         test_df1 = get_comb_feature_label(feature_path, label_df, test_name1, args.mutation)
         test_df2 = get_comb_feature_label(feature_path, label_df, test_name2, args.mutation)
-        test_df3 = get_comb_feature_label(feature_path, label_df, test_name3, args.mutation)
+        
+        if test_name3 != "":
+            test_df3 = get_comb_feature_label(feature_path, label_df, test_name3, args.mutation)
         test_df = get_comb_feature_label(feature_path, label_df, "TEST_COMB", args.mutation)
         
         if ext_name1 != "":
             ext_df_st0 = get_comb_feature_label(feature_path, label_df, ext_name1, args.mutation)
             ext_df_st1 = get_comb_feature_label(feature_path, label_df, ext_name2, args.mutation)
-            ext_df_union = get_comb_feature_label(feature_path, label_df, ext_name, args.mutation)
+            #ext_df_union = get_comb_feature_label(feature_path, label_df, ext_name, args.mutation)
 
 
         f_indexes = [str(x) for x in range(0,128)]
@@ -342,14 +348,16 @@ if __name__ == '__main__':
         val_data = ModelReadyData(val_df, [str(x) for x in range(0,128)],args.mutation)
         test_data1 = ModelReadyData(test_df1, [str(x) for x in range(0,128)],args.mutation)
         test_data2 = ModelReadyData(test_df2, [str(x) for x in range(0,128)],args.mutation)
-        test_data3 = ModelReadyData(test_df3, [str(x) for x in range(0,128)],args.mutation)
+        
+        if test_name3 != "":
+            test_data3 = ModelReadyData(test_df3, [str(x) for x in range(0,128)],args.mutation)
         test_data = ModelReadyData(test_df, [str(x) for x in range(0,128)],args.mutation)
         
         
         if ext_name1 != "":
             ext_data_st0 = ModelReadyData(ext_df_st0, [str(x) for x in range(0,128)],args.mutation)
             ext_data_st1 = ModelReadyData(ext_df_st1, [str(x) for x in range(0,128)],args.mutation)
-            ext_data_union = ModelReadyData(ext_df_union, [str(x) for x in range(0,128)],args.mutation)
+            #ext_data_union = ModelReadyData(ext_df_union, [str(x) for x in range(0,128)],args.mutation)
 
         ##################
         #Select GPU
@@ -381,15 +389,13 @@ if __name__ == '__main__':
 
 
         #train_loader = DataLoader(dataset=train_data,batch_size=BATCH_SIZE, shuffle=False)
-        test_loader1  = DataLoader(dataset=test_data1, batch_size=1, shuffle=False)
-        test_loader2  = DataLoader(dataset=test_data2, batch_size=1, shuffle=False)
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         val_loader   = DataLoader(dataset=val_data,  batch_size=1, shuffle=False)            
         
         if ext_name1 != "":
             ext_loader_st0   = DataLoader(dataset=ext_data_st0,  batch_size=1, shuffle=False)
             ext_loader_st1   = DataLoader(dataset=ext_data_st1,  batch_size=1, shuffle=False) 
-            ext_loader_union   = DataLoader(dataset=ext_data_union,  batch_size=1, shuffle=False)
+            #ext_loader_union   = DataLoader(dataset=ext_data_union,  batch_size=1, shuffle=False)
         
 
         #Construct model
@@ -495,11 +501,12 @@ if __name__ == '__main__':
         boxplot_predprob_by_mutationclass(pred_df4, test_name2, outdir4, "Pred_Prob_adj")
         
         #Test3
-        pred_df5, perf_df5 = eval_decouple(model, test_data3, list(test_df3['ID']), test_data3.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
-        perf_df5['Cohort'] = test_name3
-        print(perf_df5)
-        pred_df5.to_csv(os.path.join(outdir4, test_name3 + ".csv"),index = False)
-        boxplot_predprob_by_mutationclass(pred_df5, test_name3, outdir4, "Pred_Prob_adj")
+        if test_name3 != "":
+            pred_df5, perf_df5 = eval_decouple(model, test_data3, list(test_df3['ID']), test_data3.y, args.mutation, use_adjusted  ,class_priors, tau = tau, THRES = 0.5)
+            perf_df5['Cohort'] = test_name3
+            print(perf_df5)
+            pred_df5.to_csv(os.path.join(outdir4, test_name3 + ".csv"),index = False)
+            boxplot_predprob_by_mutationclass(pred_df5, test_name3, outdir4, "Pred_Prob_adj")
         
         if ext_name1 != "":
             #externel
@@ -517,8 +524,10 @@ if __name__ == '__main__':
             boxplot_predprob_by_mutationclass(pred_df7, "ext_ST1", outdir4, "Pred_Prob_adj")
 
         
-        if ext_name1 != "":
+        if ext_name1 != "" and test_name3 != "":
             all_pref_df = pd.concat([perf_df1,perf_df2,perf_df3,perf_df4,perf_df5,perf_df6,perf_df7])
+        elif ext_name1 != "" and test_name3 == "":
+            all_pref_df = pd.concat([perf_df1,perf_df2,perf_df3,perf_df4,perf_df6,perf_df7])
         else:
             all_pref_df = pd.concat([perf_df1,perf_df2,perf_df3,perf_df4,perf_df5])
             

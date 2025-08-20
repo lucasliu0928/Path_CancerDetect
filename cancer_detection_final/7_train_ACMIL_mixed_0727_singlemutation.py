@@ -57,13 +57,13 @@ parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda devi
 parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_081225_V3', type=str, help='out folder name')
+parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--out_folder', default= 'pred_out_081225_VXXX', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
 ############################################################################################################
-parser.add_argument('--train_flag', type=str2bool, default=False, help='train flag')
+parser.add_argument('--train_flag', type=str2bool, default=True, help='train flag')
 parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
 parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
 parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
@@ -76,7 +76,7 @@ parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
-parser.add_argument('--train_epoch', default=100, type=int, help='')
+parser.add_argument('--train_epoch', default=1, type=int, help='')
 
 
 
@@ -86,11 +86,12 @@ parser.add_argument('--train_epoch', default=100, type=int, help='')
 if __name__ == '__main__':
     
     args = parser.parse_args()
-    args.train_flag = True
+    #args.train_flag = True
     #args.out_folder = 'pred_out_081225'
-    args.batch_train = True
-    fold_list = [0,1,2,3,4]
+    fold_list = [0]
+    #args.train_epoch = 1
     
+    #fold_list = [0,1,2,3,4]
     for f in fold_list:
         
         args.s_fold = f
@@ -334,7 +335,8 @@ if __name__ == '__main__':
         comb_df_val = output_trained_feature_singletask(model2, val_loader, val_ids, val_name, 0, conf, device)
         comb_df_test1 = output_trained_feature_singletask(model2, test_loader1, test_ids1, "TEST_" + test_name1, 0, conf, device)
         comb_df_test2 = output_trained_feature_singletask(model2, test_loader2, test_ids2, "TEST_"+ test_name2, 0, conf, device)
-        comb_df_test3 = output_trained_feature_singletask(model2, test_loader3, test_ids3, "TEST_"+ test_name3, 0, conf, device)
+        if  len(test_ids3) > 0:
+            comb_df_test3 = output_trained_feature_singletask(model2, test_loader3, test_ids3, "TEST_"+ test_name3, 0, conf, device)
         comb_df_test = output_trained_feature_singletask(model2, test_loader, test_ids, "TEST_COMB", 0, conf, device)
         
         if len(ext_ids0) > 0:
@@ -370,7 +372,7 @@ if __name__ == '__main__':
     
             
             #External Validation 2 (normed nep)
-            output_pred_perf_with_logit_singletask(model2, ext_loader_st1, ext_ids, selected_label, conf, "EXT_" + ext_name2 + "_st1", criterion, out_path_pred, out_path_pref, criterion_da, device)
+            output_pred_perf_with_logit_singletask(model2, ext_loader_st1, ext_ids1, selected_label, conf, "EXT_" + ext_name2 + "_st1", criterion, out_path_pred, out_path_pref, criterion_da, device)
             
             
         #External Validation 3 (union)
