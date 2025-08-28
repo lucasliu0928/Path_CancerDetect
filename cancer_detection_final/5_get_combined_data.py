@@ -18,13 +18,13 @@ warnings.filterwarnings("ignore")
 
 #source ~/.bashrc
 #conda activate paimg9
-#Run: python3 -u 5_get_modelreadydata_OPX_TCGA_Neptune.py --pixel_overlap 100 --cohort_name OPX --TUMOR_FRAC_THRES 0.8
+#Run: python3 -u 5_get_combined_data.py --cohort_name OPX 
 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Model ready data")
-parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default=0, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=float, help='tile tumor fraction threshold')
 parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
@@ -73,29 +73,14 @@ set_seed(0)
 ############################################################################################################
 all_tile_info_df = pd.read_csv(os.path.join(info_path, "all_tile_info.csv"))
 
-if args.cohort_name == 'OPX' or args.cohort_name == 'Neptune':
+if 'OPX' in args.cohort_name or 'Neptune' in args.cohort_name:
     id_col = 'SAMPLE_ID'
 elif 'TCGA_PRAD' in args.cohort_name:
-    id_col = 'TCGA_FOLDER_ID'
+    id_col = 'FOLDER_ID'
 
 selected_ids = list(all_tile_info_df[id_col].unique())    
 selected_ids.sort()
 
-# info_path2 =   os.path.join(proj_dir,'intermediate_data','Old_5_combined_data', cohort_name, folder_name, "feature_retccl", "TFT0.9")
-# all_tile_info_list = torch.load(info_path2 + "/OPX_info.pth")
-# all_tile_info_df2 = pd.concat(all_tile_info_list)
-# check_ids = list(all_tile_info_df2['SAMPLE_ID'].unique())
-
-# check_df2 = all_tile_info_df.loc[all_tile_info_df['SAMPLE_ID'].isin(check_ids)]
-# len(set(check_df2['SAMPLE_ID']))
-# check_df3 = all_tile_info_df2.loc[all_tile_info_df2['SAMPLE_ID'].isin(list(set(check_df2['SAMPLE_ID'])))]
-
-# check_df2 = check_df2.loc[check_df2['TUMOR_PIXEL_PERC'] > 0.9] #306566
-
-#TODO: Double check this two, why not match
-# print(all_tile_info_thres.shape) #930297 #This
-# check = np.concatenate(info)     #927717 #tumor info list
-# check.shape
 
 ############################################################################################################
 #Get model ready data

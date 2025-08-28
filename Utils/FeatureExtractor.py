@@ -10,7 +10,11 @@ from histomicstk import preprocessing
 from PIL import Image
 import numpy as np
 from Utils import generate_deepzoom_tiles, extract_tile_start_end_coords_tma
-    
+from timm.layers import SwiGLUPacked
+from timm.data import resolve_data_config
+from timm.data.transforms_factory import create_transform
+
+
 class PretrainedModelLoader:
     def __init__(self, model_name, model_path, device='cpu'):
         self.model_name = model_name
@@ -27,8 +31,10 @@ class PretrainedModelLoader:
             return self._load_uni2()
         elif self.model_name == 'prov_gigapath':
             return self._load_prov_gigapath()
+        elif self.model_name == 'virchow2':
+            return self._load_virchow2()
         else:
-            raise ValueError(f"Unknown feature extraction method: {self.model_name}")
+            raise ValueError(f"Unknown feature extraction method: {self.model_name}")        
 
     def _load_retccl(self):
         model = ResNet.resnet50(num_classes=128,mlp=False, two_branch=False, normlinear=True)
@@ -66,6 +72,10 @@ class PretrainedModelLoader:
     def _load_prov_gigapath(self):
         model = timm.create_model("hf_hub:prov-gigapath/prov-gigapath", pretrained=True)
         return model
+    
+    def _load_virchow2(self):
+        model = timm.create_model("hf-hub:paige-ai/Virchow2", pretrained=True, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU)
+        return model
 
 
 
@@ -84,6 +94,7 @@ class TileEmbeddingExtractor(Dataset):
         self.pixel_overlap = list(set(tile_info['PIXEL_OVERLAP']))[0]
         self.device = device
         self.pretrain_model = pretrain_model.to(self.device)
+        self.pretrain_model_name = pretrain_model_name
         self.transform = self._transform_functions(pretrain_model_name)
         self.image_type = image_type
         self.stain_norm_target_img = stain_norm_target_img
@@ -101,7 +112,7 @@ class TileEmbeddingExtractor(Dataset):
             tile_pull = self._pull_tile_tma(x ,y)
             
         #Get features
-        features = self._get_embedding(tile_pull)
+        features = self._get_embedding(tile_pull, self.pretrain_model_name)
         
         return tile_pull,features
 
@@ -143,7 +154,7 @@ class TileEmbeddingExtractor(Dataset):
         return tile_pull
         
 
-    def _get_embedding(self, tile_pull):
+    def _get_embedding(self, tile_pull, model_name):
         #Transform tile image
         tile_pull_trns = self.transform(tile_pull)
         tile_pull_trns = tile_pull_trns.unsqueeze(0).to(self.device)  # Adds a dimension 
@@ -152,6 +163,11 @@ class TileEmbeddingExtractor(Dataset):
         self.pretrain_model.eval()
         with torch.no_grad():
             features = self.pretrain_model(tile_pull_trns)
+        
+        if model_name == 'virchow2':
+            class_token =  features[:, 0]    
+            patch_tokens = features[:, 5:]  
+            features = torch.cat([class_token, patch_tokens.mean(1)], dim=-1)  # size: 1 x 2560
         
         return features.cpu().numpy()
         
@@ -182,5 +198,7 @@ class TileEmbeddingExtractor(Dataset):
                     transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
                 ]
             )
+        elif model_name == 'virchow2':
+            trnsfrms = create_transform(**resolve_data_config(self.pretrain_model.pretrained_cfg, model=self.pretrain_model))
     
         return trnsfrms

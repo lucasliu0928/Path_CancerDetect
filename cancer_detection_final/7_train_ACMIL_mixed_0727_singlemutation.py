@@ -14,6 +14,7 @@ import sys
 import os
 import numpy as np
 import matplotlib
+import time
 matplotlib.use('Agg')
 import pandas as pd
 import warnings
@@ -25,7 +26,8 @@ from misc_utils import create_dir_if_not_exists, set_seed
 from Eval import output_pred_perf_with_logit_singletask
 from train_utils import FocalLoss,FocalLoss_logitadj
 from train_utils import str2bool, random_sample_tiles
-from train_utils import get_final_model_data
+from train_utils import get_final_model_data_v2
+from train_utils import combine_cohort_data
 from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask, get_slide_feature_singletask
 warnings.filterwarnings("ignore")
 
@@ -53,21 +55,22 @@ parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
-parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
+parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_081225_VXXX', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_082225', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
 ############################################################################################################
 parser.add_argument('--train_flag', type=str2bool, default=True, help='train flag')
 parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
-parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
-parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
-
+# parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
+# parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
+parser.add_argument('--f_alpha', default= 0.2, type=float, help='focal alpha')
+parser.add_argument('--f_gamma', default= 6, type=float, help='focal gamma')
 
 ############################################################################################################
 #     Model Para
@@ -76,7 +79,7 @@ parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
 parser.add_argument('--DIM_OUT', default=128, type=int, help='')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
-parser.add_argument('--train_epoch', default=1, type=int, help='')
+parser.add_argument('--train_epoch', default=100, type=int, help='')
 
 
 
@@ -88,26 +91,58 @@ if __name__ == '__main__':
     args = parser.parse_args()
     #args.train_flag = True
     #args.out_folder = 'pred_out_081225'
-    fold_list = [0]
+    fold_list = [0,1,2,3,4]
     #args.train_epoch = 1
     
     #fold_list = [0,1,2,3,4]
+    
+    ##################
+    ###### DIR  ######
+    ##################
+    proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
+    data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
+    id_data_dir = os.path.join(proj_dir, 'intermediate_data', "3B_Train_TEST_IDS")
+    data_out_dir = os.path.join(proj_dir, "intermediate_data", "5B_modelready_data")
+    
+    
+    ####################################
+    #Get model ready data cohort
+    ####################################
+    # start_time = time.time()
+    # opx = combine_cohort_data(data_dir, id_data_dir, "OPX" , args.fe_method, args.tumor_frac)
+    # torch.save(opx, os.path.join(data_out_dir,"opx.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']
+    # elapsed_time = time.time() - start_time
+    # print(elapsed_time/60)
+    
+    # start_time = time.time()
+    # tcga = combine_cohort_data(data_dir, id_data_dir, "TCGA_PRAD" , args.fe_method, args.tumor_frac)
+    # torch.save(tcga, os.path.join(data_out_dir,"TCGA_PRAD.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']
+    # elapsed_time = time.time() - start_time
+    # print(elapsed_time/60)
+    
+    
+    # start_time = time.time()
+    # nep = combine_cohort_data(data_dir, id_data_dir, "Neptune" , args.fe_method, args.tumor_frac)
+    # torch.save(nep, os.path.join(data_out_dir,"Neptune.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']
+    # elapsed_time = time.time() - start_time
+    # print(elapsed_time/60)
+    
+    #Load data
+    start_time = time.time()
+    opx = torch.load(os.path.join(data_out_dir,"opx.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']
+    tcga = torch.load(os.path.join(data_out_dir,"TCGA_PRAD.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']
+    nep = torch.load(os.path.join(data_out_dir,"Neptune.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']
+    elapsed_time = time.time() - start_time
+    print(elapsed_time)
+    
     for f in fold_list:
         
         args.s_fold = f
-        
-        ##################
-        ###### DIR  ######
-        ##################
-        proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
-        data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
-        id_data_dir = os.path.join(proj_dir, 'intermediate_data', "3B_Train_TEST_IDS")
 
-        
         ####################################
         #Load data
         ####################################            
-        loaded_data, selected_label = get_final_model_data(data_dir, id_data_dir, args.train_cohort, args.mutation, args.fe_method, args.tumor_frac, args.s_fold)
+        loaded_data, selected_label = get_final_model_data_v2(opx,tcga, nep, id_data_dir, args.train_cohort, args.mutation, args.fe_method, args.tumor_frac, args.s_fold)
         train_data, train_ids, train_name = loaded_data['train']
         val_data, val_ids, val_name = loaded_data['val']
         test_data, test_ids, test_name = loaded_data['test']

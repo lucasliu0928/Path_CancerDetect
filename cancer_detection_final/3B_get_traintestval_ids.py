@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune' or 'z_nostnorm_OPX')
+parser.add_argument('--cohort_name', default='z_nostnorm_Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune' or 'z_nostnorm_OPX')
 parser.add_argument('--tile_info_path', default= '3A_otherinfo', type=str, help='tile info folder name')
 parser.add_argument('--out_folder', default= '3B_Train_TEST_IDS', type=str, help='out folder name')
 
@@ -40,9 +40,9 @@ args = parser.parse_args()
 #SELECTED_LABEL = ["AR","HR1","HR2","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
 
 if 'TCGA' in args.cohort_name:
-    SELECTED_LABEL = ["AR","HR2","PTEN","RB1","TP53","MSI_POS"]
+    SELECTED_LABEL = ["AR","HR1","HR2","PTEN","RB1","TP53","MSI_POS"]
 else:
-    SELECTED_LABEL = ["AR","HR2","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
+    SELECTED_LABEL = ["AR","HR1","HR2","PTEN","RB1","TP53","TMB_HIGHorINTERMEDITATE","MSI_POS"]
 
 ##################
 ###### DIR  ######
@@ -66,6 +66,7 @@ print(device)
 ################################################
 tile_info_df = pd.read_csv(os.path.join(info_dir,"all_tile_info.csv"))
 tile_info_df = tile_info_df[tile_info_df['TUMOR_PIXEL_PERC']>=args.TUMOR_FRAC_THRES]
+print(tile_info_df.shape)
 tile_info_df_pt = tile_info_df.drop_duplicates(subset = ['PATIENT_ID']).copy() #patient-level
 tile_info_df_sp = tile_info_df.drop_duplicates(subset = ['SAMPLE_ID']).copy()  #sample-level
 
@@ -78,11 +79,10 @@ p_test = 0.25
 training_lists, validation_lists, test_list = generate_balanced_cv_list(tile_info_df_pt, SELECTED_LABEL, n_Folds, p_test)
 
 
-
 ################################################
 #Train and Test and VAl df
 ################################################
-train_test_valid_df = tile_info_df_pt[['SAMPLE_ID', 'PATIENT_ID'] + SELECTED_LABEL].copy()
+train_test_valid_df = tile_info_df_sp[['FOLDER_ID','PATIENT_ID','SAMPLE_ID'] + SELECTED_LABEL].copy()
 train_test_valid_df['TRAIN_OR_TEST'] = pd.NA
 cond = train_test_valid_df['PATIENT_ID'].isin(test_list)
 train_test_valid_df.loc[cond, 'TRAIN_OR_TEST'] = 'TEST'
@@ -101,18 +101,17 @@ train_test_valid_df.to_csv(os.path.join(outdir, 'train_test_split.csv'))
 
 
 
-################################################
-#Count mutation patient level by Train and Test and val
-################################################
-count_pt_traintest = count_mutation_perTrainTest(train_test_valid_df,SELECTED_LABEL)
-count_pt_traintest['Val N (%)'] = pd.NA
-count_pt_traintest['FOLD'] = pd.NA
-count_pt_traintest = count_pt_traintest[['Outcome', 'Train N (%)', 'Val N (%)', 'Test N (%)', 'FOLD']]
+# ################################################
+# #Count mutation patient level by Train and Test and val
+# ################################################
+# count_pt_traintest = count_mutation_perTrainTest(train_test_valid_df,SELECTED_LABEL)
+# count_pt_traintest['Val N (%)'] = pd.NA
+# count_pt_traintest['FOLD'] = pd.NA
+# count_pt_traintest = count_pt_traintest[['Outcome', 'Train N (%)', 'Val N (%)', 'Test N (%)', 'FOLD']]
 
-count_pt_traintestval = count_mutation_perTrainTestVAL(train_test_valid_df, SELECTED_LABEL, n_Folds = 5)
+# count_pt_traintestval = count_mutation_perTrainTestVAL(train_test_valid_df, SELECTED_LABEL, n_Folds = 5)
 
 
-count_pt = pd.concat([count_pt_traintest,count_pt_traintestval])
-count_pt.to_csv(os.path.join(outdir, 'label_count_patient_level.csv'))
-
+# count_pt = pd.concat([count_pt_traintest,count_pt_traintestval])
+# count_pt.to_csv(os.path.join(outdir, 'label_count_patient_level.csv'))
 

@@ -28,7 +28,7 @@ from Eval import predict_v2, predict_v2_sp_nost_andst, output_pred_perf_with_log
 from train_utils import FocalLoss,FocalLoss_logitadj, get_feature_idexes, get_selected_labels,has_seven_csv_files, get_train_test_val_data, update_label, load_model_ready_data
 from train_utils import str2bool, random_sample_tiles
 from train_utils import get_larger_tumor_fraction_tile, get_matching_tile_index, combine_data_from_stnorm_and_nostnorm
-from train_utils import load_data, get_final_model_data,load_model_ready_data
+from train_utils import load_data, get_final_model_data_v2,load_model_ready_data
 from ACMIL import ACMIL_GA_MultiTask,ACMIL_GA_MultiTask_DA, train_one_epoch_multitask, train_one_epoch_multitask_minibatch, evaluate_multitask, get_emebddings
 from ACMIL import decouple_classifier, train_one_epoch_multitask_minibatch_randomSample,evaluate_multitask_randomSample, get_slide_feature
 warnings.filterwarnings("ignore")
@@ -215,11 +215,11 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='RB1', type=str, help='Selected Mutation e.g., AR, MSI, HR2, PTEN, TP53, RB1, MT for speciifc mutation name')
+parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., AR, MSI, HR2, PTEN, TP53, RB1, MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_081225', type=str, help='out folder name')
+parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--out_folder', default= 'pred_out_082225_decoupled', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
@@ -244,7 +244,7 @@ parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 if __name__ == '__main__':
     set_seed(42)
     args = parser.parse_args()
-    args.out_folder = 'pred_out_081225_V2_decoupled'
+    args.out_folder = 'pred_out_082225_decoupled'
     fold_list = [0,1,2,3,4]
     
     ##################
@@ -258,15 +258,15 @@ if __name__ == '__main__':
     #Label data
     opx_label_df = pd.read_csv(os.path.join(label_data_dir, "OPX","IMSIZE250_OL0", "all_tile_info.csv"))
     opx_label_df = opx_label_df.drop_duplicates(subset=['PATIENT_ID'])
-    opx_label_df = opx_label_df[['SAMPLE_ID', 'PATIENT_ID', 'AR', 'HR2', 'PTEN', 'RB1', 'TP53', 'MSI_POS']]
+    opx_label_df = opx_label_df[['SAMPLE_ID', 'PATIENT_ID', 'AR', 'HR1' ,'HR2', 'PTEN', 'RB1', 'TP53', 'MSI_POS']]
 
     tcga_label_df = pd.read_csv(os.path.join(label_data_dir, "TCGA_PRAD","IMSIZE250_OL100", "all_tile_info.csv"))
     tcga_label_df = tcga_label_df.drop_duplicates(subset=['PATIENT_ID'])
-    tcga_label_df = tcga_label_df[['SAMPLE_ID', 'PATIENT_ID', 'AR', 'HR2', 'PTEN', 'RB1', 'TP53', 'MSI_POS']]
+    tcga_label_df = tcga_label_df[['SAMPLE_ID', 'PATIENT_ID', 'AR', 'HR1' ,'HR2', 'PTEN', 'RB1', 'TP53', 'MSI_POS']]
     
     nep_label_df = pd.read_csv(os.path.join(label_data_dir, "Neptune","IMSIZE250_OL0", "all_tile_info.csv"))
     nep_label_df = nep_label_df.drop_duplicates(subset=['PATIENT_ID'])
-    nep_label_df = nep_label_df[['SAMPLE_ID', 'PATIENT_ID', 'AR', 'HR2', 'PTEN', 'RB1', 'TP53' , 'MSI_POS']]
+    nep_label_df = nep_label_df[['SAMPLE_ID', 'PATIENT_ID', 'AR', 'HR1' ,'HR2', 'PTEN', 'RB1', 'TP53' , 'MSI_POS']]
 
     label_df = pd.concat([opx_label_df,tcga_label_df,nep_label_df])
     label_df.rename(columns = {'MSI_POS':'MSI'}, inplace = True)
@@ -324,6 +324,13 @@ if __name__ == '__main__':
             test_name3 = ""
             ext_name1 = "EXT_TCGA_PRAD_st0"
             ext_name2 = "EXT_TCGA_PRAD_st1"
+            ext_name = ""
+        elif args.train_cohort == "union_STNandNSTN_OPX_TCGA":
+            test_name1 = "TEST_OPX"
+            test_name2 = "TEST_TCGA_PRAD"
+            test_name3 = ""
+            ext_name1 = "EXT_Neptune_st0"
+            ext_name2 = "EXT_Neptune_st1"
             ext_name = ""
             
 
