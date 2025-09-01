@@ -20,7 +20,7 @@ import argparse
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='100',   type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='z_nostnorm_TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune, or z_nostnorm_Neptune')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune, or z_nostnorm_Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -39,7 +39,7 @@ selected_msi_genes = ['MSH2', 'MSH6', 'PMS2', 'MLH1']
 ############################################################################################################
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
 wsi_location = proj_dir +  'data/' + args.cohort_name.replace("z_nostnorm_", "") + "/"
-info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name) #Old in cancer_prediction_results110224
+info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name) 
 label_path = os.path.join(proj_dir,'data','MutationCalls', args.cohort_name.replace("z_nostnorm_", ""))
 out_location = os.path.join(proj_dir,'intermediate_data',
                             args.out_folder, 

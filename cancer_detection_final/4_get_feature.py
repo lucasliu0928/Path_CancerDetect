@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='z_nostnorm_OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, z_nostnorm_OPX')
 parser.add_argument('--feature_extraction_method', default='virchow2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
@@ -82,15 +82,15 @@ if __name__ == '__main__':
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
     
-    if args.cohort_name == "OPX":
+    if args.cohort_name.replace("z_nostnorm_", "") == "OPX":
         all_ids = opx_ids 
-    elif args.cohort_name == "ccola":
+    elif args.cohort_name.replace("z_nostnorm_", "") == "ccola":
         all_ids = ccola_ids
-    elif args.cohort_name == "TAN_TMA_Cores":
+    elif args.cohort_name.replace("z_nostnorm_", "") == "TAN_TMA_Cores":
         all_ids = tan_ids
-    elif args.cohort_name == 'TCGA_PRAD':
+    elif args.cohort_name.replace("z_nostnorm_", "") == 'TCGA_PRAD':
         all_ids = tcga_ids
-    elif args.cohort_name == "Neptune":
+    elif args.cohort_name.replace("z_nostnorm_", "") == "Neptune":
         all_ids = nep_ids
         
     #Exclude ids in ft_train or processed
@@ -123,19 +123,19 @@ if __name__ == '__main__':
         
         if os.path.exists(save_name) == False: #check if processed
         #if os.path.exists(save_name) == True: #updates
-            if args.cohort_name == "OPX":
+            if args.cohort_name.replace("z_nostnorm_", "") == "OPX":
                 slides_name = cur_id
                 _file = wsi_location_opx + slides_name + ".tif"
-            elif args.cohort_name == "ccola":
+            elif args.cohort_name.replace("z_nostnorm_", "") == "ccola":
                 slides_name = cur_id
                 _file = wsi_location_ccola + slides_name + '.svs'
-            elif args.cohort_name == "TAN_TMA_Cores":
+            elif args.cohort_name.replace("z_nostnorm_", "") == "TAN_TMA_Cores":
                 slides_name = cur_id
                 _file = wsi_location_tan + slides_name + '.tif'
-            elif args.cohort_name == 'TCGA_PRAD':
+            elif args.cohort_name.replace("z_nostnorm_", "") == 'TCGA_PRAD':
                 slides_name = [f for f in os.listdir(wsi_location_tcga + cur_id + '/') if '.svs' in f][0].replace('.svs','')
                 _file = wsi_location_tcga + cur_id + '/' + slides_name + '.svs'
-            elif args.cohort_name == 'Neptune':
+            elif args.cohort_name.replace("z_nostnorm_", "") == 'Neptune':
                 slides_name = cur_id
                 _file = wsi_location_nep + slides_name + ".tif"
     
@@ -145,7 +145,7 @@ if __name__ == '__main__':
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
-            if args.cohort_name == "OPX" or args.cohort_name == 'TCGA_PRAD' or args.cohort_name == 'Neptune':
+            if args.cohort_name.replace("z_nostnorm_", "") == "OPX" or args.cohort_name.replace("z_nostnorm_", "") == 'TCGA_PRAD' or args.cohort_name.replace("z_nostnorm_", "") == 'Neptune':
                 oslide = openslide.OpenSlide(_file) 
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, 
                                                          stain_norm_target_img = norm_target_img,

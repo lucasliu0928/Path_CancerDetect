@@ -23,7 +23,40 @@ def extract_before_third_dash(s):
     return s
 
 
-    
+def build_slide_patient_df_tcga(id_path):
+
+    folder_ids, slide_ids, patient_ids = [], [], []
+
+    # Iterate over folders, ignoring hidden files like .DS_Store
+    for folder in os.listdir(id_path):
+        if folder.startswith("."):
+            continue
+
+        folder_path = os.path.join(id_path, folder)
+
+        # Look for .svs files inside the folder
+        svs_files = [f for f in os.listdir(folder_path) if f.endswith(".svs")]
+
+        # Use the first .svs file as the slide ID source
+        slide_id = svs_files[0].replace(".svs", "")
+        patient_id = extract_before_third_hyphen(slide_id)
+
+        # Append aligned values
+        folder_ids.append(folder)
+        slide_ids.append(slide_id)
+        patient_ids.append(patient_id)
+
+    # Build DataFrame
+    df = pd.DataFrame({
+        "FOLDER_ID": folder_ids,
+        "SLIDE_ID": slide_ids,
+        "PATIENT_ID": patient_ids
+    })
+
+    return df
+
+
+#OPX specific    
 def preprocess_mutation_data(indata, hr_gene_list = ['BRCA1','BRCA2','PALB2'], id_col = 'SAMPLE_ID'):    
     
     indata = indata.copy()
@@ -67,7 +100,19 @@ def preprocess_mutation_data(indata, hr_gene_list = ['BRCA1','BRCA2','PALB2'], i
     
     return indata
 
-
+def concat_hr1_and_hr2_label(all_label_df, hr_gene1, hr_gene2, id_col = 'SAMPLE_ID'):
+    label_df1 = preprocess_mutation_data(all_label_df, hr_gene_list = hr_gene1, id_col = id_col)
+    label_df1 = label_df1.rename(columns = {'HR': 'HR1'}).copy()
+    label_df2 = preprocess_mutation_data(all_label_df, hr_gene_list = hr_gene2, id_col = id_col)
+    label_df2 = label_df2.rename(columns = {'HR': 'HR2'}).copy()
+    label_df = label_df1.merge(label_df2, on = ['PATIENT_ID', 'SAMPLE_ID', 'FOLDER_ID' ,
+                                                'SITE_LOCAL', 'AR', 
+                                                'PTEN', 'RB1', 'TP53', 
+                                                'TMB_HIGHorINTERMEDITATE', 'MSI_POS'])
+    label_df = label_df[['PATIENT_ID','SAMPLE_ID','FOLDER_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
+                         'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
+    
+    return label_df
 
 def combine_sampleinfo_and_label(tile_info_path, label_df, folder_id, slide_id, id_col = 'SAMPLE_ID'):
     
@@ -138,29 +183,17 @@ def prepross_neptune_label_data(label_dir, label_file_name):
 
 
 
-def concat_hr1_and_hr2_label(all_label_df, hr_gene1, hr_gene2, id_col = 'SAMPLE_ID'):
-    label_df1 = preprocess_mutation_data(all_label_df, hr_gene_list = hr_gene1, id_col = id_col)
-    label_df1 = label_df1.rename(columns = {'HR': 'HR1'}).copy()
-    label_df2 = preprocess_mutation_data(all_label_df, hr_gene_list = hr_gene2, id_col = id_col)
-    label_df2 = label_df2.rename(columns = {'HR': 'HR2'}).copy()
-    label_df = label_df1.merge(label_df2, on = ['PATIENT_ID', 'SAMPLE_ID', 'FOLDER_ID' ,
-                                                'SITE_LOCAL', 'AR', 
-                                                'PTEN', 'RB1', 'TP53', 
-                                                'TMB_HIGHorINTERMEDITATE', 'MSI_POS'])
-    label_df = label_df[['PATIENT_ID','SAMPLE_ID','FOLDER_ID','SITE_LOCAL', 'AR', 'HR1', 'HR2','PTEN', 'RB1',
-                         'TP53', 'TMB_HIGHorINTERMEDITATE', 'MSI_POS']]
-    
-    return label_df
+
 
 
 
 #TCGA specific
-def preproposs_tcga_label(label_path, info_path, ids, hr_gene1, hr_gene2, msi_genes):
-    
+def preproposs_tcga_label(label_path, id_path, hr_gene1, hr_gene2, msi_genes):    
     #HR and MSI
     HRMSI_df_all = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_HR_MSI_Pritchard_OtherInfoAdded.csv")) 
     HRMSI_df_all = HRMSI_df_all.loc[HRMSI_df_all['Colin Recommends Keep vs. Exclude'] == 'Keep']
     HRMSI_df_all = HRMSI_df_all[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
+    
     hr_df1 = HRMSI_df_all.loc[HRMSI_df_all['Track_name'].isin(hr_gene1)].copy()
     hr_df1['Pathway'] = 'HR1'
     hr_df2 = HRMSI_df_all.loc[HRMSI_df_all['Track_name'].isin(hr_gene2)].copy()
@@ -172,6 +205,8 @@ def preproposs_tcga_label(label_path, info_path, ids, hr_gene1, hr_gene2, msi_ge
     #Other 
     other_df = pd.read_csv(os.path.join(label_path, "Firehose Legacy/cleaned_final/Digital_pathology_TCGA_Mutation_AR_PTEN_RB1_TP53_CP_OtherInfoAdded.csv")) 
     other_df = other_df[['PATIENT_ID','Pathway','Track_name','SAMPLE_TYPE']]
+    
+    #Combine
     all_mutation_df = pd.concat([HRMSI_df,other_df])
     
     
@@ -179,15 +214,8 @@ def preproposs_tcga_label(label_path, info_path, ids, hr_gene1, hr_gene2, msi_ge
     mut_pathways = all_mutation_df['Pathway'].unique().tolist() 
 
     #Initiate label_df with TCGA folder ID, pateint ID and slide ID
-    label_df = pd.DataFrame({'FOLDER_ID': ids})
+    label_df = build_slide_patient_df_tcga(id_path)
     label_df[mut_pathways] = pd.NA
-    slide_ids = []
-    for cur_id in ids:
-        cur_info_path = os.path.join(info_path, cur_id,'ft_model')
-        cur_slides_name = [f for f in os.listdir(cur_info_path + '/') if '.csv' in f][0].replace('_TILE_TUMOR_PERC.csv','')
-        slide_ids.append(cur_slides_name)
-    label_df['SLIDE_ID'] =    slide_ids
-    label_df['PATIENT_ID'] =  label_df['SLIDE_ID'].apply(extract_before_third_hyphen)
 
     #Fill in label_df
     for l in mut_pathways:

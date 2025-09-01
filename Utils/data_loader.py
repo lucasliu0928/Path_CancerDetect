@@ -10,6 +10,21 @@ import os
 import torch
 import pandas as pd
 from torch.utils.data import Subset
+from torch.utils.data import Dataset
+
+def get_feature_idexes(method, include_tumor_fraction = True):
+    
+    if method == 'retccl':
+        selected_feature = [str(i) for i in range(0,2048)] 
+    elif method == 'uni1': 
+        selected_feature = [str(i) for i in range(0,1024)] 
+    elif method == 'uni2' or method == 'prov_gigapath':
+        selected_feature = [str(i) for i in range(0,1536)] 
+
+    if include_tumor_fraction == True:
+        selected_feature = selected_feature + ['TUMOR_PIXEL_PERC'] 
+        
+    return selected_feature
 
 
 def load_model_ready_data(
@@ -1026,3 +1041,222 @@ def get_train_test_val_data_singlecohort(data_dir, cohort_name , model_data, tum
     train_data = [item[:3] + (torch.tensor(1.0),) + item[3:] for item in train_data] #1 for OPX, biopsy, #0 for TCGA, surgical
     
     return (train_data, train_ids), (val_data, val_ids), (test_data, test_ids)
+
+
+
+
+
+class ModelReadyData_diffdim_V2(Dataset):
+    def __init__(self,
+                 tile_info_list,
+                 selected_features,
+                 selected_labels,
+                ):
+
+        #Get feature
+        self.x =  [torch.FloatTensor(df[selected_features].to_numpy()) for df in tile_info_list]
+        
+        # Get the Y labels
+        self.y =  [torch.FloatTensor(df[selected_labels].drop_duplicates().to_numpy()) for df in tile_info_list]
+
+        #Get tumor fraction
+        self.tf = [torch.FloatTensor(df['TUMOR_PIXEL_PERC'].to_numpy()) for df in tile_info_list]
+        
+        #Get site loc
+        self.site_loc = [torch.FloatTensor(df['SITE_LOCAL'].to_numpy()) for df in tile_info_list]
+
+        #Get other info
+        self.other_info = [df.drop(columns = selected_features + selected_labels + ['TUMOR_PIXEL_PERC']) for df in tile_info_list]
+        
+    def __len__(self): 
+        return len(self.x)
+    
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x  = self.x[index]
+        y  = self.y[index]
+        tf = self.tf[index]
+        site_loc = self.site_loc[index]
+        of = self.other_info[index]
+        sp_id = of['SAMPLE_ID'].unique().item()
+        pt_id = of['PATIENT_ID'].unique().item()
+        
+        return {
+        "x": x,
+        "y": y,
+        "tumor_fraction": tf,
+        "site_location": site_loc,
+        "tile_info": of,
+        "sample_id": sp_id,
+        "patient_id": pt_id,
+        }
+                
+
+
+class ModelReadyData_diffdim_withclusterinfo(Dataset):
+    def __init__(self,
+                 feature_list,
+                 label_list,
+                 tumor_info_list,
+                 cluster_list,
+                ):
+        
+        self.x =[torch.FloatTensor(feature) for feature in feature_list] 
+        
+        # Get the Y labels
+        self.y = [torch.FloatTensor(label) for label in label_list] 
+
+        self.tf = [torch.FloatTensor(tf) for tf in tumor_info_list] 
+
+        self.c = [torch.FloatTensor(c) for c in cluster_list] 
+        
+    def __len__(self): 
+        return len(self.x)
+    
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x = self.x[index]
+        y = self.y[index]
+        tf= self.tf[index]
+        c= self.c[index]
+        
+        return x, y, tf,c
+
+class ModelReadyData_Instance_based(Dataset):
+    def __init__(self,
+                 feature_data,
+                 label_data,
+                ):
+            
+        self.x = feature_data
+        
+        # Get the Y labels
+        self.y = label_data
+        
+    def __len__(self): 
+        return len(self.x)
+    
+    def __getitem__(self,index):
+        # Given an index, return a tuple of an X with it's associated Y
+        x = self.x[index]
+        y = self.y[index]
+        
+        return x, y
+
+def modify_to_instance_based(indata):
+    feature_list = []
+    label_list = []
+    for data_it, data in enumerate(indata):
+        cur_labels = data[1]
+        label_list.append(cur_labels.repeat(data[0].shape[0], 1))
+        feature_list.append(data[0].squeeze())
+    
+    feature_data = torch.concat(feature_list, dim = 0) #torch.Size([N_TILES, 1536])
+    label_data = torch.concat(label_list, dim = 0) #torch.Size([N_TILES, 7])
+
+    indata_instance_based = ModelReadyData_Instance_based(feature_data, label_data)
+
+    return indata_instance_based
+    
+class add_tile_xy(Dataset):
+    def __init__(self, original_dataset, additional_component):
+        self.original_dataset = original_dataset
+        self.additional_component = additional_component
+
+    def __len__(self):
+        return len(self.original_dataset)
+
+    def __getitem__(self, idx):
+        original_sample = self.original_dataset[idx]
+        tile_xy = torch.tensor(list(self.additional_component[idx]['TILE_XY_INDEXES'].apply(self.str_to_tuple)))
+
+        # Assuming original_sample is a tuple
+        return original_sample + (tile_xy,)
+
+    # Function to convert string coordinates to tuples
+    def str_to_tuple(self,coord_str):
+        coord_str = coord_str.strip('()')
+        x, y = map(int, coord_str.split(','))
+        return (x, y)
+    
+
+
+def get_sample_feature(folder_name, feature_path, fe_method):    
+    #Input dir
+    input_dir = os.path.join(feature_path, 
+                             folder_name, 
+                             'features', 
+                             f"features_alltiles_{fe_method}.h5")
+    
+    #feature
+    feature_df = pd.read_hdf(input_dir, key='feature')
+    feature_df.columns = feature_df.columns.astype(str)
+    feature_df.reset_index(drop = True, inplace = True)
+    
+    #Get all tile info
+    #Tile ID (Do not use the labels in this, only use the tile info, because the label has been updated in all_tile_info_df from 3_otherinfo)
+    cols_to_keep = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
+                    'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
+                    'WHITE_SPACE','TISSUE_COVERAGE', 'pred_map_location', 'TUMOR_PIXEL_PERC']
+    id_df = pd.read_hdf(input_dir, key='tile_info')[cols_to_keep]
+    id_df.reset_index(drop = True, inplace = True)
+
+    #Combine feature and tile info
+    # Ensure shape consistency and concatenate
+    if id_df.shape[0] != feature_df.shape[0]:
+        raise ValueError("id_df and feature_df must have the same number of rows.")
+    
+    combined_df = pd.concat([id_df, feature_df], axis=1)
+
+    
+    return combined_df
+
+    
+def get_sample_label(sample_id, all_label_data, id_col = 'SAMPLE_ID'):
+    label_df = all_label_data.loc[all_label_data[id_col] == sample_id]
+    label_df.reset_index(drop = True, inplace = True)
+    return label_df
+
+
+def combine_feature_and_label(feature_df,label_df):
+    cols_to_map = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
+                'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
+                'WHITE_SPACE','TISSUE_COVERAGE']
+    if feature_df.shape[0] == label_df.shape[0]:
+        comb_df = feature_df.merge(label_df, on = cols_to_map)
+    else:
+        print("N Tiles does not match")
+
+    return comb_df
+
+    
+def combine_feature_and_label_listids(selected_ids, tile_info_df, feature_path, id_col, fe_method, TUMOR_FRAC_THRES):
+    
+    #fe_method = args.fe_method
+    
+    
+    comb_df_list = []
+    ct = 0 
+    for pt in selected_ids:
+        #pt = selected_ids[0]
+
+        if ct % 10 == 0 : print(ct)
+        #Get feature
+        feature_df = get_sample_feature(pt, feature_path, fe_method)    
+        #Get label
+        label_df = get_sample_label(pt, tile_info_df, id_col = id_col)
+        
+        #Merge feature and label
+        comb_df = combine_feature_and_label(feature_df,label_df)
+        
+        #Select tumor fraction > X tiles
+        comb_df = comb_df.loc[comb_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES].copy()
+        comb_df = comb_df.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False)
+        comb_df = comb_df.sort_values(by = ['TILE_XY_INDEXES'], ascending = True)
+        comb_df.reset_index(inplace = True, drop = True)
+        comb_df_list.append(comb_df)
+        ct += 1
+    
+    all_comb_df = pd.concat(comb_df_list)
+    
+    return all_comb_df,comb_df_list
