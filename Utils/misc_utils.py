@@ -174,3 +174,27 @@ def generate_balanced_cv_list(patient_label_data, selected_label, n_Folds = 5, p
     training_lists, validation_lists, test_list, res, res_test = MakeBalancedCrossValidation(w, n_Folds, column_map, testing_size=p_test, tries=10)
     
     return training_lists, validation_lists, test_list
+
+
+
+def mutation_sample_summary(df_subset, mut_cols):
+    sample_total = len(df_subset)
+    if sample_total == 0:
+        # Return zeros if the subset is empty (avoid divide-by-zero)
+        out = pd.DataFrame(index=mut_cols, columns=["Mutated_n", "Total_n", "Percent", "n(%)"])
+        out["Mutated_n"] = 0
+        out["Total_n"] = 0
+        out["Percent"] = 0.0
+        out["n(%)"] = "0 (0.0%)"
+        return out
+
+    sample_counts = df_subset[mut_cols].sum(numeric_only=True)
+    sample_perc   = (sample_counts / sample_total * 100).round(1)
+
+    summary = pd.DataFrame({
+        "Mutated_n": sample_counts.astype(int),
+        "Total_n": sample_total,
+        "Percent": sample_perc
+    })
+    summary["n(%)"] = summary.apply(lambda x: f"{x.Mutated_n:.0f} ({x.Percent:.1f}%)", axis=1)
+    return summary

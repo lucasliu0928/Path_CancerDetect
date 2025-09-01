@@ -27,7 +27,7 @@ from Eval import output_pred_perf_with_logit_singletask
 from train_utils import FocalLoss,FocalLoss_logitadj
 from train_utils import str2bool, random_sample_tiles
 from train_utils import get_final_model_data_v2
-from train_utils import combine_cohort_data
+from data_loader import combine_cohort_data
 from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask, get_slide_feature_singletask
 warnings.filterwarnings("ignore")
 
@@ -56,11 +56,11 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--train_overlap', default=100, type=int, help='train data pixel overlap')
+parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--train_overlap', default=0, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
-parser.add_argument('--train_cohort', default= 'union_STNandNSTN_OPX_TCGA', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_082225', type=str, help='out folder name')
+parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--out_folder', default= 'pred_out_082825', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
@@ -89,12 +89,9 @@ parser.add_argument('--train_epoch', default=100, type=int, help='')
 if __name__ == '__main__':
     
     args = parser.parse_args()
-    #args.train_flag = True
-    #args.out_folder = 'pred_out_081225'
     fold_list = [0,1,2,3,4]
-    #args.train_epoch = 1
-    
-    #fold_list = [0,1,2,3,4]
+    args.train_epoch = 1
+    fold_list = [0]
     
     ##################
     ###### DIR  ######
@@ -105,9 +102,9 @@ if __name__ == '__main__':
     data_out_dir = os.path.join(proj_dir, "intermediate_data", "5B_modelready_data")
     
     
-    ####################################
+    ###################################
     #Get model ready data cohort
-    ####################################
+    ###################################
     # start_time = time.time()
     # opx = combine_cohort_data(data_dir, id_data_dir, "OPX" , args.fe_method, args.tumor_frac)
     # torch.save(opx, os.path.join(data_out_dir,"opx.pth")) #['stnorm0_OL100', 'stnorm0_OL0', 'stnorm1_OL100', 'stnorm1_OL0', 'Union_OL100', 'Union_OL0']

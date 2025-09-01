@@ -18,9 +18,9 @@ import argparse
 #USER INPUT 
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--pixel_overlap', default='0',   type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default='100',   type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='z_nostnorm_OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune, or z_nostnorm_Neptune')
+parser.add_argument('--cohort_name', default='z_nostnorm_TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune, or z_nostnorm_Neptune')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--out_folder', default= '3A_otherinfo', type=str, help='out folder name')
 
@@ -29,7 +29,7 @@ args = parser.parse_args()
 ############################################################################################################
 #USER INPUT 
 ############################################################################################################
-folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
+folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap) 
 selected_hr_genes1 = ['BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'] #Intersection TCGA and OPX: 'BRCA2', 'BRCA1', 'PALB2', 'ATM', 'BARD1','CHEK2', 'NBN', 'RAD51C', 'RAD51D'
 selected_hr_genes2 = ['BRCA2', 'BRCA1', 'PALB2']
 selected_msi_genes = ['MSH2', 'MSH6', 'PMS2', 'MLH1']
@@ -41,7 +41,10 @@ proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
 wsi_location = proj_dir +  'data/' + args.cohort_name.replace("z_nostnorm_", "") + "/"
 info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name) #Old in cancer_prediction_results110224
 label_path = os.path.join(proj_dir,'data','MutationCalls', args.cohort_name.replace("z_nostnorm_", ""))
-out_location = os.path.join(proj_dir,'intermediate_data',args.out_folder, args.cohort_name, folder_name)
+out_location = os.path.join(proj_dir,'intermediate_data',
+                            args.out_folder, 
+                            args.cohort_name, folder_name, 
+                            'TFT' + str(args.TUMOR_FRAC_THRES))
 create_dir_if_not_exists(out_location)
 
 ##################
@@ -207,6 +210,10 @@ elif args.cohort_name.replace("z_nostnorm_", "") == "TCGA_PRAD":
     issue_ids = ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5']
     selected_ids = [x for x in selected_ids if x not in issue_ids]
     
+    #Exclude IHC 
+    issue_ids =['61887edb-c320-42bb-a0b5-fe84c17dbd21']
+    selected_ids = [x for x in selected_ids if x not in issue_ids]
+    
     #include Cancer detected IDs
     cancer_ids = get_cancer_detected_ids(info_path, args.TUMOR_FRAC_THRES, id_col = 'FOLDER_ID', cohort_name = args.cohort_name)
     selected_ids = [x for x in selected_ids if x in cancer_ids] #446
@@ -301,8 +308,8 @@ elif args.cohort_name.replace("z_nostnorm_", "") == "Neptune":
 #Output Tile info
 ############################################################################################################
 #This file contains all tiles without cancer fraction exclusion and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
-#OPX:   1743458 for overlap0, 4841982 #for overlap100,   
-#TCGA (no stain normed) :  5964499 for overlap0, 16570195 #for overlap100,
+#OPX  (no stain normed):   1743458 for overlap0, 4843073 #for overlap100,   
+#TCGA (no stain normed) :  5945435 for overlap0, 16517445 #for overlap100,
 #TCGA:  5958125 for overlap0, 16570195 #for overlap100,
 #TMA: 80630 for oeverlap0
 #Neptune: 653182 for oeverlap0, 1818673 for overlap100
@@ -310,11 +317,16 @@ all_tile_info_df.to_csv(os.path.join(out_location, "all_tile_info.csv"), index =
 print(all_tile_info_df.shape)
 
 #Jsut check tumor tile numbers:
-#OPX    524370 for overlap0,   1332241 for overlap100
-#OPX  (no stain normed)   555533 for overlap0,    4843073 for overlap100
-#TCGA  1298540 for overlap0,   3317865 for overlap100
-#TCGA (no stain normed)  1307688 for overlap0,   3335532 for overlap100
-#TMA    18328 for overlap0
-#Neptune    150806 for overlap0, 346566 for oeverlap100
-print(all_tile_info_df[all_tile_info_df['TUMOR_PIXEL_PERC']>=0.9].shape)
+#OPX                           524370 for overlap0,   1332241 for overlap100
+#OPX  (no stain normed)        555533 for overlap0,   1389408 for overlap100
+#TCGA                         1298540 for overlap0,   3317865 for overlap100
+#TCGA (no stain normed)       1295214 for overlap0,   3301647 for overlap100
+#Neptune                       150806 for overlap0,    346566 for oeverlap100
+#Neptune (no stain normed)     167026 for overlap0,    399753 for oeverlap100
+#TMA                            18328 for overlap0
+cancer_tile_info_df = all_tile_info_df.loc[all_tile_info_df['TUMOR_PIXEL_PERC']>=args.TUMOR_FRAC_THRES].copy()
+print(cancer_tile_info_df.shape)
+cancer_tile_info_df.to_csv(os.path.join(out_location, "cancer_tile_info.csv"), index = False)
+
+
 

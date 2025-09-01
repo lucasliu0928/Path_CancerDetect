@@ -13,7 +13,7 @@ import numpy as np
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
 from misc_utils import count_mutation_perTrainTest, count_mutation_perTrainTestVAL, get_pos_neg_ids
-from misc_utils import generate_balanced_cv_list
+from misc_utils import generate_balanced_cv_list, mutation_sample_summary
 
 warnings.filterwarnings("ignore")
 import argparse
@@ -25,8 +25,8 @@ import argparse
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--cohort_name', default='z_nostnorm_Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune' or 'z_nostnorm_OPX')
 parser.add_argument('--tile_info_path', default= '3A_otherinfo', type=str, help='tile info folder name')
@@ -49,8 +49,8 @@ else:
 ##################
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
 folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
-info_dir = os.path.join(proj_dir,'intermediate_data',args.tile_info_path, args.cohort_name, folder_name)
-outdir =  os.path.join(proj_dir + 'intermediate_data', args.out_folder, args.cohort_name, "TFT" + str(args.TUMOR_FRAC_THRES))
+info_dir = os.path.join(proj_dir,'intermediate_data',args.tile_info_path, args.cohort_name, folder_name, "TFT" + str(args.TUMOR_FRAC_THRES))
+outdir =  os.path.join(proj_dir + 'intermediate_data', args.out_folder, args.cohort_name, folder_name, "TFT" + str(args.TUMOR_FRAC_THRES))
 create_dir_if_not_exists(outdir)
 
 
@@ -64,11 +64,9 @@ print(device)
 ################################################
 #    Load labels from tile info
 ################################################
-tile_info_df = pd.read_csv(os.path.join(info_dir,"all_tile_info.csv"))
-tile_info_df = tile_info_df[tile_info_df['TUMOR_PIXEL_PERC']>=args.TUMOR_FRAC_THRES]
-print(tile_info_df.shape)
-tile_info_df_pt = tile_info_df.drop_duplicates(subset = ['PATIENT_ID']).copy() #patient-level
-tile_info_df_sp = tile_info_df.drop_duplicates(subset = ['SAMPLE_ID']).copy()  #sample-level
+all_sp_label_df = pd.read_csv(os.path.join(info_dir, "all_sample_label_df.csv"))
+all_sp_label_df_pt = all_sp_label_df.drop_duplicates(subset = ['PATIENT_ID']).copy() #patient-level
+all_sp_label_df_sp = all_sp_label_df.drop_duplicates(subset = ['SAMPLE_ID']).copy()  #sample-level
 
 
 ################################################
@@ -76,13 +74,13 @@ tile_info_df_sp = tile_info_df.drop_duplicates(subset = ['SAMPLE_ID']).copy()  #
 ################################################
 n_Folds = 5
 p_test = 0.25 
-training_lists, validation_lists, test_list = generate_balanced_cv_list(tile_info_df_pt, SELECTED_LABEL, n_Folds, p_test)
+training_lists, validation_lists, test_list = generate_balanced_cv_list(all_sp_label_df_pt, SELECTED_LABEL, n_Folds, p_test)
 
 
 ################################################
 #Train and Test and VAl df
 ################################################
-train_test_valid_df = tile_info_df_sp[['FOLDER_ID','PATIENT_ID','SAMPLE_ID'] + SELECTED_LABEL].copy()
+train_test_valid_df = all_sp_label_df_sp.copy()
 train_test_valid_df['TRAIN_OR_TEST'] = pd.NA
 cond = train_test_valid_df['PATIENT_ID'].isin(test_list)
 train_test_valid_df.loc[cond, 'TRAIN_OR_TEST'] = 'TEST'
@@ -100,18 +98,26 @@ for k in range(n_Folds):
 train_test_valid_df.to_csv(os.path.join(outdir, 'train_test_split.csv'))
 
 
-
 # ################################################
 # #Count mutation patient level by Train and Test and val
 # ################################################
-# count_pt_traintest = count_mutation_perTrainTest(train_test_valid_df,SELECTED_LABEL)
-# count_pt_traintest['Val N (%)'] = pd.NA
-# count_pt_traintest['FOLD'] = pd.NA
-# count_pt_traintest = count_pt_traintest[['Outcome', 'Train N (%)', 'Val N (%)', 'Test N (%)', 'FOLD']]
+# --- Sample-level summary --
+original_summary = mutation_sample_summary(train_test_valid_df, SELECTED_LABEL)
+original_summary['Split'] = 'ALL'
+train_summary    = mutation_sample_summary(train_test_valid_df.loc[train_test_valid_df['TRAIN_OR_TEST'] == 'TRAIN'], SELECTED_LABEL)
+train_summary['Split'] = 'ALL_TRAIN'
+test_summary     = mutation_sample_summary(train_test_valid_df.loc[train_test_valid_df['TRAIN_OR_TEST'] == 'TEST'], SELECTED_LABEL)
+test_summary['Split'] = 'ALL_TEST'
 
-# count_pt_traintestval = count_mutation_perTrainTestVAL(train_test_valid_df, SELECTED_LABEL, n_Folds = 5)
+fold_sum = []
+for i in range(0,5):
+    for co in ['TRAIN','TEST','VALID']:
+        cur_sum = mutation_sample_summary(train_test_valid_df.loc[train_test_valid_df['FOLD' + str(i)] == co], SELECTED_LABEL)
+        cur_sum['Split'] = 'FOLD' + str(i) + '_' + co
+        fold_sum.append(cur_sum)
+fold_summary = pd.concat(fold_sum)
 
+final_summary = pd.concat([original_summary, train_summary, test_summary, fold_summary])
 
-# count_pt = pd.concat([count_pt_traintest,count_pt_traintestval])
-# count_pt.to_csv(os.path.join(outdir, 'label_count_patient_level.csv'))
+final_summary.to_csv(os.path.join(outdir, 'Label_Count_Sample_Level.csv'))
 
