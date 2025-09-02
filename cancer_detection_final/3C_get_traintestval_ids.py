@@ -25,12 +25,10 @@ import argparse
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
-parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='z_nostnorm_Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune' or 'z_nostnorm_OPX')
-parser.add_argument('--tile_info_path', default= '3A_otherinfo', type=str, help='tile info folder name')
-parser.add_argument('--out_folder', default= '3B_Train_TEST_IDS', type=str, help='out folder name')
+parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune')
+parser.add_argument('--label_path', default= '3B_labels_final_sample', type=str, help='tile info folder name')
+parser.add_argument('--out_folder', default= '3C_Train_TEST_IDS', type=str, help='out folder name')
 
 args = parser.parse_args()
 
@@ -48,9 +46,8 @@ else:
 ###### DIR  ######
 ##################
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
-info_dir = os.path.join(proj_dir,'intermediate_data',args.tile_info_path, args.cohort_name, folder_name, "TFT" + str(args.TUMOR_FRAC_THRES))
-outdir =  os.path.join(proj_dir + 'intermediate_data', args.out_folder, args.cohort_name, folder_name, "TFT" + str(args.TUMOR_FRAC_THRES))
+label_path = os.path.join(proj_dir,'intermediate_data',args.label_path, args.cohort_name, "TFT" + str(args.TUMOR_FRAC_THRES))
+outdir =  os.path.join(proj_dir + 'intermediate_data', args.out_folder, args.cohort_name, "TFT" + str(args.TUMOR_FRAC_THRES))
 create_dir_if_not_exists(outdir)
 
 
@@ -64,7 +61,7 @@ print(device)
 ################################################
 #    Load labels from tile info
 ################################################
-all_sp_label_df = pd.read_csv(os.path.join(info_dir, "all_sample_label_df.csv"))
+all_sp_label_df = pd.read_csv(os.path.join(label_path, "final_sample_label_df.csv"))
 all_sp_label_df_pt = all_sp_label_df.drop_duplicates(subset = ['PATIENT_ID']).copy() #patient-level
 all_sp_label_df_sp = all_sp_label_df.drop_duplicates(subset = ['SAMPLE_ID']).copy()  #sample-level
 

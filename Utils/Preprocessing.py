@@ -259,5 +259,39 @@ def preproposs_tcga_label(label_path, id_path, hr_gene1, hr_gene2, msi_genes):
     return label_df
 
 
+def build_info_path(proj_dir, cohort_name, overlap, stnorm=True):
+
+    cohort = cohort_name if stnorm else f"z_nostnorm_{cohort_name}"
+    return os.path.join(
+        proj_dir,
+        "intermediate_data",
+        "2_cancer_detection",
+        cohort,
+        f"IMSIZE250_OL{overlap}"
+    )
 
 
+def filter_cancer_ids(selected_ids, paths, threshold=0.9, id_col="SAMPLE_ID", cohort_name = ""):
+
+    # Step 1: Load cancer-detected IDs
+    cancer_id_sets = []
+    for path in paths:
+        ids = get_cancer_detected_ids(path, threshold, id_col=id_col, cohort_name = cohort_name)
+        cancer_id_sets.append(set(x for x in selected_ids if x in ids))
+    
+    # Step 2: Unpack for readability
+    set1, set2, set3, set4 = cancer_id_sets
+    
+    # Step 3: Compute intersection and exclusion
+    common_ids = set1 & set2 & set3 & set4
+    all_ids = set1 | set2 | set3 | set4
+    
+    # Debug prints
+    for i, s in enumerate(cancer_id_sets, 1):
+        print(f"Subset {i} size: {len(s)}")
+    print(f"Common IDs: {len(common_ids)}")
+    
+    return {
+        "selected_subsets": [list(s) for s in cancer_id_sets],
+        "common_ids": common_ids,
+    }
