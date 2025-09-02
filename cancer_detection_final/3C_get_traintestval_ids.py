@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--label_path', default= '3B_labels_final_sample', type=str, help='tile info folder name')
-parser.add_argument('--out_folder', default= '3C_Train_TEST_IDS', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= '3C_labels_train_test', type=str, help='out folder name')
 
 args = parser.parse_args()
 

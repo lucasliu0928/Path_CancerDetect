@@ -1068,6 +1068,13 @@ class ModelReadyData_diffdim_V2(Dataset):
         #Get other info
         self.other_info = [df.drop(columns = selected_features + selected_labels + ['TUMOR_PIXEL_PERC']) for df in tile_info_list]
         
+        #Train_orTest info
+        self.fold0 = [df['FOLD0'].unique().item() for df in tile_info_list]
+        self.fold1 = [df['FOLD1'].unique().item() for df in tile_info_list]
+        self.fold2 = [df['FOLD2'].unique().item() for df in tile_info_list]
+        self.fold3 = [df['FOLD3'].unique().item() for df in tile_info_list]
+        self.fold4 = [df['FOLD4'].unique().item() for df in tile_info_list]
+        
     def __len__(self): 
         return len(self.x)
     
@@ -1080,6 +1087,11 @@ class ModelReadyData_diffdim_V2(Dataset):
         of = self.other_info[index]
         sp_id = of['SAMPLE_ID'].unique().item()
         pt_id = of['PATIENT_ID'].unique().item()
+        f0 = self.fold0[index]
+        f1 = self.fold1[index]
+        f2 = self.fold2[index]
+        f3 = self.fold3[index]
+        f4 = self.fold4[index]
         
         return {
         "x": x,
@@ -1089,6 +1101,11 @@ class ModelReadyData_diffdim_V2(Dataset):
         "tile_info": of,
         "sample_id": sp_id,
         "patient_id": pt_id,
+        "fold0": f0,
+        "fold1": f1,
+        "fold2": f2,
+        "fold3": f3,
+        "fold4": f4
         }
                 
 
@@ -1211,52 +1228,32 @@ def get_sample_feature(folder_name, feature_path, fe_method):
     
     return combined_df
 
-    
-def get_sample_label(sample_id, all_label_data, id_col = 'SAMPLE_ID'):
-    label_df = all_label_data.loc[all_label_data[id_col] == sample_id]
-    label_df.reset_index(drop = True, inplace = True)
-    return label_df
 
 
-def combine_feature_and_label(feature_df,label_df):
-    cols_to_map = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
-                'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
-                'WHITE_SPACE','TISSUE_COVERAGE']
-    if feature_df.shape[0] == label_df.shape[0]:
-        comb_df = feature_df.merge(label_df, on = cols_to_map)
-    else:
-        print("N Tiles does not match")
-
-    return comb_df
-
+def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUMOR_FRAC_THRES, all_label_df, id_col):
     
-def combine_feature_and_label_listids(selected_ids, tile_info_df, feature_path, id_col, fe_method, TUMOR_FRAC_THRES):
-    
-    #fe_method = args.fe_method
-    
-    
-    comb_df_list = []
-    ct = 0 
+    all_comb = []
+    ct = 0
     for pt in selected_ids:
-        #pt = selected_ids[0]
-
+        
         if ct % 10 == 0 : print(ct)
         #Get feature
         feature_df = get_sample_feature(pt, feature_path, fe_method)    
-        #Get label
-        label_df = get_sample_label(pt, tile_info_df, id_col = id_col)
-        
-        #Merge feature and label
-        comb_df = combine_feature_and_label(feature_df,label_df)
         
         #Select tumor fraction > X tiles
-        comb_df = comb_df.loc[comb_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES].copy()
-        comb_df = comb_df.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False)
-        comb_df = comb_df.sort_values(by = ['TILE_XY_INDEXES'], ascending = True)
-        comb_df.reset_index(inplace = True, drop = True)
-        comb_df_list.append(comb_df)
+        feature_df = feature_df.loc[feature_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES].copy()
+        feature_df.reset_index(inplace = True, drop = True)
+        
+        #Get label df 
+        label_df = all_label_df.loc[all_label_df[id_col] == pt]
+        
+        #Combine label
+        comb_df = feature_df.merge(label_df, how = 'left', on = ["SAMPLE_ID"])
+        
+        
+        all_comb.append(comb_df)
         ct += 1
     
-    all_comb_df = pd.concat(comb_df_list)
+    all_comb_df = pd.concat(all_comb)
     
-    return all_comb_df,comb_df_list
+    return all_comb_df, all_comb

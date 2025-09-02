@@ -13,7 +13,8 @@ import time
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
 from Utils import set_seed
-from data_loader import ModelReadyData_diffdim_V2, get_feature_idexes, combine_feature_and_label_listids, get_sample_feature
+from data_loader import ModelReadyData_diffdim_V2, get_feature_idexes
+from data_loader import combine_features_label_allsamples
 warnings.filterwarnings("ignore")
 
 
@@ -26,10 +27,10 @@ warnings.filterwarnings("ignore")
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Model ready data")
-parser.add_argument('--pixel_overlap', default=0, type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=float, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune or z_nostnorm_Neptune')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 
@@ -46,7 +47,7 @@ SELECTED_FEATURE = get_feature_idexes(args.fe_method,include_tumor_fraction = Fa
 ##################
 folder_name = "IMSIZE" + str(args.save_image_size) + "_OL" + str(args.pixel_overlap)
 proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-info_path =    os.path.join(proj_dir,'intermediate_data','3A_otherinfo',   args.cohort_name, folder_name, "TFT" + str(args.TUMOR_FRAC_THRES))
+label_path =    os.path.join(proj_dir,'intermediate_data','3C_labels_train_test', args.cohort_name.replace("z_nostnorm_", ""), "TFT" + str(args.TUMOR_FRAC_THRES))
 feature_path = os.path.join(proj_dir,'intermediate_data','4_tile_feature', args.cohort_name, folder_name)
 
 ################################################
@@ -68,52 +69,34 @@ set_seed(0)
 
 
 ############################################################################################################
-#Load all tile info df
-#This file contains all tiles before cancer fraction exclusion 
-#and  has tissue membership > 0.9, white space < 0.9 (non white space > 0.1)
+#Load labels df
 ############################################################################################################
-all_tile_info_df = pd.read_csv(os.path.join(info_path, "all_tile_info.csv"))
+all_sp_label_df = pd.read_csv(os.path.join(label_path, "train_test_split.csv"))
 
-if 'OPX' in args.cohort_name or 'Neptune' in args.cohort_name:
-    id_col = 'SAMPLE_ID'
-elif 'TCGA_PRAD' in args.cohort_name:
-    id_col = 'FOLDER_ID'
 
-selected_ids = list(all_tile_info_df[id_col].unique())    
+if "TCGA_PRAD" in args.cohort_name:
+    id_col = "FOLDER_ID"
+else:
+    id_col = "SAMPLE_ID"
+    
+selected_ids = list(all_sp_label_df[id_col].unique())    
 selected_ids.sort()
+
 
 ############################################################################################################
 #Get model ready data
 ############################################################################################################
 start_time = time.time()
-comb_df, comb_df_list = combine_feature_and_label_listids(selected_ids, all_tile_info_df, feature_path, id_col, args.fe_method, args.TUMOR_FRAC_THRES)
-
+comb_df, comb_df_list = combine_features_label_allsamples(selected_ids, 
+                                                   feature_path,
+                                                   args.fe_method, 
+                                                   args.TUMOR_FRAC_THRES, 
+                                                   all_sp_label_df,
+                                                   id_col = id_col)
 #Get model ready data
 data = ModelReadyData_diffdim_V2(comb_df_list, SELECTED_FEATURE, SELECTED_LABEL)
 torch.save(data, os.path.join(outdir, args.cohort_name + '_data.pth'))
-
 elapsed_time = (time.time() - start_time)/60
 print(elapsed_time, "min")
 
 
-feature_df = get_sample_feature(selected_ids[0], feature_path, args.fe_method)
-
-
-
-
-# ############################################################################################################
-# #Count Distribution
-# ############################################################################################################
-# #Tile level
-# counts1 = count_label(all_comb_df, SELECTED_LABEL, args.cohort_name + "_TILE")
-# sample_level_comb_df = all_comb_df.drop_duplicates(subset = ['SAMPLE_ID'])
-# counts2 = count_label(sample_level_comb_df, SELECTED_LABEL, args.cohort_name + "_SAMPLE")
-# patient_level_comb_df = all_comb_df.drop_duplicates(subset = ['PATIENT_ID'])
-# counts3 = count_label(patient_level_comb_df, SELECTED_LABEL, args.cohort_name + "_PTS")
-# #print(counts2)
-# counts = counts2.merge(counts1, left_index = True, right_index = True)
-# counts = counts.merge(counts3, left_index = True, right_index = True)
-# counts.to_csv(os.path.join(outdir, args.cohort_name + '_counts.csv'))
-
-
-# print(all_comb_df['TUMOR_PIXEL_PERC'].shape)
