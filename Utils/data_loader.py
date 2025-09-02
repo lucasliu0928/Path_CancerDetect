@@ -1197,8 +1197,16 @@ class add_tile_xy(Dataset):
         return (x, y)
     
 
+def check_columns(df, required_cols):
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        #print(f"Missing columns: {missing}")
+        return True
+    return False
 
-def get_sample_feature(folder_name, feature_path, fe_method):    
+
+
+def get_sample_feature(folder_name, feature_path, fe_method, cancer_info_path):    
     #Input dir
     input_dir = os.path.join(feature_path, 
                              folder_name, 
@@ -1211,26 +1219,47 @@ def get_sample_feature(folder_name, feature_path, fe_method):
     feature_df.reset_index(drop = True, inplace = True)
     
     #Get all tile info
-    #Tile ID (Do not use the labels in this, only use the tile info, because the label has been updated in all_tile_info_df from 3_otherinfo)
-    cols_to_keep = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
-                    'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
-                    'WHITE_SPACE','TISSUE_COVERAGE', 'pred_map_location', 'TUMOR_PIXEL_PERC']
-    id_df = pd.read_hdf(input_dir, key='tile_info')[cols_to_keep]
+    id_df = pd.read_hdf(input_dir, key='tile_info') #Tile ID (Do not use the labels in this, only use the tile info, because the label has been updated in all_tile_info_df from 3_otherinfo)
     id_df.reset_index(drop = True, inplace = True)
-
-    #Combine feature and tile info
-    # Ensure shape consistency and concatenate
+    
+    #Combine
     if id_df.shape[0] != feature_df.shape[0]:
         raise ValueError("id_df and feature_df must have the same number of rows.")
     
-    combined_df = pd.concat([id_df, feature_df], axis=1)
-
     
+    combined_df = pd.concat([id_df, feature_df], axis=1)
+    
+    
+    #Check if tile info contains this 
+    missing = check_columns(combined_df, ['pred_map_location', 'TUMOR_PIXEL_PERC'])
+    
+    if missing: #if missing get it from cancer detection
+        cancer_info_dir = os.path.join(cancer_info_path, 
+                                         folder_name, 
+                                         'ft_model')
+        file_name = [f for f in os.listdir(cancer_info_dir) if f.endswith("_TILE_TUMOR_PERC.csv")][0]
+        cancer_df = pd.read_csv(os.path.join(cancer_info_dir, file_name))
+        
+        if combined_df.shape[0] != cancer_df.shape[0]:
+            raise ValueError("combined_df and cancer_df must have the same number of rows.")
+        
+        combined_df = combined_df.merge(cancer_df, how = 'left', on = ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
+                                                                       'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
+                                                                       'WHITE_SPACE','TISSUE_COVERAGE'])
+        
+  
+    cols_to_keep = list(feature_df.columns) + ['SAMPLE_ID', 'MAG_EXTRACT', 'SAVE_IMAGE_SIZE', 
+                                         'PIXEL_OVERLAP','LIMIT_BOUNDS', 'TILE_XY_INDEXES', 'TILE_COOR_ATLV0', 
+                                         'WHITE_SPACE','TISSUE_COVERAGE', 'pred_map_location', 'TUMOR_PIXEL_PERC']
+    combined_df = combined_df[cols_to_keep] 
+
+        
+        
     return combined_df
 
 
 
-def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUMOR_FRAC_THRES, all_label_df, id_col):
+def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUMOR_FRAC_THRES, all_label_df, id_col, cancer_info_path):
     
     all_comb = []
     ct = 0
@@ -1238,7 +1267,7 @@ def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUM
         
         if ct % 10 == 0 : print(ct)
         #Get feature
-        feature_df = get_sample_feature(pt, feature_path, fe_method)    
+        feature_df = get_sample_feature(pt, feature_path, fe_method, cancer_info_path)    
         
         #Select tumor fraction > X tiles
         feature_df = feature_df.loc[feature_df['TUMOR_PIXEL_PERC'] >= TUMOR_FRAC_THRES].copy()
