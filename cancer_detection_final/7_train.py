@@ -56,7 +56,7 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='AR', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_overlap', default=0, type=int, help='train data pixel overlap')
 parser.add_argument('--test_overlap', default=0, type=int, help='test/validation data pixel overlap')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     #Load
     ###################################
     start_time = time.time()
-    opx_ol100 = torch.load(os.path.join(data_dir, "OPX" ,"IMSIZE250_OL100", "feature_uni2", "TFT" + str(args.tumor_frac) ,"OPX_data.pth"))
-    opx_ol0 = torch.load(os.path.join(data_dir, "OPX" ,"IMSIZE250_OL0", "feature_uni2", "TFT" + str(args.tumor_frac) ,"OPX_data.pth"))
+    opx_ol100 = torch.load(os.path.join(data_dir, "z_nostnorm_OPX" ,"IMSIZE250_OL100", "feature_uni2", "TFT" + str(args.tumor_frac) ,"z_nostnorm_OPX_data.pth"))
+    opx_ol0 = torch.load(os.path.join(data_dir, "z_nostnorm_OPX" ,"IMSIZE250_OL0", "feature_uni2", "TFT" + str(args.tumor_frac) ,"z_nostnorm_OPX_data.pth"))
     elapsed_time = time.time() - start_time
     print(elapsed_time/60)
     
@@ -281,3 +281,4 @@ if __name__ == '__main__':
 
         
  
+    
