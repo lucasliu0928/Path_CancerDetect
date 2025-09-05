@@ -8,6 +8,7 @@ Created on Sat Nov 16 18:27:44 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Function
 import os
 import sys
 
@@ -16,14 +17,65 @@ current_dir = os.getcwd()
 grandparent_subfolder = os.path.join(current_dir, '..', '..', 'other_model_code','ACMIL-main')
 grandparent_subfolder = os.path.normpath(grandparent_subfolder)
 sys.path.insert(0, grandparent_subfolder)
-from architecture.network import Classifier_1fc, DimReduction, DimReduction1
 from utils.utils import MetricLogger, SmoothedValue, adjust_learning_rate
 from timm.utils import accuracy
 import torchmetrics
 import wandb
 from torcheval.metrics import BinaryAUROC, BinaryAUPRC
 
+#FROM ACMIL implementation architecture.network
+class residual_block(nn.Module):
+    def __init__(self, nChn=512):
+        super(residual_block, self).__init__()
+        self.block = nn.Sequential(
+                nn.Linear(nChn, nChn, bias=False),
+                nn.ReLU(inplace=True),
+                nn.Linear(nChn, nChn, bias=False),
+                nn.ReLU(inplace=True),
+            )
+    def forward(self, x):
+        tt = self.block(x)
+        x = x + tt
+        return x
 
+
+class DimReduction(nn.Module):
+    def __init__(self, n_channels, m_dim=512, numLayer_Res=1):
+        super(DimReduction, self).__init__()
+        self.fc1 = nn.Linear(n_channels, m_dim, bias=False)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.numRes = numLayer_Res
+
+        self.resBlocks = []
+        for ii in range(numLayer_Res):
+            self.resBlocks.append(residual_block(m_dim))
+        self.resBlocks = nn.Sequential(*self.resBlocks)
+
+    def forward(self, x):
+
+        x = self.fc1(x)
+        x = self.relu1(x)
+
+        if self.numRes > 0:
+            x = self.resBlocks(x)
+
+        return x
+    
+class Classifier_1fc(nn.Module):
+    def __init__(self, n_channels, n_classes, droprate=0.0):
+        super(Classifier_1fc, self).__init__()
+        self.fc = nn.Linear(n_channels, n_classes)
+        self.droprate = droprate
+        if self.droprate != 0.0:
+            self.dropout = torch.nn.Dropout(p=self.droprate)
+
+    def forward(self, x):
+
+        if self.droprate != 0.0:
+            x = self.dropout(x)
+        x = self.fc(x)
+        return x
+    
 class decouple_classifier(nn.Module):
     def __init__(self, n_channels, n_classes, droprate=0.0):
         super(decouple_classifier, self).__init__()
@@ -202,6 +254,138 @@ class ACMIL_GA_singletask(nn.Module):
         A = A.masked_fill(random_mask == 0, -1e9)
         
         return A
+    
+    
+    
+
+
+# -------- Gradient Reversal Layer (for DANN) --------
+class _GradReverse(Function):
+    @staticmethod
+    def forward(ctx, x, lambd):
+        ctx.lambd = lambd
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # multiply by -lambda on the way back
+        return grad_output.neg() * ctx.lambd, None
+
+class GRL(nn.Module):
+    def __init__(self, lambd=1.0):
+        super().__init__()
+        self.lambd = float(lambd)
+
+    def forward(self, x):
+        return _GradReverse.apply(x, self.lambd)
+
+
+class ACMIL_GA_singletask_DA(nn.Module):
+    """
+    Single-task Attention-Gated MIL head + optional domain adaptation head.
+
+    Domain head predicts slide domain: 0 = distant, 1 = local (2-class softmax).
+    Uses Gradient Reversal to encourage domain-invariant bag features.
+
+    Args (added):
+        enable_domain (bool): turn domain branch on/off
+        lambda_grl (float): GRL strength (0..1 typical)
+        domain_droprate (float): dropout in domain head
+    """
+
+    def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0,
+                 enable_domain=True, lambda_grl=1.0, domain_droprate=0.0):
+        super(ACMIL_GA_singletask_DA, self).__init__()
+        
+        # Linear layer for dim reduction
+        self.dimreduction = DimReduction(conf.D_feat, conf.D_inner)
+        
+        # Attention layer
+        self.attention = Attention_Gated(conf.D_inner, D, n_token)
+        
+        # Instance/branch classifier(s)
+        self.classifier = nn.ModuleList()
+        for _ in range(n_token):
+            self.classifier.append(Classifier_1fc(conf.D_inner, conf.n_class, droprate))
+        self.n_masked_patch = n_masked_patch
+        self.n_token = conf.n_token
+        self.Slide_classifier = Classifier_1fc(conf.D_inner, conf.n_class, droprate)
+        self.mask_drop = mask_drop
+
+        # ---------- Domain Adaptation head ----------
+        self.enable_domain = enable_domain
+        if self.enable_domain:
+            self.grl = GRL(lambd=lambda_grl)
+            # Reuse your 1-fc classifier head for 2-class domain prediction
+            self.Domain_classifier = Classifier_1fc(conf.D_inner, 2, domain_droprate)
+
+    def forward(self, x):  # x: [1, N_Tile, D_feat]
+        x = x[0]
+        x = self.dimreduction(x)  # [N, D_inner]
+        
+        # Attention
+        A = self.attention(x)  # [K, N]
+        
+        # Masked patch (optional, train only)
+        if self.n_masked_patch > 0 and self.training:
+            A = self._apply_attention_mask(A)
+        A_out = A
+
+        # Softmax over N
+        A = F.softmax(A, dim=1)  # [K, N]
+
+        # Features per token/head
+        afeat = torch.mm(A, x)   # [K, D_inner]
+
+        # Branch (instance) predictions
+        outputs = []
+        for i, head in enumerate(self.classifier):
+            outputs.append(head(afeat[i]))
+        branch_pred = torch.stack(outputs, dim=0)  # [K, n_class] (likely [K,1] for your setup)
+
+        # Bag attention & bag feature
+        bag_A   = F.softmax(A_out, dim=1).mean(0, keepdim=True)  # [1, N]
+        bag_feat = torch.mm(bag_A, x)                            # [1, D_inner]
+
+        # Slide label prediction (task head)
+        bag_pred = self.Slide_classifier(bag_feat)               # [1, n_class]
+
+        # ----- Domain prediction (optional) -----
+        domain_pred = None
+        if self.enable_domain:
+            # Reverse gradients so shared feature becomes domain-invariant
+            bag_feat_rev = self.grl(bag_feat)                    # [1, D_inner]
+            domain_pred = self.Domain_classifier(bag_feat_rev)   # [1, 2] logits
+
+        # Return domain_pred even if None to keep signature stable
+        return branch_pred, bag_pred, A_out.unsqueeze(0), bag_A, bag_feat, domain_pred
+        # (branch_pred, slide_pred, branch_attention_raw, bag_attention_softmaxed, bag_feature, domain_pred)
+    
+    def forward_feature(self, x, use_attention_mask=False):  ## x: [1, N, D_feat]
+        x = x[0]
+        x = self.dimreduction(x)
+        A = self.attention(x)  # [K, N]
+
+        if self.n_masked_patch > 0 and use_attention_mask:
+            A = self._apply_attention_mask(A)
+
+        A_out = A
+        bag_A = F.softmax(A_out, dim=1).mean(0, keepdim=True)
+        bag_feat = torch.mm(bag_A, x)
+        return bag_feat    
+    
+    def _apply_attention_mask(self, A):
+        # Drop a random fraction of top-k attended patches per token
+        k, n = A.shape
+        n_masked_patch = min(self.n_masked_patch, n)
+        _, indices = torch.topk(A, n_masked_patch, dim=-1)
+        rand_selected = torch.argsort(torch.rand(*indices.shape, device=A.device), dim=-1)[:, :int(n_masked_patch * self.mask_drop)]
+        masked_indices = indices[torch.arange(indices.shape[0], device=A.device).unsqueeze(-1), rand_selected]
+        random_mask = torch.ones(k, n, device=A.device)
+        random_mask.scatter_(-1, masked_indices, 0)
+        A = A.masked_fill(random_mask == 0, -1e9)
+        return A
+
     
 class ACMIL_GA_MultiTask(nn.Module):
     def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0, n_task = 7):
@@ -472,18 +656,175 @@ def train_one_epoch_singletask(model, criterion, data_loader, optimizer0, device
 
     
         # === Manual Logging ===
-        if print_every > 0 :
-            if data_it % print_every == 0 or data_it == len(data_loader) - 1:
-                log_items = [
-                    f"EPOCH: {epoch}",
-                    f"[{data_it}/{len(data_loader)}]",
-                    f"lr: {optimizer0.param_groups[0]['lr']:.6f}",
-                    f"branch_loss: {loss0.item():.4f}",
-                    f"slide_loss: {loss1.item():.4f}",
-                    f"diff_loss: {diff_loss.item():.4f}",
-                    f"total_loss: {avg_loss.item():.4f}"
-                ]
-                print(" | ".join(log_items))
+        # if print_every > 0 :
+        #     if data_it % print_every == 0 or data_it == len(data_loader) - 1:
+        #         log_items = [
+        #             f"EPOCH: {epoch}",
+        #             f"[{data_it}/{len(data_loader)}]",
+        #             f"lr: {optimizer0.param_groups[0]['lr']:.6f}",
+        #             f"branch_loss: {loss0.item():.4f}",
+        #             f"slide_loss: {loss1.item():.4f}",
+        #             f"diff_loss: {diff_loss.item():.4f}",
+        #             f"total_loss: {avg_loss.item():.4f}"
+        #         ]
+        #         print(" | ".join(log_items))
+
+
+import torch
+
+def train_one_epoch_singletask2(model, criterion, data_loader, optimizer0, device, epoch, conf, 
+                               print_every=100,
+                               loss_method='none',
+                               accum_steps=16,
+                               use_amp=True,
+                               max_norm=5.0):
+
+    # Set the network to training mode
+    model.train()
+    total_loss = 0.0
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+
+    optimizer0.zero_grad(set_to_none=True)
+
+    for data_it, data in enumerate(data_loader):
+
+        # Get data
+        image_patches = data[0].to(device, dtype=torch.float32, non_blocking=True)   # [1, N_Patches, N_FEATURE]
+        labels = data[1][0].to(device)                                               # scalar or [1]
+        tf = data[2].to(device, dtype=torch.float32, non_blocking=True)              # (1, N_Patches)
+
+        # Forward pass with autocast
+        with torch.cuda.amp.autocast(enabled=use_amp):
+            branch_preds, slide_preds, branch_att_raw, bag_att, bag_feat = model(image_patches)
+
+            # Compute loss
+            loss, diff_loss, loss0, loss1 = compute_loss_singletask(
+                branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf
+            )
+
+            # Normalize loss for gradient accumulation
+            loss = loss / accum_steps
+
+        # Backpropagate (scaled if AMP is on)
+        scaler.scale(loss).backward()
+
+        # Update running average of loss (unscaled)
+        total_loss += loss.item() * accum_steps
+        avg_loss = total_loss / (data_it + 1)
+
+        # Optimizer step every accum_steps
+        if (data_it + 1) % accum_steps == 0 or (data_it + 1) == len(data_loader):
+
+            # Optional: gradient clipping (unscale first for AMP)
+            if max_norm is not None:
+                scaler.unscale_(optimizer0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+
+            scaler.step(optimizer0)
+            scaler.update()
+            optimizer0.zero_grad(set_to_none=True)
+
+        # Print progress
+        if (data_it + 1) % print_every == 0:
+            print(f"Epoch [{epoch}], Iter [{data_it+1}/{len(data_loader)}], "
+                  f"Avg Loss: {avg_loss:.4f}")
+
+
+def train_one_epoch_singletask2_DA(model, criterion, data_loader, optimizer0, device, epoch, conf, 
+                               print_every=100,
+                               loss_method='none',
+                               accum_steps=16,
+                               use_amp=True,
+                               max_norm=5.0,
+                               lambda_domain=0.5):
+    """
+    Adds domain loss:
+      - expects domain label at data[4]  (0 = distant, 1 = local)
+      - expects model to return domain_pred as 6th tensor (logits [1, 2]); if not present, skips domain loss
+    """
+    # Set the network to training mode
+    model.train()
+    total_loss = 0.0
+    total_task_loss = 0.0
+    total_domain_loss = 0.0
+
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    ce_domain = nn.CrossEntropyLoss()
+
+    optimizer0.zero_grad(set_to_none=True)
+
+    for data_it, data in enumerate(data_loader):
+
+        # Get data
+        image_patches = data[0].to(device, dtype=torch.float32, non_blocking=True)   # [1, N_Patches, N_FEATURE]
+        labels_task = data[1][0].to(device)                                          # scalar or [1]
+        tf = data[2].to(device, dtype=torch.float32, non_blocking=True)              # (1, N_Patches)
+        # Domain label (0 = distant, 1 = local); shape [1]
+        domain_label = None
+        if len(data) > 3 and data[3] is not None:
+            domain_label = data[3][0].squeeze().unique().to(device).long()                     # [1]
+
+        # Forward pass with autocast
+        with torch.cuda.amp.autocast(enabled=use_amp):
+            outputs = model(image_patches)
+
+            # Unpack with/without domain head
+            if isinstance(outputs, (list, tuple)) and len(outputs) == 6:
+                branch_preds, slide_preds, branch_att_raw, bag_att, bag_feat, domain_pred = outputs
+            else:
+                branch_preds, slide_preds, branch_att_raw, bag_att, bag_feat = outputs
+                domain_pred = None
+
+            # ----- Task loss (your existing compute) -----
+            task_loss, diff_loss, loss0, loss1 = compute_loss_singletask(
+                branch_preds, slide_preds, labels_task, branch_att_raw, criterion, device, conf
+            )
+
+            # ----- Domain loss -----
+            if (domain_pred is not None) and (domain_label is not None):
+                # domain_pred: [1, 2] logits; domain_label: [1] with {0,1}
+                d_loss = ce_domain(domain_pred, domain_label)
+            else:
+                # tensor(0.) on correct device for clean autograd sum
+                d_loss = torch.tensor(0.0, device=device)
+
+            total_step_loss = task_loss + lambda_domain * d_loss
+
+            # Normalize for gradient accumulation
+            loss = total_step_loss / accum_steps
+
+        # Backpropagate (scaled if AMP is on)
+        scaler.scale(loss).backward()
+
+        # Running (unscaled) stats for logging
+        total_loss += total_step_loss.item()
+        total_task_loss += task_loss.item()
+        total_domain_loss += d_loss.item()
+        avg_loss = total_loss / (data_it + 1)
+        avg_task_loss = total_task_loss / (data_it + 1)
+        avg_domain_loss = total_domain_loss / (data_it + 1)
+
+        # Optimizer step every accum_steps
+        if (data_it + 1) % accum_steps == 0 or (data_it + 1) == len(data_loader):
+            # Optional: gradient clipping (unscale first for AMP)
+            if max_norm is not None:
+                scaler.unscale_(optimizer0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+
+            scaler.step(optimizer0)
+            scaler.update()
+            optimizer0.zero_grad(set_to_none=True)
+
+        # Print progress
+        if (data_it + 1) % print_every == 0:
+            print(
+                f"Epoch [{epoch}], Iter [{data_it+1}/{len(data_loader)}], "
+                f"Avg Total Loss: {avg_loss:.4f} | "
+                f"Avg Task: {avg_task_loss:.4f} | "
+                f"Avg Domain: {avg_domain_loss:.4f}"
+            )
+
+    return avg_loss
 
 
 def compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf):
@@ -1000,6 +1341,134 @@ def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort
     print(" | ".join(log_items))
 
     return total_loss, roc_auc , pr_auc
+
+
+@torch.no_grad()
+def evaluate_singletask2(net, criterion, data_loader, device, conf, thres, cohort_name,
+                        lambda_domain=0.5):
+    """
+    Domain adaptation-aware evaluation.
+    - Expects the model to optionally return a 6th output: domain_pred logits [1, 2]
+    - Expects domain label at data[4] with values {0 (distant), 1 (local)}
+    - total_loss that is printed/returned = task_loss + lambda_domain * domain_loss (averaged)
+    """
+    net.eval()
+
+    y_pred_prob = []
+    y_pred_logit = []
+    y_true = []
+
+    # Domain collections (optional)
+    dom_probs = []   # probability of domain==1 (local)
+    dom_true  = []   # domain labels
+
+    total_loss = 0.0
+    total_task_loss = 0.0
+    total_domain_loss = 0.0
+
+    ce_domain = nn.CrossEntropyLoss()
+
+    with torch.no_grad():
+        for data_it, data in enumerate(data_loader):
+            image_patches = data[0].to(device, dtype=torch.float32)
+            labels_task   = data[1][0].to(device)
+            tf            = data[2].to(device, dtype=torch.float32)
+
+            # Optional domain label
+            domain_label = None
+            if len(data) > 3 and data[3] is not None:
+                domain_label = data[3].squeeze().unique().to(device).long()  # [1]
+                #print(domain_label)
+
+            # ---- Run model ----
+            outputs = net(image_patches)
+
+            # Unpack, allowing old/no-domain models
+            if isinstance(outputs, (list, tuple)) and len(outputs) == 6:
+                branch_preds, slide_preds, branch_att_raw, bag_att, bag_feat, domain_pred = outputs
+            else:
+                branch_preds, slide_preds, branch_att_raw, bag_att, bag_feat = outputs
+                domain_pred = None
+
+            # ---- Task predictions/metrics ----
+            pred_prob = torch.sigmoid(slide_preds)  # task is 1-logit binary
+            y_pred_prob.append(pred_prob)
+            y_pred_logit.append(slide_preds)
+            y_true.append(labels_task)
+
+            # ---- Task loss ----
+            task_loss, diff_loss, loss0, loss1 = compute_loss_singletask(
+                branch_preds, slide_preds, labels_task, branch_att_raw, criterion, device, conf
+            )
+
+            # ---- Domain loss & metrics (optional) ----
+            if (domain_pred is not None) and (domain_label is not None):
+                d_loss = ce_domain(domain_pred, domain_label)  # [1,2] vs [1]
+                # collect metrics
+                dom_p = F.softmax(domain_pred, dim=1)[:, 1]    # P(domain==1)
+                dom_probs.append(dom_p)
+                dom_true.append(domain_label)
+            else:
+                d_loss = torch.tensor(0.0, device=device)
+
+            total_step_loss = task_loss + lambda_domain * d_loss
+
+            # Accumulate (CPU floats)
+            total_loss       += total_step_loss.item()
+            total_task_loss  += task_loss.item()
+            total_domain_loss+= d_loss.item()
+
+        # ===== Concatenate all preds/labels (task) =====
+        all_pred_prob  = torch.cat(y_pred_prob,  dim=0)
+        all_pred_logit = torch.cat(y_pred_logit, dim=0)
+        all_labels     = torch.cat(y_true,       dim=0)
+        all_pred_class = (all_pred_prob > thres).int()
+
+        # ===== Task metrics =====
+        roauc_metric = BinaryAUROC().to(device)
+        roauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+        roc_auc = roauc_metric.compute().item()
+
+        prauc_metric = BinaryAUPRC().to(device)
+        prauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+        pr_auc = prauc_metric.compute().item()
+
+        # Averages
+        n_batches = len(data_loader)
+        avg_total_loss   = total_loss / max(1, n_batches)
+        avg_task_loss    = total_task_loss / max(1, n_batches)
+        avg_domain_loss  = total_domain_loss / max(1, n_batches)
+
+        # ===== Domain metrics (optional, only if available) =====
+        domain_metrics_str = "domain_auc: N/A | domain_acc: N/A"
+        if len(dom_probs) > 0 and len(dom_true) > 0:
+            all_dom_probs = torch.cat(dom_probs, dim=0)     # [num_slides]
+            all_dom_true  = torch.cat(dom_true,  dim=0)     # [num_slides]
+
+            dom_auc_metric = BinaryAUROC().to(device)
+            dom_auc_metric.update(all_dom_probs, all_dom_true)
+            domain_auc = dom_auc_metric.compute().item()
+
+            # Accuracy at 0.5 for readability
+            dom_pred_class = (all_dom_probs > 0.5).long()
+            domain_acc = (dom_pred_class == all_dom_true).float().mean().item()
+
+            domain_metrics_str = f"domain_auc: {domain_auc:.4f} | domain_acc: {domain_acc:.4f}"
+
+    # === Manual Logging ===
+    log_items = [
+        f"cohort_name: {cohort_name}",
+        f"total_loss: {avg_total_loss:.4f}",   # task + lambda_domain * domain
+        f"task_loss: {avg_task_loss:.4f}",
+        f"domain_loss: {avg_domain_loss:.4f}",
+        f"roauc: {roc_auc:.4f}",
+        f"pr_auc: {pr_auc:.4f}"
+        #domain_metrics_str
+    ]
+    print(" | ".join(log_items))
+
+    # Keep original return signature for compatibility
+    return avg_total_loss, roc_auc, pr_auc
 
 
 # Disable gradient calculation during evaluation

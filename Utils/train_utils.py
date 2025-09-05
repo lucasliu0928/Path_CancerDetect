@@ -20,7 +20,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import random
 from data_loader import load_model_ready_data
-
+import re
+ 
 def str2bool(value):
     if isinstance(value, bool):
         return value
@@ -77,25 +78,8 @@ def convert_to_dict(row):
     return {'coords': coords, 'att': row['ATT']}
 
 
-def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', selected_label = 'HR1'):
-    
-    #Get label
-    all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]
-    label_idx = all_labels.index(selected_label) 
-    
-    #subset
-    subsets = [item for item in datalist if item[fold_name] == data_type]
-    
-    data_tensor = [(item['x'], 
-                    item['y'][:,[label_idx]],
-                    item['tumor_fraction'],
-                    item['site_location']) for item in subsets]
 
-    sample_ids      = [item['sample_id'] for item in subsets]
-    patient_ids      = [item['patient_id'] for item in subsets]
-    
-    return data_tensor, sample_ids, patient_ids
-        
+       
     
 
 def get_feature_label_array(input_path, feature_folder, selected_ids,selected_labels, selected_feature):

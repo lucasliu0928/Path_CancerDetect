@@ -11,6 +11,7 @@ import torch
 import pandas as pd
 from torch.utils.data import Subset
 from torch.utils.data import Dataset
+import re
 
 def get_feature_idexes(method, include_tumor_fraction = True):
     
@@ -1286,3 +1287,45 @@ def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUM
     all_comb_df = pd.concat(all_comb)
     
     return all_comb_df, all_comb
+
+
+def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', selected_label = 'HR1'):
+    
+    #Get label
+    all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]
+    label_idx = all_labels.index(selected_label) 
+    
+    #subset
+    subsets = [item for item in datalist if item[fold_name] == data_type]
+    
+    data_tensor = [(item['x'], 
+                    item['y'][:,[label_idx]],
+                    item['tumor_fraction'],
+                    item['site_location']) for item in subsets]
+
+    sample_ids      = [item['sample_id'] for item in subsets]
+    patient_ids     = [item['patient_id'] for item in subsets]
+    corhor_names     = [re.split(r"[-_]", item['patient_id'])[0] for item in subsets]
+    
+    
+    
+    return data_tensor, sample_ids, patient_ids, corhor_names
+
+
+def load_dataset_splits(ol100, ol0, fold, label):
+    """Load train, validation, and test splits for a dataset."""
+    train, train_sp_ids, train_pt_ids, train_cohorts = get_model_ready_data(
+        ol100, f'fold{fold}', 'TRAIN', selected_label=label
+    )
+    val, val_sp_ids, val_pt_ids, val_cohorts = get_model_ready_data(
+        ol100, f'fold{fold}', 'VALID', selected_label=label
+    )
+    test, test_sp_ids, test_pt_ids, test_cohorts = get_model_ready_data(
+        ol0, f'fold{fold}', 'TEST', selected_label=label
+    )
+    
+    return {
+        "train": (train, train_sp_ids, train_pt_ids, train_cohorts),
+        "val":   (val, val_sp_ids, val_pt_ids, val_cohorts),
+        "test":  (test, test_sp_ids, test_pt_ids, test_cohorts),
+    }
