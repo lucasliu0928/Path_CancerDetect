@@ -9,16 +9,13 @@ from skimage import io, measure
 from cellpose import models
 import warnings
 import PIL
-from openslide.deepzoom import DeepZoomGenerator
 import glob
+from openslide.deepzoom import DeepZoomGenerator
+from torch.utils.data import DataLoader
+sys.path.insert(0, '../Utils/')
+from misc_utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
 
-def create_dir_if_not_exists(dir_path):
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-        print(f"Directory '{dir_path}' created.")
-    else:
-        print(f"Directory '{dir_path}' already exists.")
 
 def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds):
     # this is physical microns per pixel
@@ -40,20 +37,47 @@ def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds)
     return tiles, tile_lvls, physSize, base_mag
 
 
+def extract_tile_start_end_coords_tma(x_loc, y_loc, tile_size, overlap):
+    r'''
+    #This func returns the coordiates in the original image of TMA at original dim
+    '''
+    #Get stride
+    stride = tile_size - overlap
+    
+    #Get top left pixel coordinates
+    topleft_x = stride * (x_loc - 1) 
+    topleft_y = stride * (y_loc - 1)
+    
+    #Get region size in current level 
+    rsize_x = tile_size 
+    rsize_y = tile_size
+    
+    #Get tile starts and end   
+    start_loc = (topleft_x, topleft_y) #start
+    end_loc = (topleft_x + rsize_x, topleft_y + rsize_y) #end
+    
+    #Get save coord name (first two is the starting loc, and the last two are the x and y size considering dsfactor)
+    coord_name = str(topleft_x) + "-" + str(topleft_y) + "_" + '%.0f' % (rsize_x) + "-" + '%.0f' % (rsize_y)
+
+    #Get tile_coords the same format as OPX, (start_loc, deepzzomlvl, rise)
+    tile_coords = (start_loc, 'NA', (rsize_x, rsize_y))
+    
+    return start_loc, end_loc, coord_name, tile_coords
+
+        
 #RUN
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_ppl_code/handcrafted_features/hf_env/bin/activate
-#python3 -u 6_extract_handfeat.py  --cohort_name OPX --select_idx_start 0 --select_idx_end 40 
+#python3 -u 6_extract_handfeat.py  --cohort_name TAN_TMA_Cores --select_idx_start 0 --select_idx_end 700 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--select_idx_start', type=int)
-parser.add_argument('--select_idx_end', type=int)
-
+parser.add_argument('--cohort_name', default='TAN_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--select_idx_start', default = 0, type=int)
+parser.add_argument('--select_idx_end', default = 1, type=int)
+parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 
 if __name__ == '__main__':
     
@@ -69,7 +93,7 @@ if __name__ == '__main__':
     #DIR
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
     image_path = os.path.join(proj_dir,'data', args.cohort_name)
-    tile_info_path = os.path.join(proj_dir,'intermediate_data/2_cancer_detection/', args.cohort_name, folder_name)
+    tile_info_path = os.path.join(proj_dir,'intermediate_data/2_cancer_detection/', args.cohort_name, folder_name) #this file contians all tiles after exclude white space and non-tissue, contains all cancer fractions
     tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
     out_location = os.path.join(proj_dir,'intermediate_data','6_hand_crafted_feature', args.cohort_name, folder_name)  #1_feature_extraction, cancer_prediction_results110224
 
@@ -85,7 +109,14 @@ if __name__ == '__main__':
     selected_ids = [x for x in selected_ids if x != '.DS_Store']
     selected_ids.sort()
     
-
+    ############################################################################################################
+    #Load normalization norm target image
+    ############################################################################################################
+    if args.stain_norm == "norm":
+        norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
+    elif args.stain_norm == "no_norm":
+        norm_target_img = None
+        
     ############################################################################################################
     #Start 
     ############################################################################################################
@@ -98,23 +129,17 @@ if __name__ == '__main__':
         if len(imgout) > 0:
              print(cur_id + ': already processed')
         elif len(imgout) == 0:            
-            if args.cohort_name == 'TCGA_PRAD':
-                slides_name = [f for f in os.listdir(image_path + cur_id + '/') if '.svs' in f][0].replace('.svs','')
+            if 'TCGA_PRAD'in args.cohort_name:
+                slides_name = [f for f in os.listdir(os.path.join(image_path, cur_id)) if '.svs' in f][0].replace('.svs','')
                 _file = os.path.join(image_path, cur_id, slides_name + ".svs")
                 _tile_file = os.path.join(tile_info_path, cur_id, 'ft_model', slides_name + "_TILE_TUMOR_PERC.csv")
             else:
                 slides_name = cur_id
                 _file = os.path.join(image_path, slides_name + ".tif")
                 _tile_file = os.path.join(tile_info_path, cur_id, 'ft_model', cur_id + "_TILE_TUMOR_PERC.csv")
-                                
-            #this is a tile which we use for stain normalization
-            image2 = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
             
             #load cellpose model
             model = models.Cellpose(model_type='nuclei',gpu=True)
-            
-            #Read Sldies
-            oslide = openslide.OpenSlide(_file)
             
             #Load tile info
             tile_info_df = pd.read_csv(_tile_file)
@@ -124,10 +149,20 @@ if __name__ == '__main__':
             pixel_overlap   = tile_info_df['PIXEL_OVERLAP'].unique().item()
             limit_bounds    = tile_info_df['LIMIT_BOUNDS'].unique().item()
             mag_extract     = tile_info_df['MAG_EXTRACT'].unique().item()
+            
+
+            #Read Sldies
+            if 'TAN_TMA_Cores' in args.cohort_name:
+                oslide = PIL.Image.open(_file)
+            else:
+                oslide = openslide.OpenSlide(_file)
+            
+
         
             #Generate tiles
-            tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
-        
+            if 'TAN_TMA_Cores' not in args.cohort_name:
+                tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
+
             #Get feature , we have 325 features which are extracted
             all_features_list = []
             save_cols = None
@@ -138,18 +173,41 @@ if __name__ == '__main__':
                     #Get index
                     cur_xy = row['TILE_XY_INDEXES'].strip("()").split(", ")
                     x ,y = int(cur_xy[0]) , int(cur_xy[1])
-            
-                    #Extract tile for prediction
-                    lvl_in_deepzoom = tile_lvls.index(mag_extract)
-                    tile_pull = tiles.get_tile(lvl_in_deepzoom, (x, y))
-                    tile_pull = tile_pull.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
                     
+                    if 'TAN_TMA_Cores' in args.cohort_name:
+                        #Grab tile coordinates
+                        #1st way
+                        # tile_startend, hw = row['TILE_COOR_ATLV0'].split('_')
+                        # tile_starts = [int(s) for s in tile_startend.split('-')]
+                        # tile_ends = [tile_starts[0] + int(hw.split('-')[0]), tile_starts[1] + int(hw.split('-')[1])]
+                        #2ndway
+                        tile_starts, tile_ends, _, _ = extract_tile_start_end_coords_tma(x, y, tile_size = save_image_size, overlap = pixel_overlap)
+                        tile_pull = oslide.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1]))
+                        tile_pull = tile_pull.convert("RGB")
+                    else:
+                        #Extract tile for prediction
+                        lvl_in_deepzoom = tile_lvls.index(mag_extract)
+                        tile_pull = tiles.get_tile(lvl_in_deepzoom, (x, y))
+                        
+                    tile_pull = tile_pull.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
+                    tile_pull
                     #run cellcellpose
                     masks, flows, styles, diams = model.eval(np.asarray(tile_pull),channels=[0,0],diameter=15,invert=True,resample=False)
                     
                     #preprocess tile for handcrafted features
-                    newimg = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=image2) #a color-adjusted version of your input tile 
+                    if norm_target_img is not None:
+                        try:
+                            newimg = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=norm_target_img) #a color-adjusted version of your input tile 
+                        except np.linalg.LinAlgError:
+                            print("Deconvolution failed on a tile – skipping") #this is due to some tiles are not actuallly not tissue, all black (Neptune), just skip the norm
+                            pass
+                    else:
+                        newimg = np.asarray(tile_pull)
+                    
+                    #color deconvolution
                     simg = preprocessing.color_deconvolution.color_deconvolution(im_rgb=newimg, w=([[0.650, 0.072, 0], [0.704, 0.990, 0], [0.286, 0.105, 0]])) # the result of decomposing newimg into separate stain components (channels) based on the color properties
+
+                        
                     nucprops = measure.regionprops(masks)
                     nuc_cen = [prop.centroid for prop in nucprops] #the centroid of nucleus
                     ncen = np.array(nuc_cen).reshape(len(nuc_cen), 2) #the centroid of nucleus

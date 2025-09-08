@@ -815,14 +815,14 @@ def train_one_epoch_singletask2_DA(model, criterion, data_loader, optimizer0, de
             scaler.update()
             optimizer0.zero_grad(set_to_none=True)
 
-        # Print progress
-        if (data_it + 1) % print_every == 0:
-            print(
-                f"Epoch [{epoch}], Iter [{data_it+1}/{len(data_loader)}], "
-                f"Avg Total Loss: {avg_loss:.4f} | "
-                f"Avg Task: {avg_task_loss:.4f} | "
-                f"Avg Domain: {avg_domain_loss:.4f}"
-            )
+        # # Print progress
+        # if (data_it + 1) % print_every == 0:
+        #     print(
+        #         f"Epoch [{epoch}], Iter [{data_it+1}/{len(data_loader)}], "
+        #         f"Avg Total Loss: {avg_loss:.4f} | "
+        #         f"Avg Task: {avg_task_loss:.4f} | "
+        #         f"Avg Domain: {avg_domain_loss:.4f}"
+        #     )
 
     return avg_loss
 
@@ -1344,7 +1344,7 @@ def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort
 
 
 @torch.no_grad()
-def evaluate_singletask2(net, criterion, data_loader, device, conf, thres, cohort_name,
+def evaluate_singletask_DA(net, criterion, data_loader, device, conf, thres, cohort_name,
                         lambda_domain=0.5):
     """
     Domain adaptation-aware evaluation.

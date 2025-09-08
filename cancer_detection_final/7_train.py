@@ -24,7 +24,8 @@ from torch.utils.data import ConcatDataset
 
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
-from misc_utils import create_dir_if_not_exists, set_seed, get_feature_label_site, plot_umap
+from misc_utils import create_dir_if_not_exists, set_seed, get_feature_label_site
+from plot_utils import plot_umap
 from Eval import output_pred_perf_with_logit_singletask
 from train_utils import FocalLoss,FocalLoss_logitadj
 from train_utils import str2bool, random_sample_tiles
@@ -33,7 +34,7 @@ from data_loader import combine_cohort_data
 from data_loader import load_dataset_splits
 from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask, get_slide_feature_singletask
 from ACMIL import train_one_epoch_singletask2
-from ACMIL import train_one_epoch_singletask2_DA, ACMIL_GA_singletask_DA, evaluate_singletask2
+from ACMIL import train_one_epoch_singletask2_DA, ACMIL_GA_singletask_DA, evaluate_singletask_DA
 warnings.filterwarnings("ignore")
 #%matplotlib inline
 
@@ -49,7 +50,7 @@ import argparse
 import wandb
 
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/ACMIL-main/acmil/bin/activate
-#python3 -u 7_train_ACMIL_mixed_0727_singlemutation.py  --sample_training_n 1000 --out_folder pred_out_081225 --train_flag True  --mutation HR2 --train_cohort union_STNandNSTN_TCGA_NEP
+#python3 -u 7_train.py --train_epoch 100
 
 ############################################################################################################
 #Parser
@@ -70,7 +71,9 @@ parser.add_argument('--out_folder', default= 'pred_out_090325', type=str, help='
 #Training Para 
 ############################################################################################################
 parser.add_argument('--train_flag', type=str2bool, default=True, help='train flag')
-parser.add_argument('--sample_training_n', default= 0, type=int, help='random sample K tiles')
+parser.add_argument('--da', type=str2bool, default=True, help='domain adaptation flag')
+
+parser.add_argument('--sample_training_n', default= 200, type=int, help='random sample K tiles')
 # parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
 # parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
 parser.add_argument('--f_alpha', default= 0.8, type=float, help='focal alpha (weight for postive class)')
@@ -79,11 +82,11 @@ parser.add_argument('--f_gamma', default= 3, type=float, help='focal gamma')
 #     Model Para
 ############################################################################################################
 parser.add_argument('--DIM_OUT', default=512, type=int, help='')
-parser.add_argument('--droprate', default=0.1, type=float, help='drop out rate')
+parser.add_argument('--droprate', default=0.01, type=float, help='drop out rate')
 
-parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
-parser.add_argument('--train_epoch', default=10, type=int, help='')
+parser.add_argument('--train_epoch', default=100, type=int, help='')
 
 
             
@@ -128,8 +131,8 @@ if __name__ == '__main__':
     
 
     #Combine
-    comb_ol100 = ConcatDataset([opx_ol100, tcga_ol100])
-    comb_ol0 = ConcatDataset([opx_ol0, tcga_ol0])
+    comb_ol100 = ConcatDataset([opx_ol100,tcga_ol100])
+    comb_ol0 = ConcatDataset([opx_ol0,tcga_ol0])
     
 
 
@@ -156,6 +159,9 @@ if __name__ == '__main__':
         
         #Nep test
         test_data2, test_sp_ids2, test_pt_ids2, test_cohorts2 = nep_split['test']
+        test_data3, test_sp_ids3, test_pt_ids3, test_cohorts3 = tcga_split['test']
+        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4 = opx_split['test']
+
         
         
         #UMAP
@@ -263,6 +269,8 @@ if __name__ == '__main__':
         train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
         test_loader  = DataLoader(dataset=test_data, batch_size=1, shuffle=False)
         test_loader2  = DataLoader(dataset=test_data2, batch_size=1, shuffle=False)
+        test_loader3  = DataLoader(dataset=test_data3, batch_size=1, shuffle=False)
+        test_loader4  = DataLoader(dataset=test_data4, batch_size=1, shuffle=False)
 
         val_loader  = DataLoader(dataset=val_data, batch_size=1, shuffle=False)
 
@@ -270,8 +278,10 @@ if __name__ == '__main__':
         # define network
         ####################################################
         if args.arch == 'ga':
-            #model = ACMIL_GA_singletask(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
-            model = ACMIL_GA_singletask_DA(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
+            if args.da == True:
+                model = ACMIL_GA_singletask_DA(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
+            else:
+                model = ACMIL_GA_singletask(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
 
         
         model.to(device)
@@ -303,37 +313,63 @@ if __name__ == '__main__':
             for epoch in range(train_epoch):
                 print(f'EPOCH{epoch}:')
                 
-                # train_one_epoch_singletask(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                #                            print_every = 100,
-                #                            loss_method = args.loss_method)
-                
-                # train_one_epoch_singletask2(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                #                                print_every=100,
-                #                                loss_method=args.loss_method,
-                #                                accum_steps=32,
-                #                                use_amp=True,
-                #                                max_norm=5.0)
-                
-                train_one_epoch_singletask2_DA(model, criterion, train_loader, optimizer0, device, epoch, conf, 
-                                              print_every=100,
-                                              loss_method='none',
-                                              accum_steps=32,
-                                              use_amp=True,
-                                              max_norm=5.0,
-                                              lambda_domain=0.5)
+
+                if args.da == True:
+                    train_one_epoch_singletask2_DA(model, criterion, train_loader, optimizer0, device, epoch, conf, 
+                                                  print_every=100,
+                                                  loss_method='none',
+                                                  accum_steps=64,
+                                                  use_amp=True,
+                                                  max_norm=5.0,
+                                                  lambda_domain=0.5)
+                        
+                    val_loss, val_roc, val_pr = evaluate_singletask_DA(model, criterion, val_loader, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "VAL")
+                    test_loss, test_roc, test_pr = evaluate_singletask_DA(model, criterion, test_loader, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "Test")
+                    test_loss2, test_roc2, test_pr2 = evaluate_singletask_DA(model, criterion, test_loader2, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "Nep Test")
+                    test_loss3, test_roc3, test_pr3 = evaluate_singletask_DA(model, criterion, test_loader3, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "TCGA Test")
+                    test_loss4, test_roc4, test_pr4 = evaluate_singletask_DA(model, criterion, test_loader4, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "opx Test")
+                    train_loss, train_roc, train_pr = evaluate_singletask_DA(model, criterion, train_loader, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "Train")
+                else:
+                    train_one_epoch_singletask(model, criterion, train_loader, optimizer0, device, epoch, conf, 
+                                               print_every = 100,
+                                               loss_method = args.loss_method)
                     
-                val_loss, val_roc, val_pr = evaluate_singletask2(model, criterion, val_loader, device, conf, 
-                                                                         thres = 0.5,
-                                                                         cohort_name = "VAL")
-                test_loss, test_roc, test_pr = evaluate_singletask2(model, criterion, test_loader, device, conf, 
-                                                                         thres = 0.5,
-                                                                         cohort_name = "Test")
-                test_loss2, test_roc2, test_pr2 = evaluate_singletask2(model, criterion, test_loader2, device, conf, 
-                                                                         thres = 0.5,
-                                                                         cohort_name = "Nep Test")
-                train_loss, train_roc, train_pr = evaluate_singletask2(model, criterion, train_loader, device, conf, 
-                                                                         thres = 0.5,
-                                                                         cohort_name = "Train")
+                    train_one_epoch_singletask2(model, criterion, train_loader, optimizer0, device, epoch, conf, 
+                                                   print_every=100,
+                                                   loss_method=args.loss_method,
+                                                   accum_steps=32,
+                                                   use_amp=True,
+                                                   max_norm=5.0)
+                    val_loss, val_roc, val_pr = evaluate_singletask(model, criterion, val_loader, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "VAL")
+                    test_loss, test_roc, test_pr = evaluate_singletask(model, criterion, test_loader, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "Test")
+                    test_loss2, test_roc2, test_pr2 = evaluate_singletask(model, criterion, test_loader2, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "Nep Test")
+                    test_loss3, test_roc3, test_pr3 = evaluate_singletask(model, criterion, test_loader3, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "TCGA Test")
+                    test_loss4, test_roc4, test_pr4 = evaluate_singletask(model, criterion, test_loader4, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "opx Test")
+                    train_loss, train_roc, train_pr = evaluate_singletask(model, criterion, train_loader, device, conf, 
+                                                                             thres = 0.5,
+                                                                             cohort_name = "Train")
 
                 save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
                     save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))

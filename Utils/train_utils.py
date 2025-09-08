@@ -836,7 +836,7 @@ def random_sample_tiles(indata, k = 1000, random_seed = 42):
     for i in range(len(indata)):
         # Unpack the tuple
         #features, labels, tf, domain_label, other_info, sample_id, patient_id = indata[i]
-        features, labels, tf  = indata[i]
+        features, labels, tf , sl = indata[i]
 
         num_tiles = features.size(0)
         sample_indices = random.sample(range(num_tiles), min(k, num_tiles)) # Ensure k does not exceed number of rows
@@ -844,12 +844,14 @@ def random_sample_tiles(indata, k = 1000, random_seed = 42):
         sampled_feature = features[sample_indices]  
         #sampled_tileinfo = other_info.iloc[sample_indices,].reset_index(drop=True)
         sampled_tf = tf[sample_indices]
+        sampled_sl = sl[sample_indices]
         
         # Recreate the tuple with updated features
         indata[i] = (
             sampled_feature,
             labels,
-            sampled_tf
+            sampled_tf,
+            sampled_sl
             #sampled_tileinfo,
             #sample_id,
             #patient_id

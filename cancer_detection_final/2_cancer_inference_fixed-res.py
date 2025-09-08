@@ -29,11 +29,11 @@ parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the 
 parser.add_argument('--mag_target_prob', default='2.5', type=float, help='magnification for cancer detection: e.g., 2.5x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='TAN_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 
-parser.add_argument('--select_idx_start', type=int)
-parser.add_argument('--select_idx_end', type=int)
+parser.add_argument('--select_idx_start', default = 0,type=int)
+parser.add_argument('--select_idx_end', default = 1, type=int)
 
 if __name__ == '__main__':
     
@@ -173,7 +173,9 @@ if __name__ == '__main__':
 
             #Run
             if 'TMA' in cur_id:
-                cancer_inference_tma(_file, learn, tile_info_df, save_image_size, pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name = cur_id)
+                cancer_inference_tma(_file, learn, tile_info_df, save_image_size, 
+                                     pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name = cur_id,
+                                     stain_norm_target_img = norm_target_img)
             else:
                 cancer_inference_wsi(_file, learn, tile_info_df, mag_extract, save_image_size, pixel_overlap, 
                                      limit_bounds, mag_target_prob, mag_target_tiss, rad_tissue, smooth, bi_thres, save_location, 

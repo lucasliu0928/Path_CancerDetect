@@ -40,24 +40,6 @@ from misc_utils import convert_img
 warnings.filterwarnings("ignore")
 
 
-
-
-# def set_seed(seed):
-#     random.seed(seed)
-#     np.random.seed(seed)
-#     torch.manual_seed(seed)
-#     torch.cuda.manual_seed_all(seed)
-#     torch.backends.cudnn.deterministic = True
-#     torch.backends.cudnn.benchmark = False
-#     os.environ['PYTHONHASHSEED'] = str(seed)
-
-# def create_dir_if_not_exists(dir_path):
-#     if not os.path.exists(dir_path):
-#         os.makedirs(dir_path)
-#         print(f"Directory '{dir_path}' created.")
-#     else:
-#         print(f"Directory '{dir_path}' already exists.")
-
 def do_mask_original(img,lvl_resize, rad = 5):
     ''' create tissue mask '''
     # get he image and find tissue mask
@@ -583,7 +565,7 @@ def plot_tiles_with_topK_cancerprob(tile_info_data, tiles, tile_lvls, mag_extrac
         tile_save_name = "TILE_@" + str(cur_mag) + "x" + "_X" + str(x) +  "Y" + str(y) +   "_TF" + str(cur_tf) + ".png"
         tile_pull_ex.save(os.path.join(save_location, tile_save_name))
 
-def plot_tiles_with_topK_cancerprob_tma(tile_info_data, tma, pixel_overlap, save_image_size, save_location, k = 5):
+def plot_tiles_with_topK_cancerprob_tma(tile_info_data, tma, pixel_overlap, save_image_size, save_location, stain_norm_target_img = None, k = 5):
 
     tile_info_data_sorted= tile_info_data.sort_values(by = ['TUMOR_PIXEL_PERC'], ascending = False) 
     for i in range(0,k): #top5
@@ -599,6 +581,11 @@ def plot_tiles_with_topK_cancerprob_tma(tile_info_data, tma, pixel_overlap, save
         tile_pull_ex = tma.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1]))
         tile_pull_ex = tile_pull_ex.resize(size=(save_image_size, save_image_size),resample=PIL.Image.LANCZOS) #resize
         tile_pull_ex = convert_img(tile_pull_ex)
+        
+        tile_pull_ex = tile_pull_ex.convert("RGB")
+        if stain_norm_target_img is not None:
+            tile_pull_ex = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull_ex), im_target=stain_norm_target_img) #a color-adjusted version of your input tile 
+            tile_pull_ex = Image.fromarray(tile_pull_ex)
         
         #Save tile
         cur_tf = round(cur_row['TUMOR_PIXEL_PERC'],2)
@@ -766,7 +753,18 @@ def cancer_inference_wsi(_file,
 
 
 
-def cancer_inference_tma(_file, model, tile_info_df, save_image_size, pixel_overlap, mag_target_prob, rad_tissue, smooth, bi_thres, save_location, save_name):
+def cancer_inference_tma(_file, 
+                         model, 
+                         tile_info_df, 
+                         save_image_size, 
+                         pixel_overlap, 
+                         mag_target_prob, 
+                         rad_tissue, 
+                         smooth, 
+                         bi_thres, 
+                         save_location, 
+                         save_name,
+                         stain_norm_target_img = None):
 
     #Load slides
     tma = PIL.Image.open(_file)
@@ -796,11 +794,24 @@ def cancer_inference_tma(_file, model, tile_info_df, save_image_size, pixel_over
         tile_pull = tma.crop(box=(tile_starts[0], tile_starts[1], tile_ends[0], tile_ends[1]))    
         map_xstart, map_xend, map_ystart, map_yend = get_map_startend(tile_starts,tile_ends,lvl_resize) #Get current tile position in map
         tile_info_df.loc[index,'pred_map_location'] = str(tuple([map_xstart, map_xend, map_ystart, map_yend]))
-    
+        
+        
+        #convert to RGB
+        tile_pull = tile_pull.convert("RGB")
+        
+        if stain_norm_target_img is not None:
+            try:
+                tile_pull = preprocessing.color_normalization.deconvolution_based_normalization(im_src=np.asarray(tile_pull), im_target=stain_norm_target_img) #a color-adjusted version of your input tile 
+                tile_pull = Image.fromarray(tile_pull)
+            except np.linalg.LinAlgError:
+                print("Deconvolution failed on a tile – skipping") #this is due to some tiles are not actuallly not tissue, all black (Neptune), just skip the norm
+                pass
+        
+        
         #Cancer segmentation
         tile_pull = np.array(tile_pull)
         with model.no_bar():
-            inp, pred_class, pred_idx, outputs = model.predict(tile_pull[:, :, 0:3], with_input=True)
+            inp, pred_class, pred_idx, outputs = model.predict(tile_pull, with_input=True) #0:3 for RGB
         
         #Get predicted output
         #NOTe: updated 11/06, use cv2.resize
@@ -859,7 +870,8 @@ def cancer_inference_tma(_file, model, tile_info_df, save_image_size, pixel_over
     
     #Grab tiles and plot
     print('Plot top predicted  tiles...')
-    plot_tiles_with_topK_cancerprob_tma(tile_info_df,tma, pixel_overlap, save_image_size, save_location, k = 5)
+    plot_tiles_with_topK_cancerprob_tma(tile_info_df,tma, pixel_overlap, save_image_size, save_location, stain_norm_target_img, k = 5)
+
 
 def str2bool(v):
     if isinstance(v, bool):
