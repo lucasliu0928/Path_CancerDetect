@@ -35,6 +35,7 @@ from data_loader import load_dataset_splits, merge_data_lists, ListDataset
 from ACMIL import ACMIL_GA_singletask, train_one_epoch_singletask,evaluate_singletask, get_slide_feature_singletask
 from ACMIL import train_one_epoch_singletask2
 from ACMIL import train_one_epoch_singletask2_DA, ACMIL_GA_singletask_DA, evaluate_singletask_DA
+from ACMIL import Classifier_mfc
 warnings.filterwarnings("ignore")
 #%matplotlib inline
 
@@ -58,12 +59,13 @@ import wandb
 parser = argparse.ArgumentParser("Train")
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--fe_method', default='virchow2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_090325', type=str, help='out folder name')
+parser.add_argument('--model_folder', default= '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/pred_out_090325/trainCohort_OPX_TCGA_NEP_Samples0/acmil/uni2_TFT0.9/FOLD0/HR2/saved_model/GAMMA_0_ALPHA_-1/', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_090325_classifier', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
@@ -80,11 +82,11 @@ parser.add_argument('--f_gamma', default= 3, type=float, help='focal gamma')
 #     Model Para
 ############################################################################################################
 parser.add_argument('--DIM_OUT', default=512, type=int, help='')
-parser.add_argument('--droprate', default=0.01, type=float, help='drop out rate')
+parser.add_argument('--droprate', default=0.2, type=float, help='drop out rate')
 
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate') #0.01 works for DA with union , OPX + TCGA
 parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
-parser.add_argument('--train_epoch', default=100, type=int, help='')
+parser.add_argument('--train_epoch', default=5, type=int, help='')
 
 
             
@@ -93,11 +95,10 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     fold_list = [0,1,2,3,4]
-    #args.train_epoch = 10
+    args.train_epoch = 10
     fold_list = [0]
     args.da = False
-    # args.droprate = 0.1
-    # args.lr = 0.00001
+
     ##################
     ###### DIR  ######
     ##################
@@ -256,7 +257,7 @@ if __name__ == '__main__':
         for out_path in outdir_list:
             create_dir_if_not_exists(out_path)
     
-    
+        
         ####################################
         #Set out folder
         ####################################
@@ -306,12 +307,91 @@ if __name__ == '__main__':
             else:
                 model = ACMIL_GA_singletask(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop,
                                             hidden_dims=[128, 64, 32])
+            
+                        
+        #Load  pre-trained weights
+        checkpoint = torch.load(args.model_folder + "/checkpoint_epoch49.pth")
 
+       # Check if 'model' key exists and extract the state_dict from it
+        if 'model' in checkpoint:
+            state_dict = checkpoint['model']
+        else:
+            # Otherwise, assume the file directly contains the state_dict
+            state_dict = checkpoint
         
+        # Load the state_dict into your model instance
+        model.load_state_dict(state_dict)
         model.to(device)
+
+        ## Step 1: Freeze all parameters
+        print("Freezing all parameters...")
+        for param in model.parameters():
+            param.requires_grad = False
+            
+            
+        print("\nReinitializing weights for 'Slide_classifier' and 'classifier'...")
+        
+        # Before re-initialization
+        print("--- Weights BEFORE Re-initialization ---")
+        
+        # Print a few parameters from the Slide_classifier
+        print("\nSlide_classifier's first layer weight:\n", model.Slide_classifier.fc_layers[0].weight.data)
+        print("\nSlide_classifier's last layer weight:\n", model.Slide_classifier.fc_layers[-1].weight.data)
+        
+
+        import torch.nn as nn
+        import torch.nn.init as init
+        def reinitialize_weights(m):
+            """
+            Function to apply to modules to reinitialize their weights.
+            """
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+        
+        # Re-initialize the Slide_classifier's weights
+        print("\nRe-initializing Slide_classifier weights...")
+        model.Slide_classifier.apply(reinitialize_weights)
+        
+        # # Re-initialize each head in the classifier ModuleList
+        # print("Re-initializing classifier heads weights...")
+        # for head in model.classifier:
+        #     head.apply(reinitialize_weights)
+
+        print("\nSlide_classifier's first layer weight:\n", model.Slide_classifier.fc_layers[0].weight.data)
+        
+        ## Step 2: Unfreeze the parameters of 'Slide_classifier' and 'classifier'
+        print("Unfreezing 'Slide_classifier' and 'classifier' parameters...")
+        
+        # Unfreeze parameters for the Slide_classifier
+        for param in model.Slide_classifier.parameters():
+            param.requires_grad = True
+        
+        # # Unfreeze parameters for each classifier in the nn.ModuleList
+        # for head_classifier in model.classifier:
+        #     for param in head_classifier.parameters():
+        #         param.requires_grad = True
+        
+        ## Verification (Optional but highly recommended)
+        print("\n--- Verification of trainable parameters ---")
+        trainable_params_count = 0
+        all_params_count = 0
+        for name, param in model.named_parameters():
+            all_params_count += param.numel()
+            if param.requires_grad:
+                print(f"✅ Trainable: {name} (Shape: {param.shape})")
+                trainable_params_count += param.numel()
+            else:
+                print(f"❌ Frozen: {name} (Shape: {param.shape})")
+        
+        print(f"\nTotal parameters: {all_params_count}")
+        print(f"Trainable parameters: {trainable_params_count}")
+
+
         criterion_da = None 
 
-
+        model.to(device)
         
         #criterion = FocalLoss_logitadj(alpha=focal_alpha, gamma=focal_gamma,prior_prob = 0.04,tau = 10, reduction='mean')
         criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma, reduction='mean')
@@ -409,6 +489,12 @@ if __name__ == '__main__':
             print(best_state)
             wandb.finish()
             
+        output_pred_perf_with_logit_singletask(model, test_loader, test_sp_ids, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts))), criterion, outdir44, outdir55, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model, test_loader2, test_sp_ids2, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts2))), criterion, outdir44, outdir55, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model, test_loader3, test_sp_ids3, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts3))), criterion, outdir44, outdir55, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model, test_loader4, test_sp_ids4, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts4))), criterion, outdir44, outdir55, criterion_da, device)
+
+        
 
 
     

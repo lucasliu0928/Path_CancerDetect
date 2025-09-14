@@ -14,12 +14,16 @@ from misc_utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
 import argparse
 
+
+# source ~/.bashrc
+# conda activate paimg9
+#python3 -u 3B_inc_exc_ID.py --TUMOR_FRAC_THRES 0.8 --cohort_name OPX
 ############################################################################################################
 #USER INPUT 
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=float, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
+parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--out_folder', default= '3B_labels_final_sample', type=str, help='out folder name')
 
 args = parser.parse_args()
@@ -131,7 +135,7 @@ elif args.cohort_name.replace("z_nostnorm_", "") == "Neptune":
 
 
 
-#Include Cancer detected IDs 
+#Include Cancer detected IDs intersection betweeen all nst, st, ol100 and ol0
 results = filter_cancer_ids(
     selected_ids,
     [

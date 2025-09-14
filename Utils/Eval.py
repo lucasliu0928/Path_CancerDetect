@@ -586,12 +586,13 @@ def predict_v2_logit_singletask(net, criterion, data_loader, device, conf):
         #Run model
         branch_preds, slide_preds, branch_att_raw, bag_att , bag_feat = net(image_patches)
         
-        
+                
         #Get predictions
-        pred_prob = torch.sigmoid(slide_preds)
-        y_pred_prob.append(pred_prob)
-        y_pred_logit.append(slide_preds)
+        pred_prob = torch.softmax(slide_preds, dim=1)[0,1] #torch.sigmoid(slide_preds)
+        y_pred_prob.append(pred_prob.unsqueeze(0))
+        y_pred_logit.append(slide_preds[0,1].unsqueeze(0))
         y_true.append(labels)
+        
         
         #Compute loss
         loss, diff_loss, loss0,  loss1 = compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf)

@@ -19,13 +19,15 @@ warnings.filterwarnings("ignore")
 import argparse
 
 
-
+# source ~/.bashrc
+# conda activate paimg9
+#python3 -u 3C_get_traintestval_ids.py --TUMOR_FRAC_THRES 0.8 --cohort_name OPX
 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Tile feature extraction")
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--TUMOR_FRAC_THRES', default= 0.8, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: OPX or TCGA_PRAD or Neptune')
 parser.add_argument('--label_path', default= '3B_labels_final_sample', type=str, help='tile info folder name')
 parser.add_argument('--out_folder', default= '3C_labels_train_test', type=str, help='out folder name')

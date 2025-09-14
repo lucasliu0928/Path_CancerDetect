@@ -560,18 +560,26 @@ class FocalLoss(nn.Module):
         if alpha = -1, gamma = 0, then it is = CE loss
         '''
         super(FocalLoss, self).__init__()
-        self.alpha = alpha
+        self.alpha = alpha #alpha is for the class = 1
         self.gamma = gamma
         self.reduction = reduction
 
     def forward(self, pred_logits, target):
+        """
+        pred_logits: [N, C] raw logits (e.g., [N, 2])
+        target: [N] or [N,1] with values in {0,...,C-1}
+        """
         
         if not (0 <= self.alpha <= 1) and self.alpha != -1:
             raise ValueError(f"Invalid alpha value: {self.alpha}. alpha must be in the range [0,1] or -1 for ignore.")
 
-        ce_loss = F.binary_cross_entropy_with_logits(pred_logits, target, reduction='none')
-        pred = pred_logits.sigmoid()
-        pt = torch.where(target == 1, pred, 1 - pred)
+        # if target.dim() > 1:
+        #     target = target.squeeze(1)  # [N,1] -> [N]
+        if target.dtype != torch.long:
+            target = target.long()              # floats -> int class
+    
+        ce_loss = F.cross_entropy(pred_logits, target, reduction="none")
+        pt = torch.exp(-ce_loss)  # pt = softmax prob of the true class
         loss =  ((1.0 - pt) ** self.gamma) * ce_loss
         
         if self.alpha != -1:
@@ -603,22 +611,23 @@ class FocalLoss_logitadj(nn.Module):
         if not (0 <= self.alpha <= 1) and self.alpha != -1:
             raise ValueError(f"Invalid alpha value: {self.alpha}. alpha must be in the range [0,1] or -1 for ignore.")
         
+        # if target.dim() > 1:
+        #     target = target.squeeze(1)  # [N,1] -> [N]
+        if target.dtype != torch.long:
+            target = target.long()              # floats -> int class
+            
         # Compute logit adjustment term
         adjustment = self.tau * torch.log(torch.tensor(self.prior_prob))
         pred_logits_adjusted = pred_logits + (-adjustment)
         
-        ce_loss = F.binary_cross_entropy_with_logits(pred_logits_adjusted, target, reduction='none')
-        pred = pred_logits_adjusted.sigmoid()
-        pt = torch.where(target == 1, pred, 1 - pred)
+        ce_loss = F.cross_entropy(pred_logits_adjusted, target, reduction="none")
+        pt = torch.exp(-ce_loss)  # pt = softmax prob of the true class
         loss =  ((1.0 - pt) ** self.gamma) * ce_loss
         
         if self.alpha != -1:
             alpha_t = target*self.alpha + (1.0 - target)*(1.0 - self.alpha)
             loss = alpha_t*loss
             
-
-        
-        
 
         if self.reduction == 'mean':
             return loss.mean()

@@ -16,7 +16,7 @@ sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
 warnings.filterwarnings("ignore")
 
-
+#the following functions are the same one in Utils, only becauase of env issue, so add it here
 def generate_deepzoom_tiles(slide, save_image_size, pixel_overlap, limit_bounds):
     # this is physical microns per pixel
     acq_mag = 10.0/float(slide.properties[openslide.PROPERTY_NAME_MPP_X])

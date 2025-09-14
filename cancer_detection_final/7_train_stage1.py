@@ -12,11 +12,9 @@ Created on Wed Jun 18 17:45:28 2025
 #NOTE: use python env acmil in ACMIL folder
 import sys
 import os
-import numpy as np
 import matplotlib
 import time
 matplotlib.use('Agg')
-import pandas as pd
 import warnings
 import torch
 from torch.utils.data import ConcatDataset
@@ -24,7 +22,7 @@ from torch.utils.data import ConcatDataset
 
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
-from misc_utils import create_dir_if_not_exists, set_seed, get_feature_label_site
+from misc_utils import create_dir_if_not_exists, set_seed
 from plot_utils import plot_umap
 from Eval import output_pred_perf_with_logit_singletask
 from train_utils import FocalLoss,FocalLoss_logitadj
@@ -50,7 +48,7 @@ import argparse
 import wandb
 
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/ACMIL-main/acmil/bin/activate
-#python3 -u 7_train.py --train_epoch 100
+#python3 -u 7_train_stage1.py --sample_training_n 1000 --train_epoch 50 --mutation HR1 --da False --fe_method virchow2
 
 ############################################################################################################
 #Parser
@@ -58,11 +56,11 @@ import wandb
 parser = argparse.ArgumentParser("Train")
 parser.add_argument('--loss_method', default='', type=str, help='ATTLOSS or ''')
 parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--fe_method', default='virchow2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--fe_method', default='virchow2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
+parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--train_cohort', default= 'OPX_TCGA_NEP', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
 parser.add_argument('--out_folder', default= 'pred_out_090325', type=str, help='out folder name')
 
 ############################################################################################################
@@ -71,9 +69,9 @@ parser.add_argument('--out_folder', default= 'pred_out_090325', type=str, help='
 parser.add_argument('--train_flag', type=str2bool, default=True, help='train flag')
 parser.add_argument('--da', type=str2bool, default=True, help='domain adaptation flag')
 
-parser.add_argument('--sample_training_n', default= 0, type=int, help='random sample K tiles')
-# parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
-# parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
+parser.add_argument('--sample_training_n', default= 1000, type=int, help='random sample K tiles')
+#parser.add_argument('--f_alpha', default= -1, type=float, help='focal alpha')
+#parser.add_argument('--f_gamma', default= 0, type=float, help='focal gamma')
 parser.add_argument('--f_alpha', default= 0.8, type=float, help='focal alpha (weight for postive class)')
 parser.add_argument('--f_gamma', default= 3, type=float, help='focal gamma')
 ############################################################################################################
@@ -84,7 +82,7 @@ parser.add_argument('--droprate', default=0.01, type=float, help='drop out rate'
 
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate') #0.01 works for DA with union , OPX + TCGA
 parser.add_argument('--arch', default='ga', type=str, help='e.g., ga_mt, or ga')
-parser.add_argument('--train_epoch', default=100, type=int, help='')
+parser.add_argument('--train_epoch', default=10, type=int, help='')
 
 
             
@@ -93,11 +91,9 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     fold_list = [0,1,2,3,4]
-    #args.train_epoch = 10
     fold_list = [0]
-    args.da = False
-    # args.droprate = 0.1
-    # args.lr = 0.00001
+    #args.da = False
+
     ##################
     ###### DIR  ######
     ##################
@@ -130,10 +126,11 @@ if __name__ == '__main__':
     
         data[f'{cohort_name}_ol100'] = torch.load(base_path.format("OL100"))
         data[f'{cohort_name}_ol0'] = torch.load(base_path.format("OL0"))
-    
+        
         elapsed_time = time.time() - start_time
         print(f"Time taken for {cohort_name}: {elapsed_time/60:.2f} minutes")
     
+    check = torch.load('/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/5_combined_data/z_nostnorm_TCGA_PRAD/IMSIZE250_OL100/feature_virchow2/TFT0.9/z_nostnorm_TCGA_PRAD_data.pth')
     opx_ol100_nst = data['z_nostnorm_OPX_ol100']
     opx_ol0_nst = data['z_nostnorm_OPX_ol0']
     tcga_ol100_nst = data['z_nostnorm_TCGA_PRAD_ol100']
@@ -240,7 +237,7 @@ if __name__ == '__main__':
         ######################
         folder_name1 = args.fe_method + '_TFT' + str(args.tumor_frac)  + "/" 
         outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n),
+                               'trainCohort_' + args.train_cohort + '_Samples' + str(args.sample_training_n) + '_DA' + str(args.da),
                                args.learning_method,
                                folder_name1,
                                'FOLD' + str(f),
@@ -305,7 +302,7 @@ if __name__ == '__main__':
                 model = ACMIL_GA_singletask_DA(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop)
             else:
                 model = ACMIL_GA_singletask(conf, n_token=conf.n_token, droprate = conf.droprate , n_masked_patch=conf.n_masked_patch, mask_drop= conf.mask_drop,
-                                            hidden_dims=[128, 64, 32])
+                                            hidden_dims=[128, 64])
 
         
         model.to(device)
@@ -347,24 +344,24 @@ if __name__ == '__main__':
                                                   max_norm=5.0,
                                                   lambda_domain=0.5)
                         
-                    val_loss, val_roc, val_pr = evaluate_singletask_DA(model, criterion, val_loader, device, conf, 
-                                                                             thres = 0.5,
-                                                                             cohort_name = "VAL")
-                    test_loss, test_roc, test_pr = evaluate_singletask_DA(model, criterion, test_loader, device, conf, 
-                                                                             thres = 0.5,
-                                                                             cohort_name = "Test")
-                    test_loss2, test_roc2, test_pr2 = evaluate_singletask_DA(model, criterion, test_loader2, device, conf, 
-                                                                             thres = 0.5,
-                                                                             cohort_name = "Nep Test")
-                    test_loss3, test_roc3, test_pr3 = evaluate_singletask_DA(model, criterion, test_loader3, device, conf, 
-                                                                             thres = 0.5,
-                                                                             cohort_name = "TCGA Test")
-                    test_loss4, test_roc4, test_pr4 = evaluate_singletask_DA(model, criterion, test_loader4, device, conf, 
-                                                                             thres = 0.5,
-                                                                             cohort_name = "opx Test")
-                    train_loss, train_roc, train_pr = evaluate_singletask_DA(model, criterion, train_loader, device, conf, 
-                                                                             thres = 0.5,
-                                                                             cohort_name = "Train")
+                    # val_loss, val_roc, val_pr = evaluate_singletask_DA(model, criterion, val_loader, device, conf, 
+                    #                                                          thres = 0.5,
+                    #                                                          cohort_name = "VAL")
+                    # test_loss, test_roc, test_pr = evaluate_singletask_DA(model, criterion, test_loader, device, conf, 
+                    #                                                          thres = 0.5,
+                    #                                                          cohort_name = "Test")
+                    # test_loss2, test_roc2, test_pr2 = evaluate_singletask_DA(model, criterion, test_loader2, device, conf, 
+                    #                                                          thres = 0.5,
+                    #                                                          cohort_name = "Nep Test")
+                    # test_loss3, test_roc3, test_pr3 = evaluate_singletask_DA(model, criterion, test_loader3, device, conf, 
+                    #                                                          thres = 0.5,
+                    #                                                          cohort_name = "TCGA Test")
+                    # test_loss4, test_roc4, test_pr4 = evaluate_singletask_DA(model, criterion, test_loader4, device, conf, 
+                    #                                                          thres = 0.5,
+                    #                                                          cohort_name = "opx Test")
+                    # train_loss, train_roc, train_pr = evaluate_singletask_DA(model, criterion, train_loader, device, conf, 
+                    #                                                          thres = 0.5,
+                    #                                                          cohort_name = "Train")
                 else:
                     # train_one_epoch_singletask(model, criterion, train_loader, optimizer0, device, epoch, conf, 
                     #                            print_every = 100,
@@ -373,11 +370,10 @@ if __name__ == '__main__':
                     train_one_epoch_singletask2(model, criterion, train_loader, optimizer0, device, epoch, conf, 
                                                    print_every=100,
                                                    loss_method=args.loss_method,
-                                                   accum_steps=32,
+                                                   accum_steps=64,
                                                    use_amp=True,
                                                    max_norm=5.0)
                     
-                    #TODO: error on dim, rewrite evaluataion
                     val_loss, val_roc, val_pr = evaluate_singletask(model, criterion, val_loader, device, conf, 
                                                                              thres = 0.5,
                                                                              cohort_name = "VAL")
@@ -399,16 +395,22 @@ if __name__ == '__main__':
 
                 save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,
                     save_path=os.path.join(outdir11 + 'checkpoint_' + 'epoch' + str(epoch) + '.pth'))
-                if  val_roc > best_state['val_roc']:
-                    best_state['epoch'] = epoch
-                    best_state['val_roc'] = val_roc
-                    best_state['test_roc'] = test_roc
-                    save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
+                # if  val_roc > best_state['val_roc']:
+                #     best_state['epoch'] = epoch
+                #     best_state['val_roc'] = val_roc
+                #     best_state['test_roc'] = test_roc
+                #     save_model(conf=conf, model=model, optimizer=optimizer0, epoch=epoch,save_path=os.path.join(outdir11, 'checkpoint-best.pth'))
         
             print("Results on best epoch:")
             print(best_state)
             wandb.finish()
             
+        
+        output_pred_perf_with_logit_singletask(model, test_loader, test_sp_ids, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts))), criterion, outdir44, outdir55, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model, test_loader2, test_sp_ids2, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts2))), criterion, outdir44, outdir55, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model, test_loader3, test_sp_ids3, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts3))), criterion, outdir44, outdir55, criterion_da, device)
+        output_pred_perf_with_logit_singletask(model, test_loader4, test_sp_ids4, [args.mutation], conf, "TEST_" + '_'.join(list(set(test_cohorts4))), criterion, outdir44, outdir55, criterion_da, device)
+
 
 
     

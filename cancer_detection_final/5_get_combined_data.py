@@ -21,17 +21,17 @@ warnings.filterwarnings("ignore")
 
 # source ~/.bashrc
 # conda activate paimg9
-# python3 -u 5_get_combined_data.py --pixel_overlap 0 --cohort_name z_nostnorm_TCGA_PRAD
+#python3 -u 5_get_combined_data.py --pixel_overlap 0 --cohort_name Neptune --TUMOR_FRAC_THRES 0.8
 
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Model ready data")
-parser.add_argument('--pixel_overlap', default=0, type=int, help='specify the level of pixel overlap in your saved tiles')
+parser.add_argument('--pixel_overlap', default=100, type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default=250, type=int, help='the size of extracted tiles')
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=float, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='z_nostnorm_OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune or z_nostnorm_Neptune')
-parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
+parser.add_argument('--TUMOR_FRAC_THRES', default= 0.8, type=float, help='tile tumor fraction threshold')
+parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores or OPX or TCGA_PRAD or Neptune or z_nostnorm_Neptune')
+parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath,virchow2')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 
 args = parser.parse_args()
@@ -100,5 +100,3 @@ data = ModelReadyData_diffdim_V2(comb_df_list, SELECTED_FEATURE, SELECTED_LABEL)
 torch.save(data, os.path.join(outdir, args.cohort_name + '_data.pth'))
 elapsed_time = (time.time() - start_time)/60
 print(elapsed_time, "min")
-
-

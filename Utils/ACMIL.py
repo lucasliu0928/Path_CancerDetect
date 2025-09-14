@@ -76,6 +76,31 @@ class Classifier_1fc(nn.Module):
         x = self.fc(x)
         return x
     
+    
+class Classifier_mfc(nn.Module):
+    def __init__(self, n_channels, n_classes, hidden_dims=None, droprate=0.0):
+        super(Classifier_mfc, self).__init__()
+        
+        self.droprate = droprate
+        
+        layers = []
+        in_dim = n_channels
+        if hidden_dims is not None:
+            for h in hidden_dims:
+                layers.append(nn.Linear(in_dim, h))
+                layers.append(nn.ReLU(inplace=True))
+                if droprate > 0.0:
+                    layers.append(nn.Dropout(p=droprate))
+                in_dim = h
+
+        # Final classification layer
+        layers.append(nn.Linear(in_dim, n_classes))
+
+        self.fc_layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.fc_layers(x)
+    
 class decouple_classifier(nn.Module):
     def __init__(self, n_channels, n_classes, droprate=0.0):
         super(decouple_classifier, self).__init__()
@@ -173,7 +198,7 @@ class ACMIL_GA_singletask(nn.Module):
         
     """
 
-    def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0):
+    def __init__(self, conf, D=128, droprate=0, n_token=1, n_masked_patch=0, mask_drop=0, hidden_dims=[128, 64, 32]):
         super(ACMIL_GA_singletask, self).__init__()
         
         #Linear layer for dim reduction
@@ -185,10 +210,10 @@ class ACMIL_GA_singletask(nn.Module):
         #Classifer
         self.classifier = nn.ModuleList()
         for i in range(n_token):
-            self.classifier.append(Classifier_1fc(conf.D_inner, conf.n_class, droprate))
+            self.classifier.append(Classifier_mfc(conf.D_inner, conf.n_class, hidden_dims, droprate))
         self.n_masked_patch = n_masked_patch
         self.n_token = conf.n_token
-        self.Slide_classifier = Classifier_1fc(conf.D_inner, conf.n_class, droprate)
+        self.Slide_classifier = Classifier_mfc(conf.D_inner, conf.n_class, hidden_dims, droprate)
         self.mask_drop = mask_drop
 
 
@@ -583,7 +608,8 @@ def predict(net, data_loader, device, conf, header):
             slide_preds = slide_preds_list[k]
             attn = attn_list[k]
             labels = label_lists[:,k].to(device, dtype = torch.float32).to(device)
-            pred = torch.sigmoid(slide_preds)
+            #TODO Double check this one
+            pred = torch.softmax(slide_preds, dim=1)[0,1] #torch.sigmoid(slide_preds)
             pred_list.append(pred)
             pred_prob = torch.softmax(slide_preds, dim=-1)[:,1]
             pred_prob_list.append(pred_prob)
@@ -782,10 +808,8 @@ def train_one_epoch_singletask2_DA(model, criterion, data_loader, optimizer0, de
 
             # ----- Domain loss -----
             if (domain_pred is not None) and (domain_label is not None):
-                # domain_pred: [1, 2] logits; domain_label: [1] with {0,1}
                 d_loss = ce_domain(domain_pred, domain_label)
             else:
-                # tensor(0.) on correct device for clean autograd sum
                 d_loss = torch.tensor(0.0, device=device)
 
             total_step_loss = task_loss + lambda_domain * d_loss
@@ -830,10 +854,10 @@ def train_one_epoch_singletask2_DA(model, criterion, data_loader, optimizer0, de
 def compute_loss_singletask(branch_preds, slide_preds, labels, branch_att_raw, criterion, device, conf):
     # Compute loss
     if conf.n_token > 1:
-        loss0 = criterion(branch_preds, labels.repeat_interleave(conf.n_token).unsqueeze(1))
+        loss0 = criterion(branch_preds, labels.repeat_interleave(conf.n_token))
     else:
         loss0 = torch.tensor(0.)
-    loss1 = criterion(slide_preds, labels)
+    loss1 = criterion(slide_preds, labels.squeeze(1))
     
     
     diff_loss = torch.tensor(0.).to(device, dtype=torch.float32)
@@ -1282,8 +1306,8 @@ def get_slide_feature_singletask(net, data_loader, device):
 
 # Disable gradient calculation during evaluation
 @torch.no_grad()
-def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort_name ):
-            
+def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort_name):
+      
     # Set the network to evaluation mode
     net.eval()
 
@@ -1302,9 +1326,9 @@ def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort
         
         
         #Get predictions
-        pred_prob = torch.sigmoid(slide_preds)
-        y_pred_prob.append(pred_prob)
-        y_pred_logit.append(slide_preds)
+        pred_prob = torch.softmax(slide_preds, dim=1)[0,1] #torch.sigmoid(slide_preds)
+        y_pred_prob.append(pred_prob.unsqueeze(0))
+        y_pred_logit.append(slide_preds[0,1].unsqueeze(0))
         y_true.append(labels)
         
         #Compute loss
@@ -1322,12 +1346,12 @@ def evaluate_singletask(net, criterion, data_loader, device, conf, thres, cohort
     
     #Get performance
     roauc_metric = BinaryAUROC().to(device)
-    roauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+    roauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze(1))
     roc_auc = roauc_metric.compute().item()
     
     
     prauc_metric = BinaryAUPRC().to(device)
-    prauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+    prauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze(1))
     pr_auc = prauc_metric.compute().item()
 
     
@@ -1391,9 +1415,10 @@ def evaluate_singletask_DA(net, criterion, data_loader, device, conf, thres, coh
                 domain_pred = None
 
             # ---- Task predictions/metrics ----
-            pred_prob = torch.sigmoid(slide_preds)  # task is 1-logit binary
-            y_pred_prob.append(pred_prob)
-            y_pred_logit.append(slide_preds)
+            #Get predictions
+            pred_prob = torch.softmax(slide_preds, dim=1)[0,1] #torch.sigmoid(slide_preds)
+            y_pred_prob.append(pred_prob.unsqueeze(0))
+            y_pred_logit.append(slide_preds[0,1].unsqueeze(0))
             y_true.append(labels_task)
 
             # ---- Task loss ----
@@ -1426,11 +1451,11 @@ def evaluate_singletask_DA(net, criterion, data_loader, device, conf, thres, coh
 
         # ===== Task metrics =====
         roauc_metric = BinaryAUROC().to(device)
-        roauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+        roauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze(1))
         roc_auc = roauc_metric.compute().item()
 
         prauc_metric = BinaryAUPRC().to(device)
-        prauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze())
+        prauc_metric.update(all_pred_prob.squeeze(), all_labels.squeeze(1))
         pr_auc = prauc_metric.compute().item()
 
         # Averages
@@ -1514,7 +1539,7 @@ def evaluate_multitask(net, criterion, data_loader, device, conf, header, use_se
             else:
                 loss += criterion[k](slide_preds, labels.unsqueeze(1))
 
-            pred = torch.sigmoid(slide_preds)
+            pred = torch.softmax(slide_preds, dim=1)[0,1] #torch.sigmoid(slide_preds)
             acc1 = accuracy(pred, labels, topk=(1,))[0]
 
             pred_list.append(pred)
@@ -1618,7 +1643,7 @@ def evaluate_multitask_randomSample(net, criterion, data_loader, device, conf, h
             else:
                 loss += criterion[k](slide_preds, labels.unsqueeze(1))
 
-            pred = torch.sigmoid(slide_preds)
+            pred = torch.softmax(slide_preds, dim=1)[0,1] #torch.sigmoid(slide_preds)
             acc1 = accuracy(pred, labels, topk=(1,))[0]
 
             pred_list.append(pred)
