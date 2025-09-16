@@ -381,7 +381,7 @@ if __name__ == '__main__':
 
     for f in fold_list:
         f = 0
-        args.mutation = 'HR2'
+        args.mutation = 'MSI'
         ####################################
         #Load data
         ####################################    
@@ -397,7 +397,6 @@ if __name__ == '__main__':
         val_data, val_sp_ids, val_pt_ids, val_cohorts = opx_split['val']
         
 
-        test_data3, test_sp_ids3, test_pt_ids3, test_cohorts3 = tcga_split['test']
         test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4 = opx_split['test']
         
         #Nep test
@@ -409,6 +408,17 @@ if __name__ == '__main__':
         test_sp_ids2 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
         test_pt_ids2 = test_pt_ids_nep1 + test_pt_ids_nep2 + test_pt_ids_nep3
         test_cohorts2 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
+        
+        
+        #TCGA test
+        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1 = tcga_split['test']
+        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2 = tcga_split['train']
+        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3 = tcga_split['val']
+        
+        test_data3 = test_data_nep1 + test_data_nep2 + test_data_nep3
+        test_sp_ids3 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
+        test_pt_ids3 = test_pt_ids_nep1 + test_pt_ids_nep2 + test_pt_ids_nep3
+        test_cohorts3 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
 
 
 
@@ -557,6 +567,15 @@ if __name__ == '__main__':
         all_final = evaluate(test_data4, model)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
         
+        all_final = evaluate(test_data2, model)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
+        
+        all_final = evaluate(test_data3, model)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        
+        comb_data = test_data4 + test_data3
+        all_final = evaluate(comb_data, model)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX")
         
 
 
@@ -576,18 +595,8 @@ if __name__ == '__main__':
         plt.grid(True)
         plt.show()
 
-        
-        all_final = evaluate(test_data, model)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "Comb")
-        
-        all_final = evaluate(test_data2, model)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
-        
-        all_final = evaluate(test_data3, model)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
-        
-        all_final = evaluate(test_data4, model)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
+   
+ 
 
 
 

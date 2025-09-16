@@ -171,7 +171,7 @@ if __name__ == '__main__':
     comb_df_val['CLUSTER_5'] = get_cluster_labels(comb_df_val,SELECTED_FEATURE, model,scaler, use_pca = True, rs = 42)
     
     ############################################################################################################
-    #This section for mekias input, for all TCGA cases including train and test
+    #This section for Mekias input, for all TCGA cases including train and test
     ############################################################################################################
     #Combine all TCGA data
     comb_df_TCGA = pd.concat([comb_df_train,comb_df_test], axis = 0)
@@ -184,34 +184,6 @@ if __name__ == '__main__':
     comb_df_TCGA.loc[comb_df_TCGA['TUMOR_PIXEL_PERC'] <= 0.9,"CLUSTER_10"] = -1 #For non-cancer assign -1
     comb_df_TCGA.to_csv(os.path.join(outdir, args.train_cohort + '_OL0_cluster_data.csv'), index = False)
     
-
-    #TODO TO CHECK
-    # ############################################################################################################
-    # #Get image cluster data
-    # ############################################################################################################
-    # #update ID for folder ID if TCGA
-    # train_ids = list(all_tile_info_df_train['TCGA_FOLDER_ID'].unique())
-    # test_ids = list(all_tile_info_df_test['TCGA_FOLDER_ID'].unique())
-    # val_ids = list(all_tile_info_df_val['SAMPLE_ID'].unique())
-    
-    # #Train data
-    # matrix_list, label_list, sp_id_list, pt_id_list = get_list_for_modelreadydata(comb_df_train, train_ids, SELECTED_LABEL, args.tumor_frac)
-    # train_data_cluster = ModelReadyData_clustering(matrix_list, label_list, sp_id_list, pt_id_list)
-    # torch.save(train_data_cluster, os.path.join(outdir, args.train_cohort + '_train_data.pth'))
-
-    # #Test data
-    # matrix_list, label_list, sp_id_list, pt_id_list = get_list_for_modelreadydata(comb_df_test, test_ids, SELECTED_LABEL, args.tumor_frac)
-    # test_data_cluster = ModelReadyData_clustering(matrix_list, label_list, sp_id_list, pt_id_list)
-    # torch.save(test_data_cluster, os.path.join(outdir, args.train_cohort + '_test_data.pth'))
-    
-    # #val
-    # matrix_list, label_list, sp_id_list, pt_id_list = get_list_for_modelreadydata(comb_df_val, list(comb_df_val['SAMPLE_ID'].unique()), SELECTED_LABEL, args.tumor_frac)
-    # val_data_cluster = ModelReadyData_clustering(matrix_list, label_list, sp_id_list, pt_id_list)
-    # torch.save(val_data_cluster, os.path.join(outdir, args.valid_cohort + '_val_data.pth'))
-
-    # #Plot cluster image
-   
-    # plot_cluster_image(matrix_list[0])
     
 
 

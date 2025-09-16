@@ -12,7 +12,7 @@ import time
 
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
-from Utils import set_seed
+from misc_utils import set_seed
 from data_loader import ModelReadyData_diffdim_V2, get_feature_idexes
 from data_loader import combine_features_label_allsamples
 warnings.filterwarnings("ignore")

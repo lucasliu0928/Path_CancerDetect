@@ -254,9 +254,9 @@ def extract_tile_start_end_coords(all_tile, deepzoom_lvl, x_loc, y_loc):
     #This func returns the coordiates in the reference level 0 pixels
     '''
     #Get coords
-    tile_coords = all_tile.get_tile_coordinates(deepzoom_lvl, (x_loc, y_loc))
+    tile_coords = all_tile.get_tile_coordinates(deepzoom_lvl, (x_loc, y_loc)) # location - (x, y) tuple giving the top left pixel in the level 0 reference frame
 
-    #Get top left pixel coordinates
+    #Get top left pixel coordinates in the level 0 reference
     topleft_x = tile_coords[0][0]
     topleft_y = tile_coords[0][1]
 
