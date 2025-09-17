@@ -11,6 +11,7 @@ sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
 from Utils import cancer_inference_wsi , cancer_inference_tma
 from skimage import io
+from train_utils import str2bool
 warnings.filterwarnings("ignore")
 
 
@@ -29,8 +30,9 @@ parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the 
 parser.add_argument('--mag_target_prob', default='2.5', type=float, help='magnification for cancer detection: e.g., 2.5x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
-parser.add_argument('--cohort_name', default='TAN_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='Pluvicto_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, Pluvicto_TMA_Cores')
 parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
+parser.add_argument('--fine_tuned_model', type=str2bool, default=False, help='whether or not to use fine-tuned model')
 
 parser.add_argument('--select_idx_start', default = 0,type=int)
 parser.add_argument('--select_idx_end', default = 1, type=int)
@@ -48,7 +50,6 @@ if __name__ == '__main__':
     pixel_overlap = args.pixel_overlap       # specify the level of pixel overlap in your saved images
     limit_bounds = True     # this is weird, dont change it
     smooth = True           # whether or not to gaussian smooth the output probability map
-    ft_model = True         # whether or not to use fine-tuned model
     mag_target_prob = args.mag_target_prob   # 2.5x for probality maps
     mag_target_tiss = args.mag_target_tiss   #1.25x for tissue detection, this is not used for TMA
     bi_thres = args.bi_thres           #Binary classification threshold for cancer mask
@@ -65,11 +66,14 @@ if __name__ == '__main__':
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_tcga = proj_dir + 'data/TCGA_PRAD/'
     wsi_location_nep = proj_dir + 'data/Neptune/'
+    wsi_location_plu = proj_dir + 'data/Pluvicto_TMA_Cores/'
     feature_location = os.path.join(proj_dir,'intermediate_data','1_tile_pulling', cohort_name, folder_name) #cancer_prediction_results110224
     model_path = os.path.join(proj_dir,'models','cancer_detection_models', 'mets')
     
-    
-    out_location = os.path.join(proj_dir,'intermediate_data','2_cancer_detection_stainnormed', cohort_name, folder_name)
+    if args.stain_norm == "norm":
+        out_location = os.path.join(proj_dir,'intermediate_data','2_cancer_detection_stainnormed', cohort_name, folder_name)
+    elif args.stain_norm == "no_norm":
+        out_location = os.path.join(proj_dir,'intermediate_data','2_cancer_detection_nostainnormed', cohort_name, folder_name)
     create_dir_if_not_exists(out_location)
 
     ############################################################################################################
@@ -86,6 +90,7 @@ if __name__ == '__main__':
     tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)  if x != '.DS_Store'] #677
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
+    plu_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_plu)  if x != '.DS_Store'] #100
 
     if cohort_name == "OPX":
         all_ids = opx_ids 
@@ -97,6 +102,8 @@ if __name__ == '__main__':
         all_ids = tcga_ids
     elif cohort_name == "Neptune":
         all_ids = nep_ids
+    elif cohort_name == "Pluvicto_TMA_Cores":
+        all_ids = plu_ids
     
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
@@ -124,16 +131,19 @@ if __name__ == '__main__':
         create_dir_if_not_exists(save_location)
     
         slides_name = cur_id
-        if 'OPX' in cur_id:
+        if 'OPX' in cohort_name:
             _file = wsi_location_opx + slides_name + ".tif"
             rad_tissue = 5
-        elif '(2017-0133)' in cur_id:
+        elif 'ccola' in cohort_name:
             _file = wsi_location_ccola + slides_name + '.svs'
             rad_tissue = 2
-        elif 'TMA' in cur_id:
+        elif 'TAN_TMA_Cores' in cohort_name:
             _file = wsi_location_tan + slides_name + '.tif'
             rad_tissue = 2
-        elif 'NEP' in cur_id:
+        elif 'Pluvicto_TMA_Cores' in cohort_name:
+            _file = wsi_location_plu + slides_name + '.tif'
+            rad_tissue = 2
+        elif 'NEP' in cohort_name:
             _file = wsi_location_nep + slides_name + ".tif"
             if cur_id == 'NEP-081PS2-1_HE_MH_03282024' or cur_id == 'NEP-123PS1-1_HE_MH06032024':
                 rad_tissue = 2
@@ -146,7 +156,7 @@ if __name__ == '__main__':
     
     
         #Load model   
-        if ft_model == True:
+        if args.fine_tuned_model == True:
             learn = load_learner(os.path.join(model_path,'ft_models','dlv3_2ep_2e4_update-07182023_RT_fine_tuned..pkl'),cpu=False) #all use mets model
             save_location = save_location + "ft_model" + "/"
             create_dir_if_not_exists(save_location)

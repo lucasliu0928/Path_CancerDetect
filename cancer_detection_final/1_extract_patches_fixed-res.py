@@ -27,9 +27,7 @@ parser.add_argument('--mag_extract', default='20', type=int, help='specify magni
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
-parser.add_argument('--cohort_name', default='Neptune', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
-parser.add_argument('--TUMOR_FRAC_THRES', default= 0.9, type=int, help='tile tumor fraction threshold')
-
+parser.add_argument('--cohort_name', default='Pluvicto_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, Pluvicto_TMA_Cores')
 
 if __name__ == '__main__':
     
@@ -54,6 +52,7 @@ if __name__ == '__main__':
     wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     wsi_location_tcga = proj_dir + 'data/TCGA_PRAD/'
     wsi_location_nep = proj_dir + 'data/Neptune/'
+    wsi_location_plu = proj_dir + 'data/Pluvicto_TMA_Cores/'
     out_location = os.path.join(proj_dir,'intermediate_data','1_tile_pulling', cohort_name, folder_name)  #1_feature_extraction, cancer_prediction_results110224
     
     
@@ -76,6 +75,8 @@ if __name__ == '__main__':
     tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)  if x != '.DS_Store'] #677
     tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
+    plu_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_plu)  if x != '.DS_Store'] #100
+
     
     if cohort_name == "OPX":
         all_ids = opx_ids 
@@ -87,6 +88,9 @@ if __name__ == '__main__':
         all_ids = tcga_ids
     elif cohort_name == "Neptune":
         all_ids = nep_ids
+    elif cohort_name == "Pluvicto_TMA_Cores":
+        all_ids = plu_ids
+
     
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
@@ -105,16 +109,19 @@ if __name__ == '__main__':
              print(cur_id + ': already processed')
         elif len(imgout) == 0:
             slides_name = cur_id
-            if 'OPX' in cur_id:
+            if 'OPX' in cohort_name:
                 _file = wsi_location_opx + slides_name + ".tif"
                 rad_tissue = 5
-            elif '(2017-0133)' in cur_id:
+            elif 'ccola' in cohort_name:
                 _file = wsi_location_ccola + slides_name + '.svs'
                 rad_tissue = 2
-            elif 'TMA' in cur_id:
+            elif 'TAN_TMA_Cores' in cohort_name:
                 _file = wsi_location_tan + slides_name + '.tif'
                 rad_tissue = 2
-            elif 'NEP' in cur_id:
+            elif 'Pluvicto_TMA_Cores' in cohort_name:
+                _file = wsi_location_plu + slides_name + '.tif'
+                rad_tissue = 2
+            elif 'NEP' in cohort_name:
                 _file = wsi_location_nep + slides_name + ".tif"
                 if cur_id == 'NEP-081PS2-1_HE_MH_03282024' or cur_id == 'NEP-123PS1-1_HE_MH06032024':
                     rad_tissue = 2

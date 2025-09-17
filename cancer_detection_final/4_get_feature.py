@@ -16,6 +16,7 @@ from skimage import io
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
 from FeatureExtractor import PretrainedModelLoader, TileEmbeddingExtractor
+from train_utils import str2bool
 warnings.filterwarnings("ignore")
 
 #source ~/.bashrc
@@ -29,10 +30,11 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, z_nostnorm_OPX')
+parser.add_argument('--cohort_name', default='Pluvicto_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, z_nostnorm_OPX')
 parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
+parser.add_argument('--fine_tuned_model', type=str2bool, default=False, help='whether or not to use fine-tuned model')
 parser.add_argument('--select_idx_start', type=int, default = 0)
 parser.add_argument('--select_idx_end', type=int, default = 1)
 
@@ -54,6 +56,7 @@ if __name__ == '__main__':
     wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
     wsi_location_tcga = proj_dir + '/data/TCGA_PRAD/'
     wsi_location_nep = proj_dir + 'data/Neptune/'
+    wsi_location_plu = proj_dir + 'data/Pluvicto_TMA_Cores/'
     info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name)
     model_path = os.path.join(proj_dir,'models','feature_extraction_models', args.feature_extraction_method)
     
@@ -75,28 +78,24 @@ if __name__ == '__main__':
     ft_train_ids = list(fine_tune_ids_df.loc[fine_tune_ids_df['Train_OR_Test'] == 'Train','sample_id']) #24, 7 from OPX, 17 from ccola
     toexclude_ids = ft_train_ids + ['cca3af0c-3e0e-4cfb-bb07-459c979a0bd5'] #The latter one is TCGA issue file
     
-    #All available IDs
-    opx_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #353
-    ccola_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
-    tan_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
-    tcga_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
-    nep_ids =  [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
-    
+    #All available IDs    
     if args.cohort_name.replace("z_nostnorm_", "") == "OPX":
-        all_ids = opx_ids 
+        all_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_opx)] #353 
     elif args.cohort_name.replace("z_nostnorm_", "") == "ccola":
-        all_ids = ccola_ids
+        all_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_ccola) if '(2017-0133)' in x] #234
     elif args.cohort_name.replace("z_nostnorm_", "") == "TAN_TMA_Cores":
-        all_ids = tan_ids
+        all_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_tan)] #677
     elif args.cohort_name.replace("z_nostnorm_", "") == 'TCGA_PRAD':
-        all_ids = tcga_ids
+        all_ids = [x.replace('.svs','') for x in os.listdir(wsi_location_tcga) if x != '.DS_Store'] #449
     elif args.cohort_name.replace("z_nostnorm_", "") == "Neptune":
-        all_ids = nep_ids
+        all_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_nep)  if x != '.DS_Store'] #350
+    elif args.cohort_name.replace("z_nostnorm_", "") == "Pluvicto_TMA_Cores":
+        all_ids = [x.replace('.tif','') for x in os.listdir(wsi_location_plu)  if x != '.DS_Store'] #100
         
     #Exclude ids in ft_train or processed
     selected_ids = [x for x in all_ids if x not in toexclude_ids]
     selected_ids.sort()
-    print(len(selected_ids))
+    print("n of selected IDs:",len(selected_ids))
 
     ############################################################################################################
     #Load normalization norm target image
@@ -138,10 +137,17 @@ if __name__ == '__main__':
             elif args.cohort_name.replace("z_nostnorm_", "") == 'Neptune':
                 slides_name = cur_id
                 _file = wsi_location_nep + slides_name + ".tif"
+            elif args.cohort_name.replace("z_nostnorm_", "") == 'Pluvicto_TMA_Cores':
+                slides_name = cur_id
+                _file = wsi_location_plu + slides_name + ".tif"
     
     
             #Get tile info
-            cur_tile_info_df = pd.read_csv(os.path.join(info_path, cur_id ,'ft_model', slides_name + "_TILE_TUMOR_PERC.csv"))
+            if args.fine_tuned_model == True:
+                cur_tile_info_df = pd.read_csv(os.path.join(info_path, cur_id ,'ft_model', slides_name + "_TILE_TUMOR_PERC.csv"))
+            else:
+                cur_tile_info_df = pd.read_csv(os.path.join(info_path, cur_id ,'prior_model', slides_name + "_TILE_TUMOR_PERC.csv"))
+
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
@@ -151,7 +157,7 @@ if __name__ == '__main__':
                                                          stain_norm_target_img = norm_target_img,
                                                          image_type = 'WSI')             
 
-            elif args.cohort_name == "TAN_TMA_Cores":      
+            elif args.cohort_name == "TAN_TMA_Cores" or args.cohort_name == "Pluvicto_TMA_Cores":      
                 tma = PIL.Image.open(_file)
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, args.feature_extraction_method, model, device,
                                                          stain_norm_target_img = norm_target_img,
@@ -170,3 +176,5 @@ if __name__ == '__main__':
         else:
             print('Already Processed:',cur_id)
 
+#'/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/Pluvicto_TMA_Cores/IMSIZE250_OL0/TMA109A_HE_40X_MH011824-A-2/prior_model/TMA109A_HE_40X_MH011824-A-2_TILE_TUMOR_PERC.csv''
+#'/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/Pluvicto_TMA_Cores/IMSIZE250_OL0/TMA109A_HE_40X_MH011824-A-2/prior_model/TMA109A_HE_40X_MH011824-A-2_TILE_TUMOR_PERC.csv

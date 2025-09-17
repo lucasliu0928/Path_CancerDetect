@@ -14,6 +14,7 @@ from openslide.deepzoom import DeepZoomGenerator
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists
+from train_utils import str2bool
 warnings.filterwarnings("ignore")
 
 #the following functions are the same one in Utils, only becauase of env issue, so add it here
@@ -74,10 +75,11 @@ def extract_tile_start_end_coords_tma(x_loc, y_loc, tile_size, overlap):
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
-parser.add_argument('--cohort_name', default='TAN_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--cohort_name', default='Pluvicto_TMA_Cores', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune, Pluvicto_TMA_Cores')
+parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
+parser.add_argument('--fine_tuned_model', type=str2bool, default=False, help='whether or not to use fine-tuned model, for TMA or Pluvicto_TMA_Cores do not use FT model')
 parser.add_argument('--select_idx_start', default = 0, type=int)
 parser.add_argument('--select_idx_end', default = 1, type=int)
-parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 
 if __name__ == '__main__':
     
@@ -100,8 +102,6 @@ if __name__ == '__main__':
     #Create output dir
     create_dir_if_not_exists(out_location)
 
-
-    
     ############################################################################################################
     #Select IDS
     ############################################################################################################
@@ -132,11 +132,19 @@ if __name__ == '__main__':
             if 'TCGA_PRAD'in args.cohort_name:
                 slides_name = [f for f in os.listdir(os.path.join(image_path, cur_id)) if '.svs' in f][0].replace('.svs','')
                 _file = os.path.join(image_path, cur_id, slides_name + ".svs")
-                _tile_file = os.path.join(tile_info_path, cur_id, 'ft_model', slides_name + "_TILE_TUMOR_PERC.csv")
+                
+                if args.fine_tuned_model == True:
+                    _tile_file = os.path.join(tile_info_path, cur_id, 'ft_model', slides_name + "_TILE_TUMOR_PERC.csv")
+                else:
+                    _tile_file = os.path.join(tile_info_path, cur_id, 'prior_model', slides_name + "_TILE_TUMOR_PERC.csv")   
             else:
                 slides_name = cur_id
                 _file = os.path.join(image_path, slides_name + ".tif")
-                _tile_file = os.path.join(tile_info_path, cur_id, 'ft_model', cur_id + "_TILE_TUMOR_PERC.csv")
+                
+                if args.fine_tuned_model == True:
+                    _tile_file = os.path.join(tile_info_path, cur_id, 'ft_model', cur_id + "_TILE_TUMOR_PERC.csv")
+                else:
+                    _tile_file = os.path.join(tile_info_path, cur_id, 'prior_model', cur_id + "_TILE_TUMOR_PERC.csv")
             
             #load cellpose model
             model = models.Cellpose(model_type='nuclei',gpu=True)
@@ -152,7 +160,7 @@ if __name__ == '__main__':
             
 
             #Read Sldies
-            if 'TAN_TMA_Cores' in args.cohort_name:
+            if 'TMA' in args.cohort_name:
                 oslide = PIL.Image.open(_file)
             else:
                 oslide = openslide.OpenSlide(_file)
@@ -160,7 +168,7 @@ if __name__ == '__main__':
 
         
             #Generate tiles
-            if 'TAN_TMA_Cores' not in args.cohort_name:
+            if 'TMA' not in args.cohort_name:
                 tiles, tile_lvls, physSize, base_mag = generate_deepzoom_tiles(oslide,save_image_size, pixel_overlap, limit_bounds)
 
             #Get feature , we have 325 features which are extracted
@@ -174,7 +182,7 @@ if __name__ == '__main__':
                     cur_xy = row['TILE_XY_INDEXES'].strip("()").split(", ")
                     x ,y = int(cur_xy[0]) , int(cur_xy[1])
                     
-                    if 'TAN_TMA_Cores' in args.cohort_name:
+                    if 'TMA' in args.cohort_name:
                         #Grab tile coordinates
                         #1st way
                         # tile_startend, hw = row['TILE_COOR_ATLV0'].split('_')

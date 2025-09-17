@@ -12,17 +12,11 @@ from histoTME_util import create_dir_if_not_exists, save_hdf5
 import ast
 import numpy as np
 
-# from huggingface_hub import login
-# AUTH_TOKEN = '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' #specify your authentication token
-# login(AUTH_TOKEN)
-# from huggingface_hub import snapshot_download
-# snapshot_download(repo_id='spatkar94/HistoTMEv2', local_dir='local_dir')
-
 '''
 For get data
 # source ~/.bashrc
 # conda activate histoTME
-python3 0_reformat_data.py --fe_method uni2 --cohort_name OPX --tumor_frac 0.9
+python3 0_reformat_data.py --fe_method uni2 --cohort_name TCGA_PRAD --tumor_frac 0.0
 '''
 
 '''
@@ -32,7 +26,10 @@ python3 predict_bulk.py  --cohort OPX --h5_folder /fh/fast/etzioni_r/Lucas/mh_pr
 python3 predict_bulk.py  --cohort TCGA_PRAD --h5_folder /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/model_data/TF0.9/TCGA_PRAD/IMSIZE250_OL0/uni2 --chkpts_dir /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/HistoTME/local_dir/checkpoints  --save_loc /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/TME/TF0.9/ --num_workers 10 --embed uni2 
 python3 predict_bulk.py  --cohort Neptune --h5_folder /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/model_data/TF0.9/Neptune/IMSIZE250_OL0/uni2 --chkpts_dir /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/HistoTME/local_dir/checkpoints  --save_loc /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/TME/TF0.9/ --num_workers 10 --embed uni2 
 
-  
+#Spatial inference
+python3 predict_spatial.py  --h5_path /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/model_data/TF0.0/OPX/IMSIZE250_OL0/uni2/OPX_007_features.hdf5 --chkpts_dir /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/HistoTME/local_dir/checkpoints  --save_loc /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/TME_Spatial/TF0.0/ --num_workers 10 --embed uni2 
+
+
 Note IMPORTANT:
 I added the following code to "data.py" in "HistoTME_regression folder" to make it easier to match all embedding model names and the names in the arguments for python predict_spatial.py [-h] [--h5_path H5_PATH] [--chkpts_dir CHKPTS_DIR] [--num_workers NUM_WORKERS]
 [--embed EMBED] [--save_loc SAVE_LOC]
@@ -56,8 +53,8 @@ parser = argparse.ArgumentParser("reformat to h5")
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
-parser.add_argument('--tumor_frac', default= 0.9, type=float, help='tile tumor fraction threshold')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
+parser.add_argument('--tumor_frac', default= 0.0, type=float, help='tile tumor fraction threshold')
+parser.add_argument('--cohort_name', default='TCGA_PRAD', type=str, help='data set name: TAN_TMA_Cores, OPX, TCGA_PRAD, Neptune')
 
 
             
