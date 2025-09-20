@@ -68,7 +68,7 @@ def extract_tile_start_end_coords_tma(x_loc, y_loc, tile_size, overlap):
         
 #RUN
 #source /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_ppl_code/handcrafted_features/hf_env/bin/activate
-#python3 -u 6_extract_handfeat.py  --cohort_name TAN_TMA_Cores --select_idx_start 0 --select_idx_end 700 
+#python3 -u 6_extract_handfeat.py  --cohort_name Pluvicto_TMA_Cores --select_idx_start 515 --select_idx_end 606 
 ############################################################################################################
 #Parser
 ############################################################################################################

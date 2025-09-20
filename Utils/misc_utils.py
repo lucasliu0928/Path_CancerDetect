@@ -26,7 +26,13 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
     os.environ['PYTHONHASHSEED'] = str(seed)
     
-    
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    if value.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif value.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
     
 def create_dir_if_not_exists(dir_path):
     if not os.path.exists(dir_path):
@@ -34,7 +40,29 @@ def create_dir_if_not_exists(dir_path):
         print(f"Directory '{dir_path}' created.")
     else:
         print(f"Directory '{dir_path}' already exists.")
+      
         
+def get_ids(path, include=None, exclude=None):
+    r'''
+    Get IDs in the path
+
+    '''
+    ids = []
+    for x in os.listdir(path):
+        if x == ".DS_Store":
+            continue
+        if include and include not in x:
+            continue
+        if exclude and exclude in x:
+            continue
+        if x.endswith((".svs", ".tif")):   # covers both extensions
+            base, _ = os.path.splitext(x)  
+            ids.append(base)
+        else: #for TCGA, because it is the folder name, not the slide name
+            ids.append(x)
+            
+    return ids
+
         
 # Min-max normalization function
 def minmax_normalize(tensor):

@@ -19,21 +19,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import random
-from data_loader import load_model_ready_data
-import re
  
-def str2bool(value):
-    if isinstance(value, bool):
-        return value
-    if value.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif value.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-
-
-
-        
-
 
 def has_seven_csv_files(folder_path):
     # List all files ending with .csv

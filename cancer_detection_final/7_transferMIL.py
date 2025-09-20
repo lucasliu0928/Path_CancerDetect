@@ -25,6 +25,7 @@ import torch.nn.functional as F
 sys.path.insert(0, '../Utils/')
 from data_loader import merge_data_lists, load_dataset_splits
 from plot_utils import plot_umap
+from Loss import FocalLoss
  
 #FOR MIL-Lab
 sys.path.insert(0, os.path.normpath(os.path.join(os.getcwd(), '..', '..', 'other_model_code','MIL-Lab',"src")))
@@ -170,44 +171,6 @@ def evaluate(test_data, model):
     return df
 
 
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=1, reduction='mean'):
-        r'''
-        if alpha = -1, gamma = 0, then it is = CE loss
-        '''
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha #alpha is for the class = 1
-        self.gamma = gamma
-        self.reduction = reduction
-
-    def forward(self, pred_logits, target):
-        """
-        pred_logits: [N, C] raw logits (e.g., [N, 2])
-        target: [N] or [N,1] with values in {0,...,C-1}
-        """
-        
-        if not (0 <= self.alpha <= 1) and self.alpha != -1:
-            raise ValueError(f"Invalid alpha value: {self.alpha}. alpha must be in the range [0,1] or -1 for ignore.")
-
-        # if target.dim() > 1:
-        #     target = target.squeeze(1)  # [N,1] -> [N]
-        if target.dtype != torch.long:
-            target = target.long()              # floats -> int class
-    
-        ce_loss = F.cross_entropy(pred_logits, target, reduction="none")
-        pt = torch.exp(-ce_loss)  # pt = softmax prob of the true class
-        loss =  ((1.0 - pt) ** self.gamma) * ce_loss
-        
-        if self.alpha != -1:
-            alpha_t = target*self.alpha + (1.0 - target)*(1.0 - self.alpha)
-            loss = alpha_t*loss
-
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        else:
-            return loss
 
         
 def get_slide_embedding(indata, net):
@@ -386,7 +349,7 @@ if __name__ == '__main__':
         #Load data
         ####################################    
         #get train test and valid
-        opx_split    =  load_dataset_splits(opx_union_ol100, opx_union_ol0, f, args.mutation)
+        opx_split    =  load_dataset_splits(opx_union_ol0, opx_union_ol0, f, args.mutation)
         tcga_split   =  load_dataset_splits(tcga_union_ol100, tcga_union_ol0, f, args.mutation)
         nep_split    =  load_dataset_splits(nep_union_ol100, nep_union_ol0, f, args.mutation)
         comb_splits  =  load_dataset_splits(comb_ol100, comb_ol0, f, args.mutation)
@@ -500,6 +463,7 @@ if __name__ == '__main__':
  
         #loss_fn = nn.CrossEntropyLoss()
         loss_fn = FocalLoss(alpha=0.8, gamma=3, reduction='mean')
+        loss_fn2 = FocalLoss_twologits(alpha=0.8, gamma=3, reduction='mean')
 
         optimizer = torch.optim.AdamW(
             filter(lambda p: p.requires_grad, model.parameters()),
@@ -538,8 +502,6 @@ if __name__ == '__main__':
                     x,
                     loss_fn=loss_fn,
                     label=y)
-                
-                loss_fn(results['logits'],y)
 
                 #Compute loss
                 loss = results['loss']
