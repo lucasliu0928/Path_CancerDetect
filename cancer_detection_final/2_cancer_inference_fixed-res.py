@@ -31,7 +31,7 @@ parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magni
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
 parser.add_argument('--cohort_name', default='PrECOG', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, PrECOG, "CCola/all_slides/"')
 parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
-parser.add_argument('--fine_tuned_model', type=str2bool, default=False, help='whether or not to use fine-tuned model')
+parser.add_argument('--fine_tuned_model', type=str2bool, default=True, help='whether or not to use fine-tuned model')
 
 parser.add_argument('--select_idx_start', default = 0,type=int)
 parser.add_argument('--select_idx_end', default = 1, type=int)

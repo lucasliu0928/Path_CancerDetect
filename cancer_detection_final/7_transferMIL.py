@@ -26,6 +26,7 @@ sys.path.insert(0, '../Utils/')
 from data_loader import merge_data_lists, load_dataset_splits
 from plot_utils import plot_umap
 from Loss import FocalLoss
+from TransMIL import TransMIL
  
 #FOR MIL-Lab
 sys.path.insert(0, os.path.normpath(os.path.join(os.getcwd(), '..', '..', 'other_model_code','MIL-Lab',"src")))
@@ -47,6 +48,18 @@ try:
 except ImportError:
     HAS_UMAP = False
 
+
+def count_num_tiles(indata, cohort_name):
+    
+    n_tiles = [x[0].shape[0] for x in indata]
+    
+    df = pd.DataFrame({'cohort_name': cohort_name,
+                    'AVG_N_TILES': np.mean(n_tiles).round(),
+                  'MAX_N_TILES': max(n_tiles),
+                  'MIN_N_TILES': min(n_tiles)}, index = [0])
+    
+    return df
+        
 
 def plot_embeddings(all_feats, all_labels, method="pca", **kwargs):
     method = method.lower()
@@ -114,7 +127,7 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     
     return perf_tb
 
-def evaluate(test_data, model):
+def evaluate(test_data, test_ids, model, model_name = 'TransMIL'):
     """
     Runs inference over a (indexable) dataset of (features, label) pairs.
     Returns a DataFrame with logits, probabilities, true labels, and a predicted class.
@@ -126,20 +139,23 @@ def evaluate(test_data, model):
 
     logits_list = []
     labels_list = []
-
     with torch.no_grad():
         for i in range(len(test_data)):
             x, y, tf, sl = test_data[i]        
             x = x.unsqueeze(0).to(device)      # add batch dim
             y = y.long().view(-1).to(device)
-
-            results, _ = model(
-                x,
-                loss_fn=loss_fn,
-                label=y,
-                return_attention=True,
-                return_slide_feats=True,
-            )
+            
+            if model_name == "TransMIL":
+                
+                results = model(data = x)
+            else:
+                results, _ = model(
+                    x,
+                    loss_fn=loss_fn,
+                    label=y,
+                    return_attention=True,
+                    return_slide_feats=True,
+                )
 
             # results["logits"] expected shape: (1, num_classes)
             logits = results["logits"].squeeze(0).detach().cpu()  # -> (num_classes,)
@@ -160,6 +176,7 @@ def evaluate(test_data, model):
 
     df = pd.concat([df_logits, df_probs], axis=1)
     df["True_y"] = labels_list
+    df['SAMPLE_ID'] = test_ids
 
     # Binary head: predict class-1 using 0.5 threshold
     if num_classes >= 2:
@@ -167,8 +184,13 @@ def evaluate(test_data, model):
     else:
         # Fallback: argmax over available classes
         df["Pred_Class"] = probs_tensor.argmax(dim=1).numpy()
+        
+        
+    #reorder
+    df = df[['SAMPLE_ID','True_y','Pred_Class','prob_0', 'prob_1', 'logit_0', 'logit_1']]
 
     return df
+
 
 
 
@@ -258,7 +280,7 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--out_folder', default= 'pred_out_091325', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_091225', type=str, help='out folder name')
 
 
 ############################################################################################################
@@ -350,9 +372,9 @@ if __name__ == '__main__':
         ####################################    
         #get train test and valid
         opx_split    =  load_dataset_splits(opx_union_ol0, opx_union_ol0, f, args.mutation)
-        tcga_split   =  load_dataset_splits(tcga_union_ol100, tcga_union_ol0, f, args.mutation)
-        nep_split    =  load_dataset_splits(nep_union_ol100, nep_union_ol0, f, args.mutation)
-        comb_splits  =  load_dataset_splits(comb_ol100, comb_ol0, f, args.mutation)
+        tcga_split   =  load_dataset_splits(tcga_union_ol0, tcga_union_ol0, f, args.mutation)
+        nep_split    =  load_dataset_splits(nep_union_ol0, nep_union_ol0, f, args.mutation)
+        comb_splits  =  load_dataset_splits(comb_ol0, comb_ol0, f, args.mutation)
  
 
         train_data, train_sp_ids, train_pt_ids, train_cohorts  = opx_split['train']
@@ -360,7 +382,6 @@ if __name__ == '__main__':
         val_data, val_sp_ids, val_pt_ids, val_cohorts = opx_split['val']
         
 
-        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4 = opx_split['test']
         
         #Nep test
         test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1 = nep_split['test']
@@ -382,6 +403,19 @@ if __name__ == '__main__':
         test_sp_ids3 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
         test_pt_ids3 = test_pt_ids_nep1 + test_pt_ids_nep2 + test_pt_ids_nep3
         test_cohorts3 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
+        
+        #OPX test
+        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4 = opx_split['test']
+
+        
+        
+        #Count AVG , MAX, MIN number of tiles
+        nep_count_df = count_num_tiles(test_data2,'Nep')
+        tcga_count_df = count_num_tiles(test_data3,'TCGA')
+        opx_count_df = count_num_tiles(test_data4,'OPX')
+        all_count_df = pd.concat([opx_count_df, tcga_count_df, nep_count_df])
+
+
 
 
 
@@ -441,45 +475,47 @@ if __name__ == '__main__':
         # construct the model from src and load the state dict from HuggingFace
         model = create_model('abmil.base.uni_v2.pc108-24k', num_classes=2)
         model.to(device)
-        in_dim = model.model.classifier.in_features
-        model.model.classifier = nn.Sequential(
-            nn.Dropout(p=0.3),
-            nn.Linear(in_dim, 64),
-            nn.Linear(64, 32),
-            nn.Linear(32, 2),
-            nn.Linear(2, 2),
-        )
+        # in_dim = model.model.classifier.in_features
+        # model.model.classifier = nn.Sequential(
+        #     nn.Dropout(p=0.3),
+        #     nn.Linear(in_dim, 64),
+        #     nn.Linear(64, 32),
+        #     nn.Linear(32, 2),
+        #     nn.Linear(2, 2),
+        # )
+        # model.to(device)
+        
+        #TransMIL
+        model = TransMIL(n_classes=2, in_dim = 1536)
         model.to(device)
+        model_name = 'TransMIL'
         
-        # for p in model.parameters():
-        #     p.requires_grad = False
-        # for p in model.model.classifier.parameters():
-        #     p.requires_grad = True
+        all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_TRAIN")
         
+        all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
         
+        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
+        
+        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        
+        # comb_data = test_data4 + test_data3
+        # all_final = evaluate(comb_data, model)
+        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX")
 
-        
 
- 
+    
         #loss_fn = nn.CrossEntropyLoss()
-        loss_fn = FocalLoss(alpha=0.8, gamma=3, reduction='mean')
-        loss_fn2 = FocalLoss_twologits(alpha=0.8, gamma=3, reduction='mean')
+        loss_fn = FocalLoss(alpha=-1, gamma=0, reduction='mean')
 
         optimizer = torch.optim.AdamW(
             filter(lambda p: p.requires_grad, model.parameters()),
-            lr=args.lr #3e-4,
-            #weight_decay=0.01
+            lr=args.lr, #3e-4,
+            weight_decay=0.01
         )
-        
-        
-
-
-        pos_data = [x for x in train_data if x[1] == 1]
-        neg_data = [x for x in train_data if x[1] == 0]
-        
-        selected1 = pos_data[0:10] 
-        selected0 = neg_data[0:10] 
-        selected_all =  selected1 + selected0
         
         
         train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
@@ -488,7 +524,7 @@ if __name__ == '__main__':
         # Set the network to training mode
         
         model.train()
-        for epoch in range(20):
+        for epoch in range(10):
             total_loss = 0
             for data_it, data in enumerate(train_loader):
                 
@@ -497,14 +533,20 @@ if __name__ == '__main__':
                 y = data[1][0].long().view(-1).to(device)
                 tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
                 
-                #Run model            
-                results, _ = model(
-                    x,
-                    loss_fn=loss_fn,
-                    label=y)
+                #Run model     
+                if model_name == 'TransMIL':
+                    results = model(data = x)
+                    #Compute loss
+                    loss = loss_fn(results['logits'], y)
+                else:
+                    results, _ = model(
+                        x,
+                        loss_fn=loss_fn,
+                        label=y)
+                    #Compute loss
+                    loss = results['loss']
 
-                #Compute loss
-                loss = results['loss']
+
                 total_loss += loss
                 avg_loss = total_loss/(data_it+1)     
                 
@@ -523,39 +565,134 @@ if __name__ == '__main__':
             print(" | ".join(log_items))
             
         
-        all_final = evaluate(train_data, model)
+        all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_TRAIN")
         
-        all_final = evaluate(test_data4, model)
+        all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
         
-        all_final = evaluate(test_data2, model)
+        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
         
-        all_final = evaluate(test_data3, model)
+        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
-        
-        comb_data = test_data4 + test_data3
-        all_final = evaluate(comb_data, model)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX")
         
 
 
         #train_x, train_y = get_slide_embedding(train_data, model)
         #test_x, test_y = get_slide_embedding(test_data, model)
         
-        #get classifer features and plot
-        all_feats_train, all_labels_train = extract_features(model, test_data, device, layer_idx=3)
-        proj = plot_embeddings(all_feats_train, all_labels_train, method="PCA")
+        # #get classifer features and plot
+        # all_feats_train, all_labels_train = extract_features(model, test_data, device, layer_idx=3)
+        # proj = plot_embeddings(all_feats_train, all_labels_train, method="PCA")
         
-        # Scatter plot
-        plt.figure(figsize=(6,6))
-        scatter = plt.scatter(proj[:,0], proj[:,1], c=all_labels_train, cmap="bwr", s=20, alpha=0.8)
-        plt.colorbar(scatter, label="Label")
-        plt.xlabel("X1")
-        plt.ylabel("X2")
-        plt.grid(True)
-        plt.show()
+        # # Scatter plot
+        # plt.figure(figsize=(6,6))
+        # scatter = plt.scatter(proj[:,0], proj[:,1], c=all_labels_train, cmap="bwr", s=20, alpha=0.8)
+        # plt.colorbar(scatter, label="Label")
+        # plt.xlabel("X1")
+        # plt.ylabel("X2")
+        # plt.grid(True)
+        # plt.show()
+        
+        ###Freeze the feature extraction part
+        if model_name == "Transfer_MIL":
+            for p in model.parameters():
+                p.requires_grad = False
+            for p in model.model.classifier.parameters():
+                p.requires_grad = True
+        elif model_name == "TransMIL":
+            for p in model.parameters():
+                p.requires_grad = False
+            for p in model._fc2.parameters():
+                p.requires_grad = True
+            
+        #doublec check
+        for name, param in model.named_parameters():
+            print(name, param.requires_grad)
+        
+    
+        #loss_fn = nn.CrossEntropyLoss()
+        loss_fn = FocalLoss(alpha=0.8, gamma=3, reduction='mean')
+
+        optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=args.lr #3e-4,
+            #weight_decay=0.01
+        )
+        
+        
+        pos_data = [x for x in train_data if x[1] == 1]
+        neg_data = [x for x in train_data if x[1] == 0]
+        
+        selected1 = pos_data[0:10] 
+        selected0 = neg_data[0:10] 
+        selected_all =  selected1 + selected0
+        
+        
+        train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
+
+
+        # Set the network to training mode
+        
+        model.train()
+        for epoch in range(10):
+            total_loss = 0
+            for data_it, data in enumerate(train_loader):
+                
+                #Get data
+                x = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+                y = data[1][0].long().view(-1).to(device)
+                tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
+                
+                #Run model     
+                if model_name == 'TransMIL':
+                    results = model(data = x)
+                    #Compute loss
+                    loss = loss_fn(results['logits'], y)
+                else:
+                    results, _ = model(
+                        x,
+                        loss_fn=loss_fn,
+                        label=y)
+                    #Compute loss
+                    loss = results['loss']
+
+                #Compute loss
+                total_loss += loss
+                avg_loss = total_loss/(data_it+1)     
+                
+                #Backpropagate error and update parameters 
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+               
+            
+            #Manual Logging
+            log_items = [
+                f"EPOCH: {epoch}",
+                f"lr: {optimizer.param_groups[0]['lr']:.6f}",
+                f"total_loss: {avg_loss.item():.4f}"
+            ]
+            print(" | ".join(log_items))
+            
+        
+        all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_TRAIN")
+        
+        all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
+        
+        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
+        
+        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        
+        comb_data = test_data4 + test_data3 + test_data2
+        comb_ids = test_sp_ids4 + test_sp_ids3 + test_sp_ids2
+        all_final = evaluate(comb_data, comb_ids, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX_NEP")
 
    
  

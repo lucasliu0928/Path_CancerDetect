@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=1, reduction='mean'):
+    def __init__(self, alpha=-1, gamma=0, reduction='mean'):
         r'''
         if alpha = -1, gamma = 0, then it is = CE loss
         '''
@@ -49,6 +49,7 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
+#this is equaliant to above
 class FocalLoss_twologits(nn.Module):
     def __init__(self, alpha=1, gamma=2, reduction='mean'):
         '''
@@ -97,9 +98,9 @@ class FocalLoss_twologits(nn.Module):
         
         
 
-logits = torch.tensor([[-3, 1.0]])
-log_probs = F.log_softmax(logits, dim=1)  # [B, 2]
-probs = torch.exp(log_probs)              # [B, 2]
+# logits = torch.tensor([[-3, 1.0]])
+# log_probs = F.log_softmax(logits, dim=1)  # [B, 2]
+# probs = torch.exp(log_probs)              # [B, 2]
 
-ce_loss = F.cross_entropy(logits, torch.tensor([1]), reduction="none")
-pt = torch.exp(-ce_loss)  # pt = softmax prob of the true class
+# ce_loss = F.cross_entropy(logits, torch.tensor([1]), reduction="none")
+# pt = torch.exp(-ce_loss)  # pt = softmax prob of the true class

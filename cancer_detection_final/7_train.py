@@ -24,11 +24,11 @@ from torch.utils.data import ConcatDataset
 
 from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
-from misc_utils import create_dir_if_not_exists, set_seed, get_feature_label_site
+from misc_utils import create_dir_if_not_exists, set_seed, str2bool, get_feature_label_site
 from plot_utils import plot_umap
 from Eval import output_pred_perf_with_logit_singletask
 from train_utils import FocalLoss,FocalLoss_logitadj
-from train_utils import str2bool, random_sample_tiles
+from train_utils import random_sample_tiles
 from data_loader import get_final_model_data_v2
 from data_loader import combine_cohort_data
 from data_loader import load_dataset_splits, merge_data_lists, ListDataset
@@ -61,9 +61,9 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='virchow2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath')
 parser.add_argument('--learning_method', default='acmil', type=str, help=': e.g., acmil, abmil')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR1', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--train_cohort', default= 'OPX', type=str, help='TCGA or OPX or OPX_TCGA or z_nostnorm_OPX_TCGA or union_STNandNSTN_OPX_TCGA or comb_STNandNSTN_OPX_TCGA')
-parser.add_argument('--out_folder', default= 'pred_out_090325', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_092125', type=str, help='out folder name')
 
 ############################################################################################################
 #Training Para 
