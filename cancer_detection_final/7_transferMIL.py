@@ -50,16 +50,58 @@ except ImportError:
 
 
 def count_num_tiles(indata, cohort_name):
+    n_tiles = [x['x'].shape[0] for x in indata]
+    ids = [x['sample_id'] for x in indata]
+    labels = [x['y'].squeeze().numpy() for x in indata]
     
-    n_tiles = [x[0].shape[0] for x in indata]
+    sample_df = pd.DataFrame({'SAMPLIE_ID':ids, 'N_TILES': n_tiles})
+    label_df = pd.DataFrame(labels, columns=[f"LABEL_{i}" for i in range(len(labels[0]))])
+    label_df.columns = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]
+    sample_df = pd.concat([sample_df.reset_index(drop=True),
+                           label_df.reset_index(drop=True)], axis=1)
+
     
     df = pd.DataFrame({'cohort_name': cohort_name,
                     'AVG_N_TILES': np.mean(n_tiles).round(),
+                    'Median_N_TILES': np.median(n_tiles).round(),
                   'MAX_N_TILES': max(n_tiles),
                   'MIN_N_TILES': min(n_tiles)}, index = [0])
     
-    return df
+    return df,sample_df
         
+
+def plot_n_tiles_by_labels(df, label_cols=None, value_col="N_TILES", agg="mean", save_path=None):
+    """
+    Plot grouped bar charts of N_TILES by binary label columns.
+    """
+    if label_cols is None:
+        label_cols = ["AR", "HR1", "HR2", "PTEN", "RB1", "TP53", "TMB", "MSI"]
+
+    grouped = {}
+    for col in label_cols:
+        if agg == "mean":
+            grouped[col] = df.groupby(col)[value_col].mean()
+        elif agg == "sum":
+            grouped[col] = df.groupby(col)[value_col].sum()
+        else:
+            raise ValueError("agg must be 'mean' or 'sum'")
+
+    grouped_df = pd.DataFrame(grouped)
+
+    ax = grouped_df.plot(kind="bar", figsize=(10, 6))
+    plt.title(f"{agg.capitalize()} {value_col} by Label Group")
+    plt.ylabel(f"{agg.capitalize()} {value_col}")
+    plt.xlabel("Label value (0 or 1)")
+    plt.xticks(rotation=0)
+    plt.legend(title="Label")
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"Plot saved to {save_path}")
+        plt.close()
+    else:
+        plt.show()
 
 def plot_embeddings(all_feats, all_labels, method="pca", **kwargs):
     method = method.lower()
@@ -272,11 +314,105 @@ def extract_features(model, dataloader, device, layer_idx=2):
 
     return all_feats, all_labels
 
+
+def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: int = None) -> tuple:
+    
+    
+    GRID = 32
+    rng = np.random.default_rng(seed)
+    
+   
+    # If fewer tiles than max_bag, just return them all
+    N = len(coords)
+    if N  <= max_bag:
+        chosen = np.arange(N, dtype=int)
+        return feats[chosen], coords[chosen], chosen
+    
+    # --- normal uniform sampling ---
+
+    mins, maxs = coords.min(0), coords.max(0)
+
+    norm   = (coords - mins) / (maxs - mins + 1e-8)
+
+    bins   = np.floor(norm * GRID).astype(np.int16)
+
+    keys   = bins[:, 0] * GRID+ bins[:, 1]
+
+    #order  = np.random.permutation(len(keys))
+    order  = rng.permutation(len(keys))  # use seeded RNG
+
+    chosen, seen = [], set()
+
+    for idx in order:
+
+        k = keys[idx]
+
+        if k not in seen:
+
+            seen.add(k); chosen.append(idx)
+
+            if len(chosen) == max_bag:
+
+                break
+
+    if len(chosen) < max_bag:        # pad if needed
+
+        rest = np.setdiff1d(np.arange(len(keys)), chosen, assume_unique=True)
+        
+        extra = np.random.choice(rest, max_bag-len(chosen), replace=False)
+
+        chosen = np.concatenate([chosen, extra])
+
+    chosen = np.asarray(chosen, dtype=int)
+
+    return feats[chosen], coords[chosen], chosen
+
+
+
+import ast
+
+def uniform_sample_all_samples(indata, incoords, max_bag = 100):
+    
+    new_data_list = []
+    for data_item, coord_item in zip(indata,incoords):            
+        
+        #get feature
+        feats = data_item[0] #(N_tiles, 1536)
+        label = data_item[1]
+        tfs  = data_item[2]
+        sl  = data_item[3]
+        
+        #get coordiantes
+        coords = coord_item
+
+        #uniform sampling
+        sampled_feats, sampled_coords, sampled_index = _uniform_sample(coords, feats, max_bag, seed = 1)
+        sampled_tf = tfs[sampled_index]
+        sampled_site_loc =sl[sampled_index]
+        
+    
+    
+        new_tuple = (sampled_feats,label, sampled_tf, sampled_site_loc)
+        new_data_list.append(new_tuple)
+        
+        
+        # # 3. Plot results
+        # plt.figure(figsize=(8, 8))
+        # plt.scatter(coords[:, 0], -coords[:, 1], alpha=0.3, label="All Tiles") #- for  flip Y
+        # plt.scatter(sampled_coords[:, 0], -sampled_coords[:, 1], color="red", label="Sampled Tiles") #- for  flip Y
+        # plt.legend()
+        # plt.title("Uniform Sampling with Grid Constraint")
+        # plt.xlabel("X")
+        # plt.ylabel("Y")
+        # plt.show()
+        
+    return new_data_list
+        
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Train")
-parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--tumor_frac', default= 0.0, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
@@ -309,9 +445,9 @@ if __name__ == '__main__':
     #Load
     ###################################
     cohorts = [
-        "z_nostnorm_OPX",
-        "z_nostnorm_TCGA_PRAD",
-        "z_nostnorm_Neptune",
+        #"z_nostnorm_OPX",
+        #"z_nostnorm_TCGA_PRAD",
+        #"z_nostnorm_Neptune",
         "OPX",
         "TCGA_PRAD",
         "Neptune"
@@ -334,12 +470,12 @@ if __name__ == '__main__':
         elapsed_time = time.time() - start_time
         print(f"Time taken for {cohort_name}: {elapsed_time/60:.2f} minutes")
     
-    opx_ol100_nst = data['z_nostnorm_OPX_ol100']
-    opx_ol0_nst = data['z_nostnorm_OPX_ol0']
-    tcga_ol100_nst = data['z_nostnorm_TCGA_PRAD_ol100']
-    tcga_ol0_nst = data['z_nostnorm_TCGA_PRAD_ol0']
-    nep_ol100_nst = data['z_nostnorm_Neptune_ol100']
-    nep_ol0_nst = data['z_nostnorm_Neptune_ol0']
+    # opx_ol100_nst = data['z_nostnorm_OPX_ol100']
+    # opx_ol0_nst = data['z_nostnorm_OPX_ol0']
+    # tcga_ol100_nst = data['z_nostnorm_TCGA_PRAD_ol100']
+    # tcga_ol0_nst = data['z_nostnorm_TCGA_PRAD_ol0']
+    # nep_ol100_nst = data['z_nostnorm_Neptune_ol100']
+    # nep_ol0_nst = data['z_nostnorm_Neptune_ol0']
     
     opx_ol100 = data['OPX_ol100']
     opx_ol0 = data['OPX_ol0']
@@ -348,45 +484,104 @@ if __name__ == '__main__':
     nep_ol100 = data['Neptune_ol100']
     nep_ol0= data['Neptune_ol0']
     
-
-    opx_union_ol100  = merge_data_lists(opx_ol100_nst, opx_ol100, merge_type = 'union')
-    opx_union_ol0    = merge_data_lists(opx_ol0_nst, opx_ol0, merge_type = 'union')
-    tcga_union_ol100 = merge_data_lists(tcga_ol100_nst, tcga_ol100, merge_type = 'union')
-    tcga_union_ol0   = merge_data_lists(tcga_ol0_nst, tcga_ol0, merge_type = 'union')
-    nep_union_ol100  = merge_data_lists(nep_ol100_nst, nep_ol100, merge_type = 'union')
-    nep_union_ol0    = merge_data_lists(nep_ol0_nst, nep_ol0, merge_type = 'union')
-
-    #opx_union_ol100 = ListDataset(opx_union_ol100)
+        
+    ##########################################################################################
+    #Count tiles
+    ##########################################################################################
+    # outdir_0 = os.path.join(proj_dir, "intermediate_data","8_discrip_stats","tile_counts")
+    # #Count AVG , MAX, MIN number of tiles
+    # nep_count_df, nep_sample_count_df = count_num_tiles(nep_ol0,'Nep')
+    # tcga_count_df, tcga_sample_count_df = count_num_tiles(tcga_ol0,'TCGA')
+    # opx_count_df, opx_sample_count_df = count_num_tiles(opx_ol0,'OPX')
+    # all_count_df = pd.concat([opx_count_df, tcga_count_df, nep_count_df])
+    # all_count_df.to_csv(os.path.join(outdir_0,"tile_n_counts_OL0.csv"))
+    # nep_sample_count_df.to_csv(os.path.join(outdir_0,"tile_n_counts_OL0_nep.csv"))
+    # tcga_sample_count_df.to_csv(os.path.join(outdir_0,"tile_n_counts_OL0_tcga.csv"))
+    # opx_sample_count_df.to_csv(os.path.join(outdir_0,"tile_n_counts_OL0_opx.csv"))
     
+    # # Plot bar charts
+    # plot_n_tiles_by_labels(opx_sample_count_df, 
+    #                        label_cols=None, 
+    #                        value_col="N_TILES",
+    #                        agg="mean", 
+    #                        save_path=os.path.join(outdir_0, "tile_bar_OL0_OPX.png"))
+    # plot_n_tiles_by_labels(nep_sample_count_df, 
+    #                        label_cols=None, 
+    #                        value_col="N_TILES",
+    #                        agg="mean", 
+    #                        save_path=os.path.join(outdir_0, "tile_bar_OL0_NEP.png"))
+    # plot_n_tiles_by_labels(tcga_sample_count_df, 
+    #                        label_cols=None, 
+    #                        value_col="N_TILES",
+    #                        agg="mean", 
+    #                        save_path=os.path.join(outdir_0, "tile_bar_OL0_TCGA.png"))
 
+    
+    # #Count AVG , MAX, MIN number of tiles
+    # nep_count_df, nep_sample_count_df = count_num_tiles(nep_ol100,'Nep')
+    # tcga_count_df, tcga_sample_count_df = count_num_tiles(tcga_ol100,'TCGA')
+    # opx_count_df, opx_sample_count_df = count_num_tiles(opx_ol100,'OPX')
+    # all_count_df = pd.concat([opx_count_df, tcga_count_df, nep_count_df])
+    # all_count_df.to_csv(os.path.join(outdir_0, "tile_n_counts_OL100.csv"))
+    # nep_sample_count_df.to_csv(os.path.join(outdir_0, "tile_n_counts_OL100_nep.csv"))
+    # tcga_sample_count_df.to_csv(os.path.join(outdir_0, "tile_n_counts_OL100_tcga.csv"))
+    # opx_sample_count_df.to_csv(os.path.join(outdir_0, "tile_n_counts_OL100_opx.csv"))
+    # plot_n_tiles_by_labels(opx_sample_count_df, 
+    #                        label_cols=None, 
+    #                        value_col="N_TILES",
+    #                        agg="mean", 
+    #                        save_path=os.path.join(outdir_0, "tile_bar_OL100_OPX.png"))
+    # plot_n_tiles_by_labels(nep_sample_count_df, 
+    #                        label_cols=None, 
+    #                        value_col="N_TILES",
+    #                        agg="mean", 
+    #                        save_path=os.path.join(outdir_0, "tile_bar_OL100_NEP.png"))
+    # plot_n_tiles_by_labels(tcga_sample_count_df, 
+    #                        label_cols=None, 
+    #                        value_col="N_TILES",
+    #                        agg="mean", 
+    #                        save_path=os.path.join(outdir_0, "tile_bar_OL100_TCGA.png"))
+    
+    
+    
+    ##########################################################################################
+    #Merge st norm and no st-norm
+    ##########################################################################################
 
+    # opx_union_ol100  = merge_data_lists(opx_ol100_nst, opx_ol100, merge_type = 'union')
+    # opx_union_ol0    = merge_data_lists(opx_ol0_nst, opx_ol0, merge_type = 'union')
+    # tcga_union_ol100 = merge_data_lists(tcga_ol100_nst, tcga_ol100, merge_type = 'union')
+    # tcga_union_ol0   = merge_data_lists(tcga_ol0_nst, tcga_ol0, merge_type = 'union')
+    # nep_union_ol100  = merge_data_lists(nep_ol100_nst, nep_ol100, merge_type = 'union')
+    # nep_union_ol0    = merge_data_lists(nep_ol0_nst, nep_ol0, merge_type = 'union')
+    
     #Combine
-    comb_ol100 = opx_union_ol100 + tcga_union_ol100 
-    comb_ol0   = opx_union_ol0 + tcga_union_ol0 
+    #comb_ol100 = opx_union_ol100 + tcga_union_ol100 
+    comb_ol0   = opx_ol0 + tcga_ol0 
 
     for f in fold_list:
         f = 0
-        args.mutation = 'MSI'
+        args.mutation = 'HR2'
         ####################################
         #Load data
         ####################################    
         #get train test and valid
-        opx_split    =  load_dataset_splits(opx_union_ol0, opx_union_ol0, f, args.mutation)
-        tcga_split   =  load_dataset_splits(tcga_union_ol0, tcga_union_ol0, f, args.mutation)
-        nep_split    =  load_dataset_splits(nep_union_ol0, nep_union_ol0, f, args.mutation)
-        comb_splits  =  load_dataset_splits(comb_ol0, comb_ol0, f, args.mutation)
+        opx_split    =  load_dataset_splits(opx_ol0, opx_ol0, f, args.mutation, concat_tf = False)
+        tcga_split   =  load_dataset_splits(tcga_ol0, tcga_ol0, f, args.mutation, concat_tf = False)
+        nep_split    =  load_dataset_splits(nep_ol0, nep_ol0, f, args.mutation, concat_tf = False)
+        comb_splits  =  load_dataset_splits(comb_ol0, comb_ol0, f, args.mutation, concat_tf = False)
  
 
-        train_data, train_sp_ids, train_pt_ids, train_cohorts  = opx_split['train']
-        test_data, test_sp_ids, test_pt_ids, test_cohorts = opx_split['test']
-        val_data, val_sp_ids, val_pt_ids, val_cohorts = opx_split['val']
+        train_data, train_sp_ids, train_pt_ids, train_cohorts, train_coords  = comb_splits['train']
+        test_data, test_sp_ids, test_pt_ids, test_cohorts, _ = comb_splits['test']
+        val_data, val_sp_ids, val_pt_ids, val_cohorts,_ = comb_splits['val']
         
 
         
         #Nep test
-        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1 = nep_split['test']
-        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2 = nep_split['train']
-        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3 = nep_split['val']
+        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1, _ = nep_split['test']
+        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2, _ = nep_split['train']
+        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3, _ = nep_split['val']
         
         test_data2 = test_data_nep1 + test_data_nep2 + test_data_nep3
         test_sp_ids2 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
@@ -395,9 +590,9 @@ if __name__ == '__main__':
         
         
         #TCGA test
-        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1 = tcga_split['test']
-        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2 = tcga_split['train']
-        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3 = tcga_split['val']
+        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1, _ = tcga_split['test']
+        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2, _ = tcga_split['train']
+        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3, _ = tcga_split['val']
         
         test_data3 = test_data_nep1 + test_data_nep2 + test_data_nep3
         test_sp_ids3 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
@@ -405,22 +600,17 @@ if __name__ == '__main__':
         test_cohorts3 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
         
         #OPX test
-        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4 = opx_split['test']
+        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4,_ = opx_split['test']
+        
+        #TCGA test
+        test_data5, test_sp_ids5, test_pt_ids5, test_cohorts5,_ = tcga_split['test']
+
+
+        #samplling, sample could has less than 400, if oroignal tile is <400
+        train_data = uniform_sample_all_samples(train_data, train_coords, max_bag = 100)
 
         
-        
-        #Count AVG , MAX, MIN number of tiles
-        nep_count_df = count_num_tiles(test_data2,'Nep')
-        tcga_count_df = count_num_tiles(test_data3,'TCGA')
-        opx_count_df = count_num_tiles(test_data4,'OPX')
-        all_count_df = pd.concat([opx_count_df, tcga_count_df, nep_count_df])
 
-
-
-
-
-        
-        
         #UMAP
         # all_feature_train, all_labels_train, site_list_train = get_feature_label_site(train_data)
         # all_feature_test, all_labels_test, site_list_test = get_feature_label_site(test_data)
@@ -473,40 +663,41 @@ if __name__ == '__main__':
         #ABMILModel(in_dim=1024, num_classes=2, config = None)
 
         # construct the model from src and load the state dict from HuggingFace
-        model = create_model('abmil.base.uni_v2.pc108-24k', num_classes=2)
-        model.to(device)
-        # in_dim = model.model.classifier.in_features
-        # model.model.classifier = nn.Sequential(
-        #     nn.Dropout(p=0.3),
-        #     nn.Linear(in_dim, 64),
-        #     nn.Linear(64, 32),
-        #     nn.Linear(32, 2),
-        #     nn.Linear(2, 2),
-        # )
-        # model.to(device)
-        
-        #TransMIL
-        model = TransMIL(n_classes=2, in_dim = 1536)
-        model.to(device)
-        model_name = 'TransMIL'
-        
-        all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_TRAIN")
-        
-        all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
-        
-        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
-        
-        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
-        
-        # comb_data = test_data4 + test_data3
-        # all_final = evaluate(comb_data, model)
-        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX")
+        model_name = "Transfer_MIL"
+        if model_name == "Transfer_MIL":
+            model = create_model('abmil.base.uni_v2.pc108-24k', num_classes=2)
+            model.to(device)
+            in_dim = model.model.classifier.in_features
+            model.model.classifier = nn.Sequential(
+                nn.Dropout(p=0.3),
+                nn.Linear(in_dim, 64),
+                nn.Linear(64, 32),
+                nn.Linear(32, 2),
+                nn.Linear(2, 2),
+            )
+            model.to(device)
+        elif model_name == "TransMIL":
+            #TransMIL
+            model = TransMIL(n_classes=2, in_dim = N_FEATURE)
+            model.to(device)
+            model_name = 'TransMIL'
 
-
+        
+        # all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
+        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
+        
+        # all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
+        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
+        
+        # all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
+        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
+        
+        # all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
+        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
+        
+        # all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
+        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        
     
         #loss_fn = nn.CrossEntropyLoss()
         loss_fn = FocalLoss(alpha=-1, gamma=0, reduction='mean')
@@ -514,7 +705,7 @@ if __name__ == '__main__':
         optimizer = torch.optim.AdamW(
             filter(lambda p: p.requires_grad, model.parameters()),
             lr=args.lr, #3e-4,
-            weight_decay=0.01
+            weight_decay=0.02
         )
         
         
@@ -524,7 +715,7 @@ if __name__ == '__main__':
         # Set the network to training mode
         
         model.train()
-        for epoch in range(10):
+        for epoch in range(5):
             total_loss = 0
             for data_it, data in enumerate(train_loader):
                 
@@ -566,16 +757,21 @@ if __name__ == '__main__':
             
         
         all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_TRAIN")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
         
         all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
         
         all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
+                
+        all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        
         
         all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
+
         
 
 
@@ -613,7 +809,7 @@ if __name__ == '__main__':
         
     
         #loss_fn = nn.CrossEntropyLoss()
-        loss_fn = FocalLoss(alpha=0.8, gamma=3, reduction='mean')
+        loss_fn = FocalLoss(alpha=0.8, gamma=2, reduction='mean')
 
         optimizer = torch.optim.AdamW(
             filter(lambda p: p.requires_grad, model.parameters()),
@@ -625,12 +821,12 @@ if __name__ == '__main__':
         pos_data = [x for x in train_data if x[1] == 1]
         neg_data = [x for x in train_data if x[1] == 0]
         
-        selected1 = pos_data[0:10] 
-        selected0 = neg_data[0:10] 
+        selected1 = pos_data[0:len(pos_data)] 
+        selected0 = neg_data[0:len(pos_data)] 
         selected_all =  selected1 + selected0
         
         
-        train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
+        train_loader = DataLoader(dataset=selected_all,batch_size=1, shuffle=False)
 
 
         # Set the network to training mode
@@ -678,7 +874,7 @@ if __name__ == '__main__':
             
         
         all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_TRAIN")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
         
         all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
@@ -686,11 +882,15 @@ if __name__ == '__main__':
         all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
         
-        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
+        all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
         
-        comb_data = test_data4 + test_data3 + test_data2
-        comb_ids = test_sp_ids4 + test_sp_ids3 + test_sp_ids2
+        
+        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
+        
+        comb_data = test_data4 + test_data5 + test_data2
+        comb_ids = test_sp_ids4 + test_sp_ids5 + test_sp_ids2
         all_final = evaluate(comb_data, comb_ids, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX_NEP")
 

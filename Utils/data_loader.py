@@ -1291,8 +1291,9 @@ def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUM
     
     return all_comb_df, all_comb
 
-
-def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', selected_label = 'HR1'):
+import ast
+import numpy as np
+def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', selected_label = 'HR1', concat_tf  = False):
     
     #Get label
     all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]
@@ -1301,36 +1302,43 @@ def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', sel
     #subset
     subsets = [item for item in datalist if item[fold_name] == data_type]
     
-    data_tensor = [(item['x'], 
-                    item['y'][:,[label_idx]],
-                    item['tumor_fraction'],
-                    item['site_location']) for item in subsets]
+    if concat_tf == False:
+        data_tensor = [(item['x'], 
+                        item['y'][:,[label_idx]],
+                        item['tumor_fraction'],
+                        item['site_location']) for item in subsets]
+    else:
+        data_tensor = [(torch.concat([item['x'], item['tumor_fraction'].unsqueeze(1)], dim = 1), 
+                        item['y'][:,[label_idx]],
+                        item['tumor_fraction'],
+                        item['site_location']) for item in subsets]
+        
 
     sample_ids      = [item['sample_id'] for item in subsets]
     patient_ids     = [item['patient_id'] for item in subsets]
     corhor_names     = [re.split(r"[-_]", item['patient_id'])[0] for item in subsets]
     
+    coords = [np.array(item['tile_info']['TILE_XY_INDEXES'].apply(ast.literal_eval).tolist()) for item in subsets]
     
-    
-    return data_tensor, sample_ids, patient_ids, corhor_names
+    return data_tensor, sample_ids, patient_ids, corhor_names, coords
 
 
-def load_dataset_splits(ol100, ol0, fold, label):
+def load_dataset_splits(ol100, ol0, fold, label, concat_tf = False):
     """Load train, validation, and test splits for a dataset."""
-    train, train_sp_ids, train_pt_ids, train_cohorts = get_model_ready_data(
-        ol100, f'fold{fold}', 'TRAIN', selected_label=label
+    train, train_sp_ids, train_pt_ids, train_cohorts, train_coords = get_model_ready_data(
+        ol100, f'fold{fold}', 'TRAIN', selected_label=label, concat_tf = concat_tf
     )
-    val, val_sp_ids, val_pt_ids, val_cohorts = get_model_ready_data(
-        ol100, f'fold{fold}', 'VALID', selected_label=label
+    val, val_sp_ids, val_pt_ids, val_cohorts, val_coords = get_model_ready_data(
+        ol100, f'fold{fold}', 'VALID', selected_label=label, concat_tf = concat_tf
     )
-    test, test_sp_ids, test_pt_ids, test_cohorts = get_model_ready_data(
-        ol0, f'fold{fold}', 'TEST', selected_label=label
+    test, test_sp_ids, test_pt_ids, test_cohorts, test_coords = get_model_ready_data(
+        ol0, f'fold{fold}', 'TEST', selected_label=label, concat_tf = concat_tf
     )
     
     return {
-        "train": (train, train_sp_ids, train_pt_ids, train_cohorts),
-        "val":   (val, val_sp_ids, val_pt_ids, val_cohorts),
-        "test":  (test, test_sp_ids, test_pt_ids, test_cohorts),
+        "train": (train, train_sp_ids, train_pt_ids, train_cohorts, train_coords),
+        "val":   (val, val_sp_ids, val_pt_ids, val_cohorts, val_coords),
+        "test":  (test, test_sp_ids, test_pt_ids, test_cohorts, test_coords),
     }
 
 
