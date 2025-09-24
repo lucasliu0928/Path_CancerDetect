@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, '../Utils/')
 from misc_utils import create_dir_if_not_exists, set_seed
 from Eval import output_pred_perf_with_logit_singletask
-from train_utils import FocalLoss,FocalLoss_logitadj
+from Loss import FocalLoss,FocalLoss_logitadj
 from train_utils import str2bool, random_sample_tiles
 from train_utils import get_final_model_data_v2
 from data_loader import combine_cohort_data

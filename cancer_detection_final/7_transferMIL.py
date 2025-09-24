@@ -21,12 +21,14 @@ from sklearn.metrics import classification_report
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import StepLR
 
 sys.path.insert(0, '../Utils/')
 from data_loader import merge_data_lists, load_dataset_splits
 from plot_utils import plot_umap
-from Loss import FocalLoss
+from Loss import FocalLoss, compute_logit_adjustment
 from TransMIL import TransMIL
+from misc_utils import str2bool
  
 #FOR MIL-Lab
 sys.path.insert(0, os.path.normpath(os.path.join(os.getcwd(), '..', '..', 'other_model_code','MIL-Lab',"src")))
@@ -169,73 +171,6 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     
     return perf_tb
 
-def evaluate(test_data, test_ids, model, model_name = 'TransMIL'):
-    """
-    Runs inference over a (indexable) dataset of (features, label) pairs.
-    Returns a DataFrame with logits, probabilities, true labels, and a predicted class.
-    Assumes binary classification when creating Pred_Class (threshold=0.5 on class 1).
-    """
-    model.eval()
-    device = next(model.parameters()).device
-    loss_fn = nn.CrossEntropyLoss()
-
-    logits_list = []
-    labels_list = []
-    with torch.no_grad():
-        for i in range(len(test_data)):
-            x, y, tf, sl = test_data[i]        
-            x = x.unsqueeze(0).to(device)      # add batch dim
-            y = y.long().view(-1).to(device)
-            
-            if model_name == "TransMIL":
-                
-                results = model(data = x)
-            else:
-                results, _ = model(
-                    x,
-                    loss_fn=loss_fn,
-                    label=y,
-                    return_attention=True,
-                    return_slide_feats=True,
-                )
-
-            # results["logits"] expected shape: (1, num_classes)
-            logits = results["logits"].squeeze(0).detach().cpu()  # -> (num_classes,)
-            logits_list.append(logits)
-            labels_list.append(int(y.detach().cpu()))
-
-    # Stack logits once; derive probabilities from them
-    logits_tensor = torch.stack(logits_list, dim=0)               # (N, C)
-    probs_tensor  = torch.softmax(logits_tensor, dim=1)           # (N, C)
-
-    # Build DataFrames with clear column names
-    num_classes = logits_tensor.size(1)
-    logit_cols = [f"logit_{i}" for i in range(num_classes)]
-    prob_cols  = [f"prob_{i}"  for i in range(num_classes)]
-
-    df_logits = pd.DataFrame(logits_tensor.numpy(), columns=logit_cols)
-    df_probs  = pd.DataFrame(probs_tensor.numpy(),  columns=prob_cols)
-
-    df = pd.concat([df_logits, df_probs], axis=1)
-    df["True_y"] = labels_list
-    df['SAMPLE_ID'] = test_ids
-
-    # Binary head: predict class-1 using 0.5 threshold
-    if num_classes >= 2:
-        df["Pred_Class"] = (df["prob_1"] > 0.5).astype(int)
-    else:
-        # Fallback: argmax over available classes
-        df["Pred_Class"] = probs_tensor.argmax(dim=1).numpy()
-        
-        
-    #reorder
-    df = df[['SAMPLE_ID','True_y','Pred_Class','prob_0', 'prob_1', 'logit_0', 'logit_1']]
-
-    return df
-
-
-
-
         
 def get_slide_embedding(indata, net):
     net.eval()
@@ -315,10 +250,8 @@ def extract_features(model, dataloader, device, layer_idx=2):
     return all_feats, all_labels
 
 
-def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: int = None) -> tuple:
+def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: int = None, grid: int = 32) -> tuple:
     
-    
-    GRID = 32
     rng = np.random.default_rng(seed)
     
    
@@ -334,9 +267,9 @@ def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: i
 
     norm   = (coords - mins) / (maxs - mins + 1e-8)
 
-    bins   = np.floor(norm * GRID).astype(np.int16)
+    bins   = np.floor(norm * grid).astype(np.int16)
 
-    keys   = bins[:, 0] * GRID+ bins[:, 1]
+    keys   = bins[:, 0] * grid+ bins[:, 1]
 
     #order  = np.random.permutation(len(keys))
     order  = rng.permutation(len(keys))  # use seeded RNG
@@ -368,10 +301,118 @@ def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: i
     return feats[chosen], coords[chosen], chosen
 
 
+import numpy as np
+
+def _uniform_sample_with_cancer_prob(
+    coords: np.ndarray,
+    feats: np.ndarray,
+    cancer_prob: np.ndarray,
+    max_bag: int,
+    seed: int = None,
+    grid: int = 32,
+    strength: float = 1.0,
+    blend_uniform: float = 0.05,
+) -> tuple:
+    """
+    Weighted spatial sampling:
+      1) build GRID bins to encourage spatial diversity (<=1 pick/bin in the first pass)
+      2) iterate tiles in a *probability-weighted* random order (higher prob first on average)
+      3) pad remaining slots (if any) with weighted picks from the rest
+
+    Args:
+        coords: (N, 2) or (N, D) integer/float tile coordinates.
+        feats:  (N, F) features aligned with coords.
+        cancer_prob: (N,) or (N,1) per-tile probabilities in [0,1].
+        max_bag: target number of tiles to sample.
+        seed: RNG seed for reproducibility.
+        grid: grid resolution used to enforce spatial diversity.
+        strength: exponent on probabilities; >1 sharpens (more aggressive toward high prob),
+                  <1 flattens. =0 becomes uniform (after blending).
+        blend_uniform: small epsilon to ensure nonzero mass and keep some exploration.
+
+    Returns:
+        feats[chosen], coords[chosen], chosen_indices (np.int64)
+    """
+    rng = np.random.default_rng(seed)
+
+    N = len(coords)
+    if N == 0:
+        return feats[:0], coords[:0], np.asarray([], dtype=np.int64)
+
+    if N <= max_bag:
+        chosen = np.arange(N, dtype=np.int64)
+        return feats[chosen], coords[chosen], chosen
+
+    # --- prep probabilities ---
+    p = np.asarray(cancer_prob).reshape(-1)
+    if p.shape[0] != N:
+        raise ValueError(f"cancer_prob length {p.shape[0]} != N={N}")
+
+    # sanitize: clip, replace NaNs, power 'strength', and blend with uniform so no zeros
+    p = np.nan_to_num(p, nan=0.0)
+    p = np.clip(p, 0.0, None)
+    if strength != 1.0:
+        # if all zeros, p**strength still zeros; blending below handles this.
+        p = np.power(p, max(strength, 0.0))
+    if not np.isfinite(p).all() or p.sum() == 0:
+        # fallback to uniform
+        p = np.ones_like(p, dtype=float)
+    # blend with uniform mass
+    if blend_uniform > 0:
+        u = np.full_like(p, 1.0 / N)
+        p = (1.0 - blend_uniform) * p + blend_uniform * u
+    # normalize
+    p = p / p.sum()
+
+    # --- grid binning (same as your function, parametric grid) ---
+    mins, maxs = coords.min(0), coords.max(0)
+    norm = (coords - mins) / (maxs - mins + 1e-8)
+    bins = np.floor(norm * grid).astype(np.int16)
+    # allow coords with >2 dims: use first two for keys
+    b0 = bins[:, 0]
+    b1 = bins[:, 1] if bins.shape[1] > 1 else np.zeros_like(b0)
+    keys = (b0 * grid + b1).astype(np.int32)
+
+    # --- probability-weighted permutation without replacement ---
+    # numpy supports p with replace=False (interpreted as successive draws proportional to p)
+    order = rng.choice(N, size=N, replace=False, p=p)
+
+    # --- first pass: one per bin, in weighted order ---
+    chosen = []
+    seen = set()
+    for idx in order:
+        k = int(keys[idx])
+        if k not in seen:
+            seen.add(k)
+            chosen.append(idx)
+            if len(chosen) == max_bag:
+                break
+
+    # --- pad if needed (still weighted, from the rest) ---
+    if len(chosen) < max_bag:
+        chosen = np.asarray(chosen, dtype=np.int64)
+        mask = np.ones(N, dtype=bool)
+        mask[chosen] = False
+        rest_idx = np.nonzero(mask)[0]
+        if rest_idx.size > 0:
+            # renormalize probabilities over the remaining pool
+            p_rest = p[rest_idx]
+            p_rest = p_rest / p_rest.sum()
+            extra = rng.choice(rest_idx, size=(max_bag - len(chosen)), replace=False, p=p_rest)
+            chosen = np.concatenate([chosen, extra.astype(np.int64)], axis=0)
+        else:
+            # should be rare; just return what we have
+            chosen = chosen.astype(np.int64)
+
+    # stable dtype and order (optional shuffle to avoid deterministic bin sequence)
+    # chosen = rng.permutation(chosen)  # uncomment if you want final order shuffled
+    return feats[chosen], coords[chosen], chosen
+
+
 
 import ast
 
-def uniform_sample_all_samples(indata, incoords, max_bag = 100):
+def uniform_sample_all_samples(indata, incoords, max_bag = 100, grid = 32, sample_by_tf = True, plot = False):
     
     new_data_list = []
     for data_item, coord_item in zip(indata,incoords):            
@@ -381,33 +422,169 @@ def uniform_sample_all_samples(indata, incoords, max_bag = 100):
         label = data_item[1]
         tfs  = data_item[2]
         sl  = data_item[3]
-        
         #get coordiantes
         coords = coord_item
 
         #uniform sampling
-        sampled_feats, sampled_coords, sampled_index = _uniform_sample(coords, feats, max_bag, seed = 1)
+        if sample_by_tf == False:
+            sampled_feats, sampled_coords, sampled_index = _uniform_sample(coords, feats, max_bag, grid = grid, seed = 1)
+        else:
+            sampled_feats, sampled_coords, sampled_index = _uniform_sample_with_cancer_prob(coords, feats, tfs, max_bag, 
+                                                                                            seed = 1, 
+                                                                                            grid = grid, 
+                                                                                            strength = 1.0)
+
+        if plot:
+            # 3. Plot results
+            plt.figure(figsize=(8, 8))
+            plt.scatter(coords[:, 0], -coords[:, 1], alpha=0.3, label="All Tiles") #- for  flip Y
+            plt.scatter(sampled_coords[:, 0], -sampled_coords[:, 1], color="red", label="Sampled Tiles") #- for  flip Y
+            plt.legend()
+            plt.title("Uniform Sampling with Grid Constraint")
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            plt.show()
+        
+        
         sampled_tf = tfs[sampled_index]
         sampled_site_loc =sl[sampled_index]
-        
-    
-    
         new_tuple = (sampled_feats,label, sampled_tf, sampled_site_loc)
         new_data_list.append(new_tuple)
         
         
-        # # 3. Plot results
-        # plt.figure(figsize=(8, 8))
-        # plt.scatter(coords[:, 0], -coords[:, 1], alpha=0.3, label="All Tiles") #- for  flip Y
-        # plt.scatter(sampled_coords[:, 0], -sampled_coords[:, 1], color="red", label="Sampled Tiles") #- for  flip Y
-        # plt.legend()
-        # plt.title("Uniform Sampling with Grid Constraint")
-        # plt.xlabel("X")
-        # plt.ylabel("Y")
-        # plt.show()
-        
     return new_data_list
+
+    
+def train(train_loader, net, criterion, optimizer, model_name = 'Transfer_MIL' ,weight_decay = 1e-4, logit_adj_train = False):
+    """ Run one train epoch """
+    
+    total_loss = 0
+    model.train()
+    for data_it, data in enumerate(train_loader):
         
+        #Get data
+        x = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
+        y = data[1][0].long().view(-1).to(device)
+        tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
+                        
+        #Run model     
+        if model_name == 'TransMIL':
+            results = net(data = x)
+        elif model_name == "Transfer_MIL":
+            results, _ = net(x)
+        
+        #Get output   
+        output = results['logits']
+        
+        #if logit adjustment 
+        if logit_adj_train:
+            output = output + logit_adjustments.to(device)
+        
+        #Get loss
+        loss = criterion(output, y)
+        
+        #L2 reg
+        loss_r = 0
+        for parameter in net.parameters():
+            loss_r += torch.sum(parameter ** 2)
+        
+        loss = loss +  weight_decay * loss_r
+
+        total_loss += loss #Store total loss 
+        
+        optimizer.zero_grad() #zero grad, avoid grad acuum
+        loss.backward()  #compute new gradients
+        optimizer.step() #update paraters
+        
+    
+    avg_loss = total_loss/(len(train_loader)) 
+    
+    return avg_loss, net
+
+
+def validate(test_data, test_ids, net, criterion, logit_adjustments, model_name = 'Transfer_MIL', logit_adj_train = False):
+    """ Run one train epoch """
+    
+   
+    model.eval()
+    with torch.no_grad():
+        total_loss = 0
+        logits_list = []
+        labels_list = []
+        adj_logit_list = []
+        for i in range(len(test_data)):
+            x, y, tf, sl = test_data[i]        
+            x = x.unsqueeze(0).to(device)      # add batch dim
+            y = y.long().view(-1).to(device)
+                            
+            #Run model     
+            if model_name == 'TransMIL':
+                results = net(data = x)
+            elif model_name == "Transfer_MIL":
+                results, _ = net(x)
+            
+            #Get output   
+            output = results['logits']
+            logits_list.append(output.squeeze(0).detach().cpu()) #Get logit before posthoc adj
+            loss = criterion(output, y) #get loss before post-hoc logit adust)
+            
+            #get adjust output post hoc
+            adj_output = output - logit_adjustments.to(device) #get logit after posthoc adj
+            adj_logit_list.append(adj_output.squeeze(0).detach().cpu()) #Get logit before posthoc adj
+                        
+            #if logit adjustment (same way to compute loss)
+            if logit_adj_train:
+                loss = criterion(output + logit_adjustments.to(device), y)
+                
+            total_loss += loss #Store total loss 
+            
+            #get label
+            labels_list.append(int(y.detach().cpu()))
+        
+        avg_loss = total_loss/(len(train_loader)) 
+        
+    
+    df = get_predict_df(logits_list, labels_list, test_ids, thres = 0.5)
+    df_adj = get_predict_df(adj_logit_list, labels_list, test_ids, thres = 0.5)
+    
+    return avg_loss, df, df_adj
+
+
+def get_predict_df(logits_list, labels_list, sample_ids, thres = 0.5):
+    
+    
+    #Stack logits once; derive probabilities from them
+    logits_tensor = torch.stack(logits_list, dim=0)               # (N, C)
+    probs_tensor  = torch.softmax(logits_tensor, dim=1)           # (N, C)
+    
+    # Build DataFrames with clear column names
+    num_classes = logits_tensor.size(1)
+    logit_cols = [f"logit_{i}" for i in range(num_classes)]
+    prob_cols  = [f"prob_{i}"  for i in range(num_classes)]
+    
+    df_logits = pd.DataFrame(logits_tensor.numpy(), columns=logit_cols)
+    df_probs  = pd.DataFrame(probs_tensor.numpy(),  columns=prob_cols)
+    
+    df = pd.concat([df_logits, df_probs], axis=1)
+    df["True_y"] = labels_list
+    df['SAMPLE_ID'] = sample_ids
+    
+    # Binary head: predict class-1 using 0.5 threshold
+    if num_classes >= 2:
+        df["Pred_Class"] = (df["prob_1"] > thres).astype(int)
+    else:
+        # Fallback: argmax over available classes
+        df["Pred_Class"] = probs_tensor.argmax(dim=1).numpy()
+        
+        
+    #reorder
+    df = df[['SAMPLE_ID','True_y','Pred_Class','prob_0', 'prob_1', 'logit_0', 'logit_1']]
+    
+    return df
+
+
+
+
 ############################################################################################################
 #Parser
 ############################################################################################################
@@ -416,6 +593,7 @@ parser.add_argument('--tumor_frac', default= 0.0, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--logit_adj_train', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--out_folder', default= 'pred_out_091225', type=str, help='out folder name')
 
 
@@ -556,7 +734,7 @@ if __name__ == '__main__':
     # nep_union_ol0    = merge_data_lists(nep_ol0_nst, nep_ol0, merge_type = 'union')
     
     #Combine
-    #comb_ol100 = opx_union_ol100 + tcga_union_ol100 
+    comb_ol100 = opx_ol100 + tcga_ol100 
     comb_ol0   = opx_ol0 + tcga_ol0 
 
     for f in fold_list:
@@ -572,13 +750,24 @@ if __name__ == '__main__':
         comb_splits  =  load_dataset_splits(comb_ol0, comb_ol0, f, args.mutation, concat_tf = False)
  
 
-        train_data, train_sp_ids, train_pt_ids, train_cohorts, train_coords  = comb_splits['train']
-        test_data, test_sp_ids, test_pt_ids, test_cohorts, _ = comb_splits['test']
-        val_data, val_sp_ids, val_pt_ids, val_cohorts,_ = comb_splits['val']
+        train_data, train_sp_ids, train_pt_ids, train_cohorts, train_coords  = opx_split['train']
+        test_data, test_sp_ids, test_pt_ids, test_cohorts, _ = opx_split['test']
+        val_data, val_sp_ids, val_pt_ids, val_cohorts,_ = opx_split['val']
+        
+        
+        #OPX all
+        test_data_opx1, test_sp_ids_opx1, test_pt_ids_opx1, test_cohorts_opx1, _ = opx_split['test']
+        test_data_opx2, test_sp_ids_opx2, test_pt_ids_opx2, test_cohorts_opx2, _ = opx_split['train']
+        test_data_opx3, test_sp_ids_opx3, test_pt_ids_opx3, test_cohorts_opx3, _ = opx_split['val']
+        
+        test_data0 = test_data_opx1 + test_data_opx2 + test_data_opx3
+        test_sp_ids0 = test_sp_ids_opx1 +  test_sp_ids_opx2 + test_sp_ids_opx3
+        test_pt_ids0 = test_pt_ids_opx1 + test_pt_ids_opx2 + test_pt_ids_opx3
+        test_cohorts0 = test_cohorts_opx1 + test_cohorts_opx2 + test_cohorts_opx3
         
 
         
-        #Nep test
+        #Nep all
         test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1, _ = nep_split['test']
         test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2, _ = nep_split['train']
         test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3, _ = nep_split['val']
@@ -589,7 +778,7 @@ if __name__ == '__main__':
         test_cohorts2 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
         
         
-        #TCGA test
+        #TCGA all
         test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1, _ = tcga_split['test']
         test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2, _ = tcga_split['train']
         test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3, _ = tcga_split['val']
@@ -604,10 +793,14 @@ if __name__ == '__main__':
         
         #TCGA test
         test_data5, test_sp_ids5, test_pt_ids5, test_cohorts5,_ = tcga_split['test']
+        
+        #nep test
+        test_data6, test_sp_ids6, test_pt_ids6, test_cohorts6,_ = nep_split['test']
 
 
         #samplling, sample could has less than 400, if oroignal tile is <400
-        train_data = uniform_sample_all_samples(train_data, train_coords, max_bag = 100)
+        train_data = uniform_sample_all_samples(train_data, train_coords, max_bag = 500, 
+                                                grid = 32, sample_by_tf = True, plot = False)
 
         
 
@@ -698,83 +891,82 @@ if __name__ == '__main__':
         # all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
         # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
         
-    
-        #loss_fn = nn.CrossEntropyLoss()
+
+            
         loss_fn = FocalLoss(alpha=-1, gamma=0, reduction='mean')
 
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            lr=args.lr, #3e-4,
-            weight_decay=0.02
-        )
+        # optimizer = torch.optim.AdamW(
+        #     filter(lambda p: p.requires_grad, model.parameters()),
+        #     lr=args.lr, #3e-4,
+        # )
         
+        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
+                            lr=args.lr,
+                            momentum=0.9,
+                            weight_decay=1e-4,
+                            nesterov=True)
         
+        # Scheduler 
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        
+        #train loader
         train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
 
 
         # Set the network to training mode
-        
-        model.train()
-        for epoch in range(5):
-            total_loss = 0
-            for data_it, data in enumerate(train_loader):
-                
-                #Get data
-                x = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
-                y = data[1][0].long().view(-1).to(device)
-                tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
-                
-                #Run model     
-                if model_name == 'TransMIL':
-                    results = model(data = x)
-                    #Compute loss
-                    loss = loss_fn(results['logits'], y)
-                else:
-                    results, _ = model(
-                        x,
-                        loss_fn=loss_fn,
-                        label=y)
-                    #Compute loss
-                    loss = results['loss']
+        logit_adjustments, label_freq = compute_logit_adjustment(train_loader, tau = 2) #[-0.2093, -4.6176] The rarer class (1) gets a much more negative adjustment, which means during training its logits will be shifted down harder unless the model compensates.
 
 
-                total_loss += loss
-                avg_loss = total_loss/(data_it+1)     
-                
-                #Backpropagate error and update parameters 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-               
+        args.logit_adj_train = True
+        for epoch in range(100):
+            
+            avg_loss, model =  train(train_loader, model, loss_fn, optimizer, 
+                                     model_name = 'Transfer_MIL' ,weight_decay = 1e-5, logit_adj_train = args.logit_adj_train)
+            lr_scheduler.step()
+            
             
             #Manual Logging
-            log_items = [
-                f"EPOCH: {epoch}",
-                f"lr: {optimizer.param_groups[0]['lr']:.6f}",
-                f"total_loss: {avg_loss.item():.4f}"
-            ]
+            log_items = [f"EPOCH: {epoch}",
+                         f"lr: {optimizer.param_groups[0]['lr']:.6f}",
+                         f"loss: {avg_loss.item():.4f}"
+                         ]
             print(" | ".join(log_items))
+            
+        
+        # #TODO
+        # args.logit_adj_post = False
+        # if args.logit_adj_post:
+        #     output = output - args.logit_adjustments
             
         
         all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
-        
+         
+
         all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_test")
+  
         
-        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
-                
+        all_final = evaluate(test_data6, test_sp_ids6, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP_test")
+        
         all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_test")
         
+        
+        all_final = evaluate(test_data0, test_sp_ids0, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_All")
         
         all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
-
+        
+        
+        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP_ALL")
         
 
-
+        
+        ##
         #train_x, train_y = get_slide_embedding(train_data, model)
         #test_x, test_y = get_slide_embedding(test_data, model)
         
@@ -791,33 +983,46 @@ if __name__ == '__main__':
         # plt.grid(True)
         # plt.show()
         
+        
+        ##############################################################################
+        # DEcoupled training stage 2
+        ##############################################################################
         ###Freeze the feature extraction part
-        if model_name == "Transfer_MIL":
-            for p in model.parameters():
-                p.requires_grad = False
-            for p in model.model.classifier.parameters():
-                p.requires_grad = True
-        elif model_name == "TransMIL":
-            for p in model.parameters():
-                p.requires_grad = False
-            for p in model._fc2.parameters():
-                p.requires_grad = True
+        freeze_feature = False
+        if freeze_feature:
+            if model_name == "Transfer_MIL":
+                for p in model.parameters():
+                    p.requires_grad = False
+                for p in model.model.classifier.parameters():
+                    p.requires_grad = True
+            elif model_name == "TransMIL":
+                for p in model.parameters():
+                    p.requires_grad = False
+                for p in model._fc2.parameters():
+                    p.requires_grad = True
             
-        #doublec check
+        #double check
         for name, param in model.named_parameters():
             print(name, param.requires_grad)
         
-    
-        #loss_fn = nn.CrossEntropyLoss()
+        # optimizer = torch.optim.AdamW(
+        #     filter(lambda p: p.requires_grad, model.parameters()),
+        #     lr=args.lr, #3e-4,
+        # )
+        
         loss_fn = FocalLoss(alpha=0.8, gamma=2, reduction='mean')
-
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            lr=args.lr #3e-4,
-            #weight_decay=0.01
-        )
+        
+        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
+                            lr=args.lr,
+                            momentum=0.9,
+                            weight_decay=1e-4,
+                            nesterov=True)
+        
+        # Scheduler 
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
         
         
+        #down sampling
         pos_data = [x for x in train_data if x[1] == 1]
         neg_data = [x for x in train_data if x[1] == 0]
         
@@ -825,69 +1030,57 @@ if __name__ == '__main__':
         selected0 = neg_data[0:len(pos_data)] 
         selected_all =  selected1 + selected0
         
+        #train loader
+        train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
         
-        train_loader = DataLoader(dataset=selected_all,batch_size=1, shuffle=False)
+        # Set the network to training mode
+        logit_adjustments, label_freq = compute_logit_adjustment(train_loader, tau = 2) #[-0.2093, -4.6176] The rarer class (1) gets a much more negative adjustment, which means during training its logits will be shifted down harder unless the model compensates.
+
 
 
         # Set the network to training mode
-        
-        model.train()
-        for epoch in range(10):
-            total_loss = 0
-            for data_it, data in enumerate(train_loader):
-                
-                #Get data
-                x = data[0].to(device, dtype=torch.float32) #[1, N_Patches, N_FEATURE]
-                y = data[1][0].long().view(-1).to(device)
-                tf = data[2].to(device, dtype=torch.float32)            #(1, N_Patches]
-                
-                #Run model     
-                if model_name == 'TransMIL':
-                    results = model(data = x)
-                    #Compute loss
-                    loss = loss_fn(results['logits'], y)
-                else:
-                    results, _ = model(
-                        x,
-                        loss_fn=loss_fn,
-                        label=y)
-                    #Compute loss
-                    loss = results['loss']
-
-                #Compute loss
-                total_loss += loss
-                avg_loss = total_loss/(data_it+1)     
-                
-                #Backpropagate error and update parameters 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-               
+        for epoch in range(50):
+            
+            avg_loss, model =  train(train_loader, model, loss_fn, optimizer, 
+                                     model_name = 'Transfer_MIL' ,weight_decay = 1e-4, logit_adj_train = args.logit_adj_train)
+            lr_scheduler.step()
+            
             
             #Manual Logging
-            log_items = [
-                f"EPOCH: {epoch}",
-                f"lr: {optimizer.param_groups[0]['lr']:.6f}",
-                f"total_loss: {avg_loss.item():.4f}"
-            ]
+            log_items = [f"EPOCH: {epoch}",
+                         f"lr: {optimizer.param_groups[0]['lr']:.6f}",
+                         f"loss: {avg_loss.item():.4f}"
+                         ]
             print(" | ".join(log_items))
-            
+        
         
         all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
-        
+         
+
         all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_test")
+  
         
-        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
+        all_final = evaluate(test_data6, test_sp_ids6, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP_test")
         
         all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_test")
         
+        
+        all_final = evaluate(test_data0, test_sp_ids0, model, model_name = model_name)
+        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_All")
         
         all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
         compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
+        
+        
+    
+        avg_loss, pred_df, adj_pred_df = validate(test_data2, test_sp_ids2, model, loss_fn, 
+                                                  logit_adjustments, model_name = 'Transfer_MIL' ,logit_adj_train = False)
+        compute_performance(pred_df['True_y'],pred_df['prob_1'],pred_df['Pred_Class'], "NEP_ALL")
+        compute_performance(adj_pred_df['True_y'],adj_pred_df['prob_1'],adj_pred_df['Pred_Class'], "NEP_ALL")
         
         comb_data = test_data4 + test_data5 + test_data2
         comb_ids = test_sp_ids4 + test_sp_ids5 + test_sp_ids2
