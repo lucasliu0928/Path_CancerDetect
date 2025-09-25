@@ -29,6 +29,7 @@ from plot_utils import plot_umap
 from Loss import FocalLoss, compute_logit_adjustment
 from TransMIL import TransMIL
 from misc_utils import str2bool
+from misc_utils import create_dir_if_not_exists, set_seed
  
 #FOR MIL-Lab
 sys.path.insert(0, os.path.normpath(os.path.join(os.getcwd(), '..', '..', 'other_model_code','MIL-Lab',"src")))
@@ -50,6 +51,35 @@ try:
 except ImportError:
     HAS_UMAP = False
 
+
+import random
+
+def downsample(train_data, n_times=10, n_samples=100, seed=None):
+    """
+    Downsample positives and negatives with reproducibility option.
+    
+    Args:
+        train_data (list): dataset [(x, label), ...]
+        n_times (int): how many resamples
+        n_samples (int): number of positives/negatives to select each time
+        seed (int or None): random seed for reproducibility
+    Returns:
+        list of lists: each element is a balanced dataset
+    """
+    pos_data = [x for x in train_data if x[1] == 1]
+    neg_data = [x for x in train_data if x[1] == 0]
+
+    if seed is not None:
+        random.seed(seed)
+
+    all_samples = []
+    for i in range(n_times):
+        selected1 = random.sample(pos_data, n_samples)   # sample positives
+        selected0 = random.sample(neg_data, n_samples)   # sample negatives
+        selected_all = selected1 + selected0
+        random.shuffle(selected_all)
+        all_samples.append(selected_all)
+    return all_samples
 
 def count_num_tiles(indata, cohort_name):
     n_tiles = [x['x'].shape[0] for x in indata]
@@ -141,7 +171,22 @@ def plot_embeddings(all_feats, all_labels, method="pca", **kwargs):
 
     return X_proj
 
+##
+#train_x, train_y = get_slide_embedding(train_data, model)
+#test_x, test_y = get_slide_embedding(test_data, model)
 
+# #get classifer features and plot
+# all_feats_train, all_labels_train = extract_features(model, test_data, device, layer_idx=3)
+# proj = plot_embeddings(all_feats_train, all_labels_train, method="PCA")
+
+# # Scatter plot
+# plt.figure(figsize=(6,6))
+# scatter = plt.scatter(proj[:,0], proj[:,1], c=all_labels_train, cmap="bwr", s=20, alpha=0.8)
+# plt.colorbar(scatter, label="Label")
+# plt.xlabel("X1")
+# plt.ylabel("X2")
+# plt.grid(True)
+# plt.show()
 
 def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_class).ravel() #CM
@@ -249,6 +294,18 @@ def extract_features(model, dataloader, device, layer_idx=2):
 
     return all_feats, all_labels
 
+def plot_loss(train_loss, val_loss, save_path):
+    plt.figure(figsize=(8,5))
+    plt.plot(range(1, len(train_loss) + 1), train_loss, label="Train Loss", marker='o')
+    plt.plot(range(1, len(train_loss) + 1), val_loss, label="Validation Loss", marker='s')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training vs Validation Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    plt.savefig(os.path.join(save_path, "loss_curve.png"))
+            
 
 def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: int = None, grid: int = 32) -> tuple:
     
@@ -454,8 +511,31 @@ def uniform_sample_all_samples(indata, incoords, max_bag = 100, grid = 32, sampl
         
     return new_data_list
 
-    
-def train(train_loader, net, criterion, optimizer, model_name = 'Transfer_MIL' ,weight_decay = 1e-4, logit_adj_train = False):
+
+from itertools import chain
+
+def combine_all(split, keys=('test', 'train', 'val')):
+    parts = [split[k] for k in keys]
+    data  = list(chain.from_iterable(p[0] for p in parts))
+    sp    = list(chain.from_iterable(p[1] for p in parts))
+    pt    = list(chain.from_iterable(p[2] for p in parts))
+    coh   = list(chain.from_iterable(p[3] for p in parts))
+    return data, sp, pt, coh
+
+def just_test(split):
+    a, b, c, d, _ = split['test']
+    return a, b, c, d
+
+
+
+def train(train_loader, 
+          model, 
+          criterion, 
+          optimizer, 
+          model_name = 'Transfer_MIL' ,
+          l2_coef = 1e-4, 
+          logit_adjustments = None,
+          logit_adj_train = True):
     """ Run one train epoch """
     
     total_loss = 0
@@ -469,15 +549,15 @@ def train(train_loader, net, criterion, optimizer, model_name = 'Transfer_MIL' ,
                         
         #Run model     
         if model_name == 'TransMIL':
-            results = net(data = x)
+            results = model(data = x)
         elif model_name == "Transfer_MIL":
-            results, _ = net(x)
+            results, _ = model(x)
         
         #Get output   
         output = results['logits']
         
-        #if logit adjustment 
-        if logit_adj_train:
+        #Logit adjustment 
+        if logit_adj_train == True:
             output = output + logit_adjustments.to(device)
         
         #Get loss
@@ -485,33 +565,34 @@ def train(train_loader, net, criterion, optimizer, model_name = 'Transfer_MIL' ,
         
         #L2 reg
         loss_r = 0
-        for parameter in net.parameters():
+        for parameter in model.parameters():
             loss_r += torch.sum(parameter ** 2)
         
-        loss = loss +  weight_decay * loss_r
+        loss = loss +  l2_coef * loss_r
 
-        total_loss += loss #Store total loss 
+        total_loss += loss    #Store total loss 
         
         optimizer.zero_grad() #zero grad, avoid grad acuum
-        loss.backward()  #compute new gradients
-        optimizer.step() #update paraters
+        loss.backward()       #compute new gradients
+        optimizer.step()      #update paraters
         
     
     avg_loss = total_loss/(len(train_loader)) 
     
-    return avg_loss, net
+    return avg_loss
 
 
-def validate(test_data, test_ids, net, criterion, logit_adjustments, model_name = 'Transfer_MIL', logit_adj_train = False):
-    """ Run one train epoch """
-    
-   
+
+def validate(test_data, sample_ids, model, criterion, logit_adjustments, 
+             model_name = 'Transfer_MIL', logit_adj_infer = True, logit_adj_train = False,
+             l2_coef = 0):
+       
     model.eval()
     with torch.no_grad():
         total_loss = 0
         logits_list = []
         labels_list = []
-        adj_logit_list = []
+        logits_list_adj = []
         for i in range(len(test_data)):
             x, y, tf, sl = test_data[i]        
             x = x.unsqueeze(0).to(device)      # add batch dim
@@ -519,9 +600,9 @@ def validate(test_data, test_ids, net, criterion, logit_adjustments, model_name 
                             
             #Run model     
             if model_name == 'TransMIL':
-                results = net(data = x)
+                results = model(data = x)
             elif model_name == "Transfer_MIL":
-                results, _ = net(x)
+                results, _ = model(x)
             
             #Get output   
             output = results['logits']
@@ -529,61 +610,175 @@ def validate(test_data, test_ids, net, criterion, logit_adjustments, model_name 
             loss = criterion(output, y) #get loss before post-hoc logit adust)
             
             #get adjust output post hoc
-            adj_output = output - logit_adjustments.to(device) #get logit after posthoc adj
-            adj_logit_list.append(adj_output.squeeze(0).detach().cpu()) #Get logit before posthoc adj
+            if logit_adj_infer == True:
+                adj_output = output - logit_adjustments.to(device) #get logit after posthoc adj
+                logits_list_adj.append(adj_output.squeeze(0).detach().cpu()) #Get logit before posthoc adj
+            else:
+                logits_list_adj = None
                         
-            #if logit adjustment (same way to compute loss)
-            if logit_adj_train:
+            #if logit adjustment used for training
+            if logit_adj_train == True:
                 loss = criterion(output + logit_adjustments.to(device), y)
+                
+            #L2 reg
+            loss_r = 0
+            for parameter in model.parameters():
+                loss_r += torch.sum(parameter ** 2)
+            loss = loss +  l2_coef * loss_r
                 
             total_loss += loss #Store total loss 
             
             #get label
             labels_list.append(int(y.detach().cpu()))
         
-        avg_loss = total_loss/(len(train_loader)) 
+        avg_loss = total_loss/(len(test_data)) 
         
     
-    df = get_predict_df(logits_list, labels_list, test_ids, thres = 0.5)
-    df_adj = get_predict_df(adj_logit_list, labels_list, test_ids, thres = 0.5)
+    df = get_predict_df(logits_list, labels_list, sample_ids, logits_list_adj, thres = 0.5)
     
-    return avg_loss, df, df_adj
+    return avg_loss, df
 
 
-def get_predict_df(logits_list, labels_list, sample_ids, thres = 0.5):
+def get_predict_df(logits_list, labels_list, sample_ids, logits_list_adj = None, thres = 0.5):
     
     
-    #Stack logits once; derive probabilities from them
-    logits_tensor = torch.stack(logits_list, dim=0)               # (N, C)
-    probs_tensor  = torch.softmax(logits_tensor, dim=1)           # (N, C)
+    #Get logits and prob df
+    logits = torch.stack(logits_list, dim=0)              # (N, C)
+    probs  = torch.softmax(logits, dim=1)             # (N, C)
     
-    # Build DataFrames with clear column names
-    num_classes = logits_tensor.size(1)
+    num_classes = logits.size(1)
     logit_cols = [f"logit_{i}" for i in range(num_classes)]
     prob_cols  = [f"prob_{i}"  for i in range(num_classes)]
     
-    df_logits = pd.DataFrame(logits_tensor.numpy(), columns=logit_cols)
-    df_probs  = pd.DataFrame(probs_tensor.numpy(),  columns=prob_cols)
-    
+    df_logits = pd.DataFrame(logits.numpy(), columns=logit_cols)
+    df_probs  = pd.DataFrame(probs.numpy(),  columns=prob_cols)
     df = pd.concat([df_logits, df_probs], axis=1)
+    df["Pred_Class"] = (df["prob_1"] > thres).astype(int)
+    
+    
+    #if post hoc logit adj
+    if logits_list_adj is not None:
+        logits_adj = torch.stack(logits_list_adj, dim=0)               # (N, C)
+        probs_adj  = torch.softmax(logits_adj, dim=1)           # (N, C)
+        
+        num_classes = logits_adj.size(1)
+        logit_cols = [f"adj_logit_{i}" for i in range(num_classes)]
+        prob_cols  = [f"adj_prob_{i}"  for i in range(num_classes)]
+        
+        df_logits_adj = pd.DataFrame(logits_adj.numpy(), columns=logit_cols)
+        df_probs_adj  = pd.DataFrame(probs_adj.numpy(),  columns=prob_cols)
+        df_adj = pd.concat([df_logits_adj, df_probs_adj], axis=1)
+        df_adj["Pred_Class_adj"] = (df_adj["adj_prob_1"] > thres).astype(int)
+        
+        #combine ther before logit adj
+        df = pd.concat([df, df_adj], axis = 1)
+            
+    #add label and ids
     df["True_y"] = labels_list
     df['SAMPLE_ID'] = sample_ids
-    
-    # Binary head: predict class-1 using 0.5 threshold
-    if num_classes >= 2:
-        df["Pred_Class"] = (df["prob_1"] > thres).astype(int)
+
+
+    if logits_list_adj is not None:
+        #reorder
+        df = df[['SAMPLE_ID','True_y',
+                 'logit_0', 'logit_1','prob_0', 'prob_1','Pred_Class',
+                 'adj_logit_0', 'adj_logit_1','adj_prob_0', 'adj_prob_1','Pred_Class_adj']]
     else:
-        # Fallback: argmax over available classes
-        df["Pred_Class"] = probs_tensor.argmax(dim=1).numpy()
-        
-        
-    #reorder
-    df = df[['SAMPLE_ID','True_y','Pred_Class','prob_0', 'prob_1', 'logit_0', 'logit_1']]
+        #reorder
+        df = df[['SAMPLE_ID','True_y',
+                 'logit_0', 'logit_1','prob_0', 'prob_1','Pred_Class']]
     
     return df
 
 
+def run_eval(data, sp_ids, cohort, criterion, logit_adj_infer, logit_adj_train, l2_coef=0):
+    avg_loss, pred_df = validate(
+        data, sp_ids, model, criterion,
+        logit_adjustments,
+        model_name='Transfer_MIL',
+        logit_adj_infer=logit_adj_infer,
+        logit_adj_train=logit_adj_train,
+        l2_coef = l2_coef,
+    )
 
+    if logit_adj_infer:
+        y_true, prob, pred = pred_df['True_y'], pred_df['adj_prob_1'], pred_df['Pred_Class_adj']
+    else:
+        y_true, prob, pred = pred_df['True_y'], pred_df['prob_1'], pred_df['Pred_Class']
+
+    print(compute_performance(y_true, prob, pred, cohort))
+    return avg_loss, pred_df
+
+
+import math
+import copy
+
+class EarlyStopper:
+    def __init__(self, patience=10, min_delta=0.0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best = math.inf
+        self.num_bad_epochs = 0
+        self.best_state = None
+
+    def step(self, metric, model):
+        """
+        Check if validation metric improved.
+        Returns True if training should stop.
+        """
+        improved = (self.best - metric) > self.min_delta
+        if improved:
+            self.best = metric
+            self.num_bad_epochs = 0
+            self.best_state = copy.deepcopy(model.state_dict())
+        else:
+            self.num_bad_epochs += 1
+
+        return self.num_bad_epochs >= self.patience
+
+    def __repr__(self):
+        return (f"EarlyStopper(patience={self.patience}, min_delta={self.min_delta}, "
+                f"best={self.best}, num_bad_epochs={self.num_bad_epochs})")
+
+    
+    
+
+def build_model(model_name: str, device, num_classes=2, n_feature=None):
+    """
+    Create and return a model based on the model_name.
+
+    Args:
+        model_name (str): Name of the model type ('Transfer_MIL' or 'TransMIL').
+        device (torch.device): Device to move the model to.
+        num_classes (int): Number of output classes.
+        n_feature (int): Required only for TransMIL.
+
+    Returns:
+        model (nn.Module): The constructed model on the specified device.
+    """
+    if model_name == "Transfer_MIL":
+        model = create_model('abmil.base.uni_v2.pc108-24k', num_classes=num_classes)
+        model.to(device)
+
+        # in_dim = model.model.classifier.in_features
+        # model.model.classifier = nn.Sequential(
+        #     nn.Dropout(p=0.3),
+        #     nn.Linear(in_dim, 64),
+        #     nn.Linear(64, 32),
+        #     nn.Linear(32, num_classes),  # last layer matches num_classes
+        # )
+        # model.to(device)
+
+    elif model_name == "TransMIL":
+        if n_feature is None:
+            raise ValueError("n_feature must be provided for TransMIL")
+        model = TransMIL(n_classes=num_classes, in_dim=n_feature)
+        model.to(device)
+
+    else:
+        raise ValueError(f"Unknown model name: {model_name}")
+
+    return model
 
 ############################################################################################################
 #Parser
@@ -592,10 +787,11 @@ parser = argparse.ArgumentParser("Train")
 parser.add_argument('--tumor_frac', default= 0.0, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--logit_adj_train', default=True, type=str2bool, help='Train with logit adjustment')
-parser.add_argument('--out_folder', default= 'pred_out_091225', type=str, help='out folder name')
+parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
 
+parser.add_argument('--out_folder', default= 'pred_out_092425', type=str, help='out folder name')
 
 ############################################################################################################
 #     Model Para
@@ -617,6 +813,23 @@ if __name__ == '__main__':
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
     data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
+    
+    ######################
+    #Create output-dir
+    ######################
+    outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
+                           args.mutation,
+                           'FOLD' + str(fold_list[0]))
+    outdir1 =  outdir0  + "/saved_model/"
+    outdir2 =  outdir0  + "/model_para/"
+    outdir3 =  outdir0  + "/logs/"
+    outdir4 =  outdir0  + "/predictions/"
+    outdir5 =  outdir0  + "/perf/"
+    outdir_list = [outdir0,outdir1,outdir2,outdir3,outdir4,outdir5]
+    
+    for out_path in outdir_list:
+        create_dir_if_not_exists(out_path)
+            
     
     
     ###################################
@@ -739,7 +952,6 @@ if __name__ == '__main__':
 
     for f in fold_list:
         f = 0
-        args.mutation = 'HR2'
         ####################################
         #Load data
         ####################################    
@@ -750,55 +962,29 @@ if __name__ == '__main__':
         comb_splits  =  load_dataset_splits(comb_ol0, comb_ol0, f, args.mutation, concat_tf = False)
  
 
-        train_data, train_sp_ids, train_pt_ids, train_cohorts, train_coords  = opx_split['train']
-        test_data, test_sp_ids, test_pt_ids, test_cohorts, _ = opx_split['test']
-        val_data, val_sp_ids, val_pt_ids, val_cohorts,_ = opx_split['val']
-        
-        
-        #OPX all
-        test_data_opx1, test_sp_ids_opx1, test_pt_ids_opx1, test_cohorts_opx1, _ = opx_split['test']
-        test_data_opx2, test_sp_ids_opx2, test_pt_ids_opx2, test_cohorts_opx2, _ = opx_split['train']
-        test_data_opx3, test_sp_ids_opx3, test_pt_ids_opx3, test_cohorts_opx3, _ = opx_split['val']
-        
-        test_data0 = test_data_opx1 + test_data_opx2 + test_data_opx3
-        test_sp_ids0 = test_sp_ids_opx1 +  test_sp_ids_opx2 + test_sp_ids_opx3
-        test_pt_ids0 = test_pt_ids_opx1 + test_pt_ids_opx2 + test_pt_ids_opx3
-        test_cohorts0 = test_cohorts_opx1 + test_cohorts_opx2 + test_cohorts_opx3
+        train_data, train_sp_ids, train_pt_ids, train_cohorts, train_coords  = comb_splits['train']
+        test_data, test_sp_ids, test_pt_ids, test_cohorts, _ = comb_splits['test']
+        val_data, val_sp_ids, val_pt_ids, val_cohorts,_ = comb_splits['val']
         
 
         
-        #Nep all
-        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1, _ = nep_split['test']
-        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2, _ = nep_split['train']
-        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3, _ = nep_split['val']
+        # OPX all
+        test_data0, test_sp_ids0, test_pt_ids0, test_cohorts0 = combine_all(opx_split)
+
+        # NEP all
+        test_data2, test_sp_ids2, test_pt_ids2, test_cohorts2 = combine_all(nep_split)
+
+        # TCGA all
+        test_data3, test_sp_ids3, test_pt_ids3, test_cohorts3 = combine_all(tcga_split)
+
+        # OPX / TCGA / NEP test only
+        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4 = just_test(opx_split)
+        test_data5, test_sp_ids5, test_pt_ids5, test_cohorts5 = just_test(tcga_split)
+        test_data6, test_sp_ids6, test_pt_ids6, test_cohorts6 = just_test(nep_split)
         
-        test_data2 = test_data_nep1 + test_data_nep2 + test_data_nep3
-        test_sp_ids2 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
-        test_pt_ids2 = test_pt_ids_nep1 + test_pt_ids_nep2 + test_pt_ids_nep3
-        test_cohorts2 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
-        
-        
-        #TCGA all
-        test_data_nep1, test_sp_ids_nep1, test_pt_ids_nep1, test_cohorts_nep1, _ = tcga_split['test']
-        test_data_nep2, test_sp_ids_nep2, test_pt_ids_nep2, test_cohorts_nep2, _ = tcga_split['train']
-        test_data_nep3, test_sp_ids_nep3, test_pt_ids_nep3, test_cohorts_nep3, _ = tcga_split['val']
-        
-        test_data3 = test_data_nep1 + test_data_nep2 + test_data_nep3
-        test_sp_ids3 = test_sp_ids_nep1 +  test_sp_ids_nep2 + test_sp_ids_nep3
-        test_pt_ids3 = test_pt_ids_nep1 + test_pt_ids_nep2 + test_pt_ids_nep3
-        test_cohorts3 = test_cohorts_nep1 + test_cohorts_nep2 + test_cohorts_nep3
-        
-        #OPX test
-        test_data4, test_sp_ids4, test_pt_ids4, test_cohorts4,_ = opx_split['test']
-        
-        #TCGA test
-        test_data5, test_sp_ids5, test_pt_ids5, test_cohorts5,_ = tcga_split['test']
-        
-        #nep test
-        test_data6, test_sp_ids6, test_pt_ids6, test_cohorts6,_ = nep_split['test']
 
 
-        #samplling, sample could has less than 400, if oroignal tile is <400
+        #samplling, sample could has less than 400, if original tile is <400
         train_data = uniform_sample_all_samples(train_data, train_coords, max_bag = 500, 
                                                 grid = 32, sample_by_tf = True, plot = False)
 
@@ -835,9 +1021,6 @@ if __name__ == '__main__':
         # y_pred_prob = knn.predict_proba(test_x2)[:,1]
         # compute_performance(test_y2,y_pred_prob,y_pred, "NEP")
         
-        
-       
-        
         # plot_umap(train_x, train_y, [], [])
         
 
@@ -854,60 +1037,33 @@ if __name__ == '__main__':
         
         
         #ABMILModel(in_dim=1024, num_classes=2, config = None)
-
-        # construct the model from src and load the state dict from HuggingFace
+        
+        args.lr = 1e-3
+        args.logit_adj_train = False
+        args.l2_coef = 5e-4
         model_name = "Transfer_MIL"
-        if model_name == "Transfer_MIL":
-            model = create_model('abmil.base.uni_v2.pc108-24k', num_classes=2)
-            model.to(device)
-            in_dim = model.model.classifier.in_features
-            model.model.classifier = nn.Sequential(
-                nn.Dropout(p=0.3),
-                nn.Linear(in_dim, 64),
-                nn.Linear(64, 32),
-                nn.Linear(32, 2),
-                nn.Linear(2, 2),
-            )
-            model.to(device)
-        elif model_name == "TransMIL":
-            #TransMIL
-            model = TransMIL(n_classes=2, in_dim = N_FEATURE)
-            model.to(device)
-            model_name = 'TransMIL'
-
         
-        # all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
-        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
-        
-        # all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
-        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX")
-        
-        # all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
-        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP")
-        
-        # all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
-        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
-        
-        # all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
-        # compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA")
-        
-
+        # construct the model from src and load the state dict from HuggingFace 
+        model = build_model(model_name = model_name, 
+                    device = device, 
+                    num_classes=2, 
+                    n_feature = N_FEATURE)
             
         loss_fn = FocalLoss(alpha=-1, gamma=0, reduction='mean')
+ 
 
-        # optimizer = torch.optim.AdamW(
-        #     filter(lambda p: p.requires_grad, model.parameters()),
-        #     lr=args.lr, #3e-4,
-        # )
         
-        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
-                            lr=args.lr,
-                            momentum=0.9,
-                            weight_decay=1e-4,
-                            nesterov=True)
+        
+        optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=args.lr, #3e-4,
+        )
+        
         
         # Scheduler 
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        warmup = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1, total_iters=5)
+        cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=95, eta_min=1e-6)
+        lr_scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[5])
         
         #train loader
         train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
@@ -916,79 +1072,92 @@ if __name__ == '__main__':
         # Set the network to training mode
         logit_adjustments, label_freq = compute_logit_adjustment(train_loader, tau = 2) #[-0.2093, -4.6176] The rarer class (1) gets a much more negative adjustment, which means during training its logits will be shifted down harder unless the model compensates.
 
+        early_stopper = EarlyStopper(patience=5, min_delta=1e-4)  
+        
+                
+        # avg_loss, pred_df = run_eval(train_data, train_sp_ids, "TRAIN",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
+        # avg_loss, pred_df = run_eval(test_data4, test_sp_ids4, "OPX_test",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
+        # avg_loss, pred_df = run_eval(test_data5, test_sp_ids5, "TCGA_test",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
+        # avg_loss, pred_df = run_eval(test_data6, test_sp_ids6, "NEP_test",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
+        # avg_loss, pred_df = run_eval(test_data0, test_sp_ids0, "OPX_All",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
+        # avg_loss, pred_df = run_eval(test_data3, test_sp_ids3, "TCGA_All",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
+        # avg_loss, pred_df = run_eval(test_data2, test_sp_ids2, "NEP_ALL",    loss_fn,  logit_adj_infer = False, logit_adj_train = args.logit_adj_train)
 
-        args.logit_adj_train = True
+
+        train_loss = []
+        val_loss =[]
         for epoch in range(100):
             
-            avg_loss, model =  train(train_loader, model, loss_fn, optimizer, 
-                                     model_name = 'Transfer_MIL' ,weight_decay = 1e-5, logit_adj_train = args.logit_adj_train)
+            avg_loss  =  train(train_loader, model, loss_fn, optimizer, 
+                                     model_name = 'Transfer_MIL' ,l2_coef = args.l2_coef, 
+                                     logit_adjustments = logit_adjustments,
+                                     logit_adj_train = args.logit_adj_train)
             lr_scheduler.step()
             
+            avg_loss_val, pred_df_val = validate(val_data, val_sp_ids, model, loss_fn, 
+                                         logit_adjustments, 
+                                         model_name = 'Transfer_MIL',
+                                         logit_adj_infer = args.logit_adj_infer,
+                                         logit_adj_train = args.logit_adj_train,
+                                         l2_coef = args.l2_coef)
             
-            #Manual Logging
-            log_items = [f"EPOCH: {epoch}",
-                         f"lr: {optimizer.param_groups[0]['lr']:.6f}",
-                         f"loss: {avg_loss.item():.4f}"
-                         ]
+            
+            
+            # Manual logging
+            train_loss.append(avg_loss.item())
+            val_loss.append(avg_loss_val.item())
+            
+            log_items = [
+                f"EPOCH: {epoch}",
+                f"lr: {optimizer.param_groups[0]['lr']:.8f}",
+                f"train loss: {avg_loss.item():.4f}",
+                f"val loss: {avg_loss_val.item():.4f}",
+                f"best val: {early_stopper.best:.4f}",
+            ]
             print(" | ".join(log_items))
             
+            #Save checkpoint
+            torch.save(model.state_dict(), outdir1 + "checkpoint" + str(epoch) + '.pth')
         
-        # #TODO
-        # args.logit_adj_post = False
-        # if args.logit_adj_post:
-        #     output = output - args.logit_adjustments
+            # Early stop check
+            if early_stopper.step(avg_loss_val.item(), model):
+                print(f"Early stopping at epoch {epoch} (best val loss {early_stopper.best:.4f})")
+                break
+        
+        plot_loss(train_loss, val_loss, outdir5)
+        
+        
+        
+        
             
         
-        all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
-         
-
-        all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_test")
-  
-        
-        all_final = evaluate(test_data6, test_sp_ids6, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP_test")
-        
-        all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_test")
-        
-        
-        all_final = evaluate(test_data0, test_sp_ids0, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_All")
-        
-        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
-        
-        
-        all_final = evaluate(test_data2, test_sp_ids2, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP_ALL")
-        
+        avg_loss, pred_df = run_eval(train_data, train_sp_ids, "TRAIN",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data4, test_sp_ids4, "OPX_test",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data5, test_sp_ids5, "TCGA_test",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data6, test_sp_ids6, "NEP_test",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data0, test_sp_ids0, "OPX_All",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data3, test_sp_ids3, "TCGA_All",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data2, test_sp_ids2, "NEP_ALL",    loss_fn,  logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
 
         
-        ##
-        #train_x, train_y = get_slide_embedding(train_data, model)
-        #test_x, test_y = get_slide_embedding(test_data, model)
-        
-        # #get classifer features and plot
-        # all_feats_train, all_labels_train = extract_features(model, test_data, device, layer_idx=3)
-        # proj = plot_embeddings(all_feats_train, all_labels_train, method="PCA")
-        
-        # # Scatter plot
-        # plt.figure(figsize=(6,6))
-        # scatter = plt.scatter(proj[:,0], proj[:,1], c=all_labels_train, cmap="bwr", s=20, alpha=0.8)
-        # plt.colorbar(scatter, label="Label")
-        # plt.xlabel("X1")
-        # plt.ylabel("X2")
-        # plt.grid(True)
-        # plt.show()
-        
-        
+
         ##############################################################################
         # DEcoupled training stage 2
         ##############################################################################
+        mode_idxes = 27        
+        checkpoint = torch.load(os.path.join(outdir1,'checkpoint'+ str(mode_idxes) + '.pth'))
+        
+        model = build_model(model_name = model_name, 
+                    device = device, 
+                    num_classes=2, 
+                    n_feature = N_FEATURE)
+        
+        model.load_state_dict(checkpoint)
+        
+        args.logit_adj_train = False
+        
         ###Freeze the feature extraction part
-        freeze_feature = False
+        freeze_feature = True
         if freeze_feature:
             if model_name == "Transfer_MIL":
                 for p in model.parameters():
@@ -1018,81 +1187,154 @@ if __name__ == '__main__':
                             weight_decay=1e-4,
                             nesterov=True)
         
-        # Scheduler 
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
-        
-        
+
         #down sampling
-        pos_data = [x for x in train_data if x[1] == 1]
-        neg_data = [x for x in train_data if x[1] == 0]
-        
-        selected1 = pos_data[0:len(pos_data)] 
-        selected0 = neg_data[0:len(pos_data)] 
-        selected_all =  selected1 + selected0
+        pos_count = len([x for x in train_data if x[1] == 1])
+        print(pos_count)
+        samples = downsample(train_data, n_times=10, n_samples=pos_count, seed=42)
         
         #train loader
-        train_loader = DataLoader(dataset=train_data,batch_size=1, shuffle=False)
-        
-        # Set the network to training mode
-        logit_adjustments, label_freq = compute_logit_adjustment(train_loader, tau = 2) #[-0.2093, -4.6176] The rarer class (1) gets a much more negative adjustment, which means during training its logits will be shifted down harder unless the model compensates.
-
-
-
-        # Set the network to training mode
-        for epoch in range(50):
+        for samp in samples:
             
-            avg_loss, model =  train(train_loader, model, loss_fn, optimizer, 
-                                     model_name = 'Transfer_MIL' ,weight_decay = 1e-4, logit_adj_train = args.logit_adj_train)
-            lr_scheduler.step()
+            #Train loader
+            train_loader = DataLoader(dataset=samp,batch_size=1, shuffle=False)
             
+            # Scheduler 
+            lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        
             
-            #Manual Logging
-            log_items = [f"EPOCH: {epoch}",
-                         f"lr: {optimizer.param_groups[0]['lr']:.6f}",
-                         f"loss: {avg_loss.item():.4f}"
-                         ]
-            print(" | ".join(log_items))
-        
-        
-        all_final = evaluate(train_data, train_sp_ids, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TRAIN")
-         
-
-        all_final = evaluate(test_data4, test_sp_ids4, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_test")
-  
-        
-        all_final = evaluate(test_data6, test_sp_ids6, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "NEP_test")
-        
-        all_final = evaluate(test_data5, test_sp_ids5, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_test")
-        
-        
-        all_final = evaluate(test_data0, test_sp_ids0, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "OPX_All")
-        
-        all_final = evaluate(test_data3, test_sp_ids3, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_All")
-        
-        
+            # Set the network to training mode
+            logit_adjustments, label_freq = compute_logit_adjustment(train_loader, tau = 2) #[-0.2093, -4.6176] The rarer class (1) gets a much more negative adjustment, which means during training its logits will be shifted down harder unless the model compensates.
     
-        avg_loss, pred_df, adj_pred_df = validate(test_data2, test_sp_ids2, model, loss_fn, 
-                                                  logit_adjustments, model_name = 'Transfer_MIL' ,logit_adj_train = False)
-        compute_performance(pred_df['True_y'],pred_df['prob_1'],pred_df['Pred_Class'], "NEP_ALL")
-        compute_performance(adj_pred_df['True_y'],adj_pred_df['prob_1'],adj_pred_df['Pred_Class'], "NEP_ALL")
+    
+            early_stopper = EarlyStopper(patience=5, min_delta=1e-4)  
+            
+            train_loss = []
+            val_loss =[]
+            for epoch in range(100):
+                
+                avg_loss  =  train(train_loader, model, loss_fn, optimizer, 
+                                         model_name = 'Transfer_MIL' ,l2_coef = args.l2_coef, 
+                                         logit_adjustments = logit_adjustments,
+                                         logit_adj_train = args.logit_adj_train)
+                lr_scheduler.step()
+                
+                avg_loss_val, pred_df_val = validate(val_data, val_sp_ids, model, loss_fn, 
+                                             logit_adjustments, 
+                                             model_name = 'Transfer_MIL',
+                                             logit_adj_infer = args.logit_adj_infer,
+                                             logit_adj_train = args.logit_adj_train,
+                                             l2_coef = args.l2_coef)
+                
+                
+                
+                # Manual logging
+                train_loss.append(avg_loss.item())
+                val_loss.append(avg_loss_val.item())
+                
+                log_items = [
+                    f"EPOCH: {epoch}",
+                    f"lr: {optimizer.param_groups[0]['lr']:.8f}",
+                    f"train loss: {avg_loss.item():.4f}",
+                    f"val loss: {avg_loss_val.item():.4f}",
+                    f"best val: {early_stopper.best:.4f}",
+                ]
+                print(" | ".join(log_items))
+                
+                #Save checkpoint
+                torch.save(model.state_dict(), outdir1 + "checkpoint_stage2_" + str(epoch) + '.pth')
+            
+                # Early stop check
+                if early_stopper.step(avg_loss_val.item(), model):
+                    print(f"Early stopping at epoch {epoch} (best val loss {early_stopper.best:.4f})")
+                    break
         
-        comb_data = test_data4 + test_data5 + test_data2
-        comb_ids = test_sp_ids4 + test_sp_ids5 + test_sp_ids2
-        all_final = evaluate(comb_data, comb_ids, model, model_name = model_name)
-        compute_performance(all_final['True_y'],all_final['prob_1'],all_final['Pred_Class'], "TCGA_OPX_NEP")
+        plot_loss(train_loss, val_loss, outdir5)
+        
+        avg_loss, pred_df = run_eval(train_data, train_sp_ids, "TRAIN",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data4, test_sp_ids4, "OPX_test",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data5, test_sp_ids5, "TCGA_test",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data6, test_sp_ids6, "NEP_test",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data0, test_sp_ids0, "OPX_All",     loss_fn,logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data3, test_sp_ids3, "TCGA_All",    loss_fn, logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
+        avg_loss, pred_df = run_eval(test_data2, test_sp_ids2, "NEP_ALL",    loss_fn,  logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
 
-   
- 
+        
+        
+       
+        
+        comb_data = test_data4 + test_data5 
+        comb_ids  = test_sp_ids4 + test_sp_ids5 
+        avg_loss, pred_df = run_eval(comb_data, comb_ids, "TCGA_OPX_NEP",    loss_fn,  logit_adj_infer = False, logit_adj_train = args.logit_adj_train, l2_coef = args.l2_coef )
 
 
+        
 
 
+    
 
+import torch
+from typing import List, Tuple
+
+import torch
+import pandas as pd
+import numpy as np
+
+def _norm(v: torch.Tensor) -> torch.Tensor:
+    return torch.nn.functional.normalize(v.float().reshape(-1), dim=0)
+
+def _pair_cos(a_feat: torch.Tensor, b_feat: torch.Tensor, reduce: str = "flatten") -> float:
+    """
+    Cosine similarity between two feature tensors using your reduction rules:
+    - try the requested `reduce`
+    - if flatten sizes differ, fallback to 'mean'
+    """
+    va = _to_vec(a_feat, reduce=reduce)
+    vb = _to_vec(b_feat, reduce=reduce)
+
+    if reduce == "flatten" and va.numel() != vb.numel():
+        # fallback to mean for both
+        va = _to_vec(a_feat, reduce="mean")
+        vb = _to_vec(b_feat, reduce="mean")
+
+    # If sizes *still* differ (very rare unless D differs across items), truncate to min
+    if va.numel() != vb.numel():
+        L = min(va.numel(), vb.numel())
+        va = va[:L]
+        vb = vb[:L]
+
+    va = _norm(va)
+    vb = _norm(vb)
+    return torch.dot(va, vb).item()
+
+def compute_similarity_matrix(
+    dataset,                    # List[Tuple[Tensor, Tensor, Tensor, Tensor]]
+    ids,                        # List[str] aligned with dataset
+    reduce: str = "flatten"     # or "mean"
+):
+    n = len(dataset)
+    S = torch.empty((n, n), dtype=torch.float32)
+    for i in range(n):
+        ai = dataset[i][0]
+        # diagonal is always 1.0 (after normalization), but compute for consistency
+        for j in range(n):
+            bj = dataset[j][0]
+            S[i, j] = _pair_cos(ai, bj, reduce=reduce)
+    # DataFrame for nice labeling/CSV
+    df = pd.DataFrame(S.numpy(), index=ids, columns=ids)
+    return S, df
+
+# ---- Run it on your data ----
+# Assumes `test_sp_ids4` is a list of IDs and `test_data4` is aligned (same order).
+S_torch, S_df = compute_similarity_matrix(test_data4, test_sp_ids4, reduce="flatten")
+
+# Save as CSV and NumPy (optional)
+csv_path = "similarity_matrix.csv"
+npy_path = "similarity_matrix.npy"
+S_df.to_csv(csv_path)
+np.save(npy_path, S_torch.numpy())
+
+labels = [x[1].item() for x in test_data4]
+label_df = pd.DataFrame({'ids': test_sp_ids4, args.mutation: labels})
 
 
