@@ -711,8 +711,10 @@ if __name__ == '__main__':
             y = y.long().view(-1).to(device)
                             
             #Run model     
-            results, _ = model(x,return_attention=True,
+            results, log_dict = model(x,return_attention=True,
                                return_slide_feats=True)
+            attention = log_dict['attention']
+            s_feature = log_dict['slide_feats']
                 
         # ##############################################################################
         # # DEcoupled training stage 2
