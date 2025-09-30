@@ -13,6 +13,11 @@ from torch.utils.data import Subset
 from torch.utils.data import Dataset
 import re
 import time
+from itertools import chain
+import random
+import ast
+import matplotlib.pyplot as plt
+import numpy as np
 
 def get_feature_idexes(method, include_tumor_fraction = True):
     
@@ -1455,3 +1460,271 @@ class ListDataset(Dataset):
     
     def __getitem__(self, idx):
         return self.data[idx]
+
+
+
+
+
+def combine_all(split, keys=('test', 'train', 'val')):
+    parts = [split[k] for k in keys]
+    data  = list(chain.from_iterable(p[0] for p in parts))
+    sp    = list(chain.from_iterable(p[1] for p in parts))
+    pt    = list(chain.from_iterable(p[2] for p in parts))
+    coh   = list(chain.from_iterable(p[3] for p in parts))
+    return data, sp, pt, coh
+
+def just_test(split):
+    a, b, c, d, _ = split['test']
+    return a, b, c, d
+
+
+
+def downsample(train_data, n_times=10, n_samples=100, seed=None):
+    """
+    Downsample positives and negatives with reproducibility option.
+    
+    Args:
+        train_data (list): dataset [(x, label), ...]
+        n_times (int): how many resamples
+        n_samples (int): number of positives/negatives to select each time
+        seed (int or None): random seed for reproducibility
+    Returns:
+        list of lists: each element is a balanced dataset
+    """
+    pos_data = [x for x in train_data if x[1] == 1]
+    neg_data = [x for x in train_data if x[1] == 0]
+
+    if seed is not None:
+        random.seed(seed)
+
+    all_samples = []
+    for i in range(n_times):
+        selected1 = random.sample(pos_data, n_samples)   # sample positives
+        selected0 = random.sample(neg_data, n_samples)   # sample negatives
+        selected_all = selected1 + selected0
+        random.shuffle(selected_all)
+        all_samples.append(selected_all)
+    return all_samples
+
+
+#unifomrm sampling form Harry
+def _uniform_sample(coords: np.ndarray, feats: np.ndarray, max_bag: int, seed: int = None, grid: int = 32) -> tuple:
+    
+    rng = np.random.default_rng(seed)
+    
+   
+    # If fewer tiles than max_bag, just return them all
+    N = len(coords)
+    if N  <= max_bag:
+        chosen = np.arange(N, dtype=int)
+        return feats[chosen], coords[chosen], chosen
+    
+    # --- normal uniform sampling ---
+
+    mins, maxs = coords.min(0), coords.max(0)
+
+    norm   = (coords - mins) / (maxs - mins + 1e-8)
+
+    bins   = np.floor(norm * grid).astype(np.int16)
+
+    keys   = bins[:, 0] * grid+ bins[:, 1]
+
+    #order  = np.random.permutation(len(keys))
+    order  = rng.permutation(len(keys))  # use seeded RNG
+
+    chosen, seen = [], set()
+
+    for idx in order:
+
+        k = keys[idx]
+
+        if k not in seen:
+
+            seen.add(k); chosen.append(idx)
+
+            if len(chosen) == max_bag:
+
+                break
+
+    if len(chosen) < max_bag:        # pad if needed
+
+        rest = np.setdiff1d(np.arange(len(keys)), chosen, assume_unique=True)
+        
+        extra = np.random.choice(rest, max_bag-len(chosen), replace=False)
+
+        chosen = np.concatenate([chosen, extra])
+
+    chosen = np.asarray(chosen, dtype=int)
+
+    return feats[chosen], coords[chosen], chosen
+
+
+
+#Weighted spatial  unifornm sampling focus on cancer tiles
+def _uniform_sample_with_cancer_prob(
+    coords: np.ndarray,
+    feats: np.ndarray,
+    cancer_prob: np.ndarray,
+    max_bag: int,
+    seed: int = None,
+    grid: int = 32,
+    strength: float = 1.0,
+    blend_uniform: float = 0.05,
+) -> tuple:
+    """
+    Weighted spatial sampling:
+      1) build GRID bins to encourage spatial diversity (<=1 pick/bin in the first pass)
+      2) iterate tiles in a *probability-weighted* random order (higher prob first on average)
+      3) pad remaining slots (if any) with weighted picks from the rest
+
+    Args:
+        coords: (N, 2) or (N, D) integer/float tile coordinates.
+        feats:  (N, F) features aligned with coords.
+        cancer_prob: (N,) or (N,1) per-tile probabilities in [0,1].
+        max_bag: target number of tiles to sample.
+        seed: RNG seed for reproducibility.
+        grid: grid resolution used to enforce spatial diversity.
+        strength: exponent on probabilities; >1 sharpens (more aggressive toward high prob),
+                  <1 flattens. =0 becomes uniform (after blending).
+        blend_uniform: small epsilon to ensure nonzero mass and keep some exploration.
+
+    Returns:
+        feats[chosen], coords[chosen], chosen_indices (np.int64)
+    """
+    rng = np.random.default_rng(seed)
+
+    N = len(coords)
+    if N == 0:
+        return feats[:0], coords[:0], np.asarray([], dtype=np.int64)
+
+    if N <= max_bag:
+        chosen = np.arange(N, dtype=np.int64)
+        return feats[chosen], coords[chosen], chosen
+
+    # --- prep probabilities ---
+    p = np.asarray(cancer_prob).reshape(-1)
+    if p.shape[0] != N:
+        raise ValueError(f"cancer_prob length {p.shape[0]} != N={N}")
+
+    # sanitize: clip, replace NaNs, power 'strength', and blend with uniform so no zeros
+    p = np.nan_to_num(p, nan=0.0)
+    p = np.clip(p, 0.0, None)
+    if strength != 1.0:
+        # if all zeros, p**strength still zeros; blending below handles this.
+        p = np.power(p, max(strength, 0.0))
+    if not np.isfinite(p).all() or p.sum() == 0:
+        # fallback to uniform
+        p = np.ones_like(p, dtype=float)
+    # blend with uniform mass
+    if blend_uniform > 0:
+        u = np.full_like(p, 1.0 / N)
+        p = (1.0 - blend_uniform) * p + blend_uniform * u
+    # normalize
+    p = p / p.sum()
+
+    # --- grid binning (same as your function, parametric grid) ---
+    mins, maxs = coords.min(0), coords.max(0)
+    norm = (coords - mins) / (maxs - mins + 1e-8)
+    bins = np.floor(norm * grid).astype(np.int16)
+    # allow coords with >2 dims: use first two for keys
+    b0 = bins[:, 0]
+    b1 = bins[:, 1] if bins.shape[1] > 1 else np.zeros_like(b0)
+    keys = (b0 * grid + b1).astype(np.int32)
+
+    # --- probability-weighted permutation without replacement ---
+    # numpy supports p with replace=False (interpreted as successive draws proportional to p)
+    order = rng.choice(N, size=N, replace=False, p=p)
+
+    # --- first pass: one per bin, in weighted order ---
+    chosen = []
+    seen = set()
+    for idx in order:
+        k = int(keys[idx])
+        if k not in seen:
+            seen.add(k)
+            chosen.append(idx)
+            if len(chosen) == max_bag:
+                break
+
+    # --- pad if needed (still weighted, from the rest) ---
+    if len(chosen) < max_bag:
+        chosen = np.asarray(chosen, dtype=np.int64)
+        mask = np.ones(N, dtype=bool)
+        mask[chosen] = False
+        rest_idx = np.nonzero(mask)[0]
+        if rest_idx.size > 0:
+            # renormalize probabilities over the remaining pool
+            p_rest = p[rest_idx]
+            p_rest = p_rest / p_rest.sum()
+            extra = rng.choice(rest_idx, size=(max_bag - len(chosen)), replace=False, p=p_rest)
+            chosen = np.concatenate([chosen, extra.astype(np.int64)], axis=0)
+        else:
+            # should be rare; just return what we have
+            chosen = chosen.astype(np.int64)
+
+    # stable dtype and order (optional shuffle to avoid deterministic bin sequence)
+    # chosen = rng.permutation(chosen)  # uncomment if you want final order shuffled
+    return feats[chosen], coords[chosen], chosen
+
+
+
+
+#run uniform sampke for all selected samples
+def uniform_sample_all_samples(indata, incoords, max_bag = 100, grid = 32, sample_by_tf = True, plot = False, tf_threshold = 0.0):
+    
+    new_data_list = []
+    for data_item, coord_item in zip(indata,incoords):            
+        
+        #get feature
+        feats = data_item[0] #(N_tiles, 1536)
+        label = data_item[1]
+        tfs  = data_item[2]
+        sl  = data_item[3]
+        #get coordiantes
+        coords = coord_item
+        
+        
+        # keep a copy of full coords for plotting
+        coords_all = coords.copy()
+
+        # apply threshold filtering if requested
+        if tf_threshold is not None:
+            mask = tfs >= tf_threshold
+            feats = feats[mask]
+            tfs = tfs[mask]
+            sl = sl[mask]
+            coords = coords[mask]
+        
+            # # skip if nothing remains after filtering
+            # if len(feats) == 0:
+            #     continue
+
+
+        #uniform sampling
+        if sample_by_tf == False:
+            sampled_feats, sampled_coords, sampled_index = _uniform_sample(coords, feats, max_bag, grid = grid, seed = 1)
+        else:
+            sampled_feats, sampled_coords, sampled_index = _uniform_sample_with_cancer_prob(coords, feats, tfs, max_bag, 
+                                                                                            seed = 1, 
+                                                                                            grid = grid, 
+                                                                                            strength = 1.0)
+
+        if plot:
+            # 3. Plot results
+            plt.figure(figsize=(8, 8))
+            plt.scatter(coords_all[:, 0], -coords_all[:, 1], alpha=0.3, label="All Tiles") #- for  flip Y
+            plt.scatter(sampled_coords[:, 0], -sampled_coords[:, 1], color="red", label="Sampled Tiles") #- for  flip Y
+            plt.legend()
+            plt.title("Uniform Sampling with Grid Constraint")
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            plt.show()
+        
+        
+        sampled_tf = tfs[sampled_index]
+        sampled_site_loc =sl[sampled_index]
+        new_tuple = (sampled_feats,label, sampled_tf, sampled_site_loc)
+        new_data_list.append(new_tuple)
+        
+        
+    return new_data_list

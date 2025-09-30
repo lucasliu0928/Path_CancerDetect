@@ -13,6 +13,8 @@ import os
 import pandas as pd
 from PIL import ImageCms, Image
 import sys
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 sys.path.insert(0, '../Utils/RandomSplit-main/')
 from RandomSplit import MakeBalancedCrossValidation
@@ -230,23 +232,59 @@ def mutation_sample_summary(df_subset, mut_cols):
 
 
 
-def get_feature_label_site(indata):
-    feature_list = []
-    label_list = []
-    site_list = []
-    for x in indata:
-        features = x[0].mean(dim = 0, keepdim = True)
-        labels = x[1]
-        labels_repeated = labels.expand(features.shape[0], -1)
-        site = x[3].unique()[0].item()
-        feature_list.append(features)
-        label_list.append(labels_repeated)
-        site_list.append(site)
-        
-    all_feature =  torch.concat(feature_list, dim = 0)
-    all_labels =  torch.concat(label_list, dim = 0).squeeze().numpy()
+
+
+
+def count_num_tiles(indata, cohort_name):
+    n_tiles = [x['x'].shape[0] for x in indata]
+    ids = [x['sample_id'] for x in indata]
+    labels = [x['y'].squeeze().numpy() for x in indata]
     
-    return all_feature, all_labels, site_list
+    sample_df = pd.DataFrame({'SAMPLIE_ID':ids, 'N_TILES': n_tiles})
+    label_df = pd.DataFrame(labels, columns=[f"LABEL_{i}" for i in range(len(labels[0]))])
+    label_df.columns = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]
+    sample_df = pd.concat([sample_df.reset_index(drop=True),
+                           label_df.reset_index(drop=True)], axis=1)
+
+    
+    df = pd.DataFrame({'cohort_name': cohort_name,
+                    'AVG_N_TILES': np.mean(n_tiles).round(),
+                    'Median_N_TILES': np.median(n_tiles).round(),
+                  'MAX_N_TILES': max(n_tiles),
+                  'MIN_N_TILES': min(n_tiles)}, index = [0])
+    
+    return df,sample_df
 
 
+def plot_n_tiles_by_labels(df, label_cols=None, value_col="N_TILES", agg="mean", save_path=None):
+    """
+    Plot grouped bar charts of N_TILES by binary label columns.
+    """
+    if label_cols is None:
+        label_cols = ["AR", "HR1", "HR2", "PTEN", "RB1", "TP53", "TMB", "MSI"]
 
+    grouped = {}
+    for col in label_cols:
+        if agg == "mean":
+            grouped[col] = df.groupby(col)[value_col].mean()
+        elif agg == "sum":
+            grouped[col] = df.groupby(col)[value_col].sum()
+        else:
+            raise ValueError("agg must be 'mean' or 'sum'")
+
+    grouped_df = pd.DataFrame(grouped)
+
+    ax = grouped_df.plot(kind="bar", figsize=(10, 6))
+    plt.title(f"{agg.capitalize()} {value_col} by Label Group")
+    plt.ylabel(f"{agg.capitalize()} {value_col}")
+    plt.xlabel("Label value (0 or 1)")
+    plt.xticks(rotation=0)
+    plt.legend(title="Label")
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"Plot saved to {save_path}")
+        plt.close()
+    else:
+        plt.show()
