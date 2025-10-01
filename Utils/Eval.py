@@ -27,6 +27,12 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
 
     fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred_prob, pos_label=1)
     
+    # Find best threshold using Youden's J
+    J = tpr - fpr
+    ix = np.argmax(J)
+    best_thresh = thresholds[ix]
+
+    
     # Average precision score = PR-AUC
     PR_AUC = average_precision_score(y_true, y_pred_prob)
 
@@ -38,17 +44,20 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     Recall = round(recall_score(y_true, y_pred_class),2)
     Precision = round(precision_score(y_true, y_pred_class),2)
     Specificity = round(tn / (tn + fp),2)
-    perf_tb = pd.DataFrame({"AUC": AUC,
+    perf_tb = pd.DataFrame({"best_thresh": best_thresh,
+                            "AUC": AUC,
+                            "PR_AUC":PR_AUC,
                             "Recall": Recall,
                             "Specificity":Specificity,
                             "ACC": ACC,
                             "Precision":Precision,
-                            "PR_AUC":PR_AUC,
                             "F1": F1,
                             "F2": F2,
                             "F3": F3},index = [cohort_name])
     
     return perf_tb
+
+        
 
 
 
