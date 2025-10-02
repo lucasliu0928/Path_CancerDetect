@@ -23,15 +23,16 @@ from sklearn.isotonic import IsotonicRegression
 from ACMIL import compute_loss_singletask
 
 def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
+    
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_class).ravel() #CM
-
+    
     fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred_prob, pos_label=1)
     
     # Find best threshold using Youden's J
     J = tpr - fpr
     ix = np.argmax(J)
     best_thresh = thresholds[ix]
-
+    
     
     # Average precision score = PR-AUC
     PR_AUC = average_precision_score(y_true, y_pred_prob)
@@ -42,8 +43,10 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     F2 = round(fbeta_score(y_true, y_pred_class,beta = 2),2)
     F3 = round(fbeta_score(y_true, y_pred_class,beta = 3),2)
     Recall = round(recall_score(y_true, y_pred_class),2)
-    Precision = round(precision_score(y_true, y_pred_class),2)
     Specificity = round(tn / (tn + fp),2)
+    Precision = round(precision_score(y_true, y_pred_class),2)
+    npv = round(tn / (tn + fn),2)
+    
     perf_tb = pd.DataFrame({"best_thresh": best_thresh,
                             "AUC": AUC,
                             "PR_AUC":PR_AUC,
@@ -51,6 +54,7 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
                             "Specificity":Specificity,
                             "ACC": ACC,
                             "Precision":Precision,
+                            "NPV": npv,
                             "F1": F1,
                             "F2": F2,
                             "F3": F3},index = [cohort_name])
@@ -195,7 +199,7 @@ def calibrate_probs_isotonic(y_val, y_prob_val, y_test_prob):
 
 
 def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=None,
-                         num_bootstrap=1000, ci=95, seed=None):
+                         num_bootstrap=1000, ci=95, seed=None, cohort_name = ""):
     """
     Compute bootstrap confidence interval for a metric using predictions in a DataFrame.
 
@@ -221,27 +225,8 @@ def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=No
         y_true = sample[y_true_col].values
         y_pred_class =  sample[y_pred_col].values
         y_pred_prob =   sample[y_prob_col].values
+        perf_tb = compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name)
         
-        tn, fp, fn, tp = confusion_matrix(y_true, y_pred_class).ravel() #CM
-        fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred_prob, pos_label=1)
-        PR_AUC = average_precision_score(y_true, y_pred_prob)
-        AUC = round(metrics.auc(fpr, tpr),2)
-        ACC = round(accuracy_score(y_true, y_pred_class),2)
-        F1 = round(f1_score(y_true, y_pred_class),2)
-        F2 = round(fbeta_score(y_true, y_pred_class,beta = 2),2)
-        F3 = round(fbeta_score(y_true, y_pred_class,beta = 3),2)
-        Recall = round(recall_score(y_true, y_pred_class),2)
-        Precision = round(precision_score(y_true, y_pred_class),2)
-        Specificity = round(tn / (tn + fp),2)
-        perf_tb = pd.DataFrame({"AUC": AUC,
-                                "Recall": Recall,
-                                "Specificity":Specificity,
-                                "ACC": ACC,
-                                "Precision":Precision,
-                                "PR_AUC":PR_AUC,
-                                "F1": F1,
-                                "F2": F2,
-                                "F3": F3},index = [0])
         perf_list.append(perf_tb)
     perf_df = pd.concat(perf_list)
 
@@ -256,6 +241,122 @@ def bootstrap_ci_from_df(df, y_true_col='y_true', y_pred_col=None, y_prob_col=No
     ci_df = pd.DataFrame.from_dict(formatted_results, orient="index", columns=["Mean [CI Low, CI High]"])
 
     return ci_df.T
+
+
+def bootstrap_ci_from_df_stratified(
+    df,
+    y_true_col='y_true',
+    y_pred_col=None,
+    y_prob_col=None,
+    num_bootstrap=1000,
+    ci=95,
+    seed=None,
+    cohort_name="",
+    stratified=True,
+):
+    """
+    Compute bootstrap mean and confidence intervals for performance metrics
+    using predictions in a DataFrame. Optionally uses stratified bootstrapping
+    (recommended for imbalanced data).
+
+    Args:
+        df: DataFrame with prediction results.
+        y_true_col: Column name for ground truth (binary labels, e.g., {0,1}).
+        y_pred_col: Column name for predicted labels (used for accuracy, etc.).
+        y_prob_col: Column name for predicted probabilities (used for AUROC, etc.).
+        num_bootstrap: Number of bootstrap resamples.
+        ci: Confidence level (e.g., 95 for 95% CI).
+        seed: Optional random seed.
+        cohort_name: Passed through to `compute_performance`.
+        stratified: If True, sample within each class to preserve class presence.
+
+    Returns:
+        A 1-row DataFrame with "Mean [CI Low, CI High]" strings per metric.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(df)
+    if n == 0:
+        raise ValueError("Empty dataframe provided.")
+
+    # Basic checks
+    if y_true_col not in df.columns:
+        raise ValueError(f"Column '{y_true_col}' not found in df.")
+    if (y_pred_col is None) and (y_prob_col is None):
+        raise ValueError("Provide at least one of y_pred_col or y_prob_col.")
+
+    # Ensure we actually have two classes if we plan to compute class-based metrics
+    cls_counts = df[y_true_col].value_counts()
+    if stratified and len(cls_counts) < 2:
+        raise ValueError(
+            "Stratified bootstrapping requires at least two classes present in the data."
+        )
+
+    # Pre-split indices by class for stratified resampling
+    if stratified:
+        class_to_indices = {
+            cls: df.index[df[y_true_col] == cls].to_numpy()
+            for cls in cls_counts.index
+        }
+        class_to_n = {cls: int(count) for cls, count in cls_counts.items()}
+
+    perf_list = []
+
+    for _ in range(num_bootstrap):
+        if stratified:
+            # Sample WITH replacement within each class, preserving original class counts
+            sampled_idxs_parts = []
+            for cls, idxs in class_to_indices.items():
+                k = class_to_n[cls]
+                # np.random.Generator.choice is reproducible and fast
+                draw = rng.choice(idxs, size=k, replace=True)
+                sampled_idxs_parts.append(draw)
+            sampled_idxs = np.concatenate(sampled_idxs_parts)
+            # Optional shuffle to avoid any ordering artifacts
+            rng.shuffle(sampled_idxs)
+            sample = df.loc[sampled_idxs]
+        else:
+            # Vanilla bootstrap (may produce zero-positive/zero-negative samples)
+            # Use numpy choice for RNG control rather than pandas .sample()
+            draw = rng.choice(df.index.to_numpy(), size=n, replace=True)
+            sample = df.loc[draw]
+
+        # Pull columns (guard against None)
+        y_true = sample[y_true_col].values
+        y_pred_class = sample[y_pred_col].values if y_pred_col is not None else None
+        y_pred_prob  = sample[y_prob_col].values if y_prob_col is not None else None
+
+        # Your metric aggregator; expected to return a DataFrame/Series per call
+        # e.g., columns like ["accuracy", "auc", "precision", "recall", ...]
+        perf_tb = compute_performance(y_true, y_pred_prob, y_pred_class, cohort_name)
+
+        # Make sure each entry is a DataFrame row
+        if isinstance(perf_tb, pd.Series):
+            perf_tb = perf_tb.to_frame().T
+        perf_list.append(perf_tb)
+
+    perf_df = pd.concat(perf_list, ignore_index=True)
+
+    # Aggregate mean and percentile CI per metric
+    alpha = (100 - ci) / 2.0
+    lower_q = alpha / 100.0
+    upper_q = 1.0 - lower_q
+
+    mean_values = perf_df.mean(numeric_only=True)
+    lower_bounds = perf_df.quantile(lower_q, numeric_only=True)
+    upper_bounds = perf_df.quantile(upper_q, numeric_only=True)
+
+    # Format results as "mean [low - high]"
+    formatted_results = {
+        col: f"{mean_values[col]:.2f} [{lower_bounds[col]:.2f} - {upper_bounds[col]:.2f}]"
+        for col in mean_values.index
+    }
+    ci_df = pd.DataFrame.from_dict(
+        formatted_results, orient="index", columns=["Mean [CI Low, CI High]"]
+    ).T
+
+    return ci_df
+
+
 
 
 def boxplot_predprob_by_mutationclass(pred_df, cohort_name, outdir, prob_col = "Pred_Prob"):
