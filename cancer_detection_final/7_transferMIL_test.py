@@ -332,7 +332,7 @@ if __name__ == '__main__':
             plot_df.to_csv(os.path.join(outdir6, sp_id + "_att.csv"))
         
         #TCGA
-        for (i, parts) in enumerate(zip(test_data2, test_sp_ids2)):
+        for (i, parts) in enumerate(zip(test_data5, test_sp_ids5)):
             x, y, tf, sl = parts[0]
             x = x.unsqueeze(0).to(device)      # add batch dim
             y = y.long().view(-1).to(device)
@@ -351,7 +351,7 @@ if __name__ == '__main__':
             
             
         #nep
-        for (i, parts) in enumerate(zip(test_data5, test_sp_ids5)):
+        for (i, parts) in enumerate(zip(test_data2, test_sp_ids2)):
             x, y, tf, sl = parts[0]
             x = x.unsqueeze(0).to(device)      # add batch dim
             y = y.long().view(-1).to(device)

@@ -60,14 +60,21 @@ plot_tile_metric <- function(
 ############################################################################################################
 proj_dir <- "/Volumes/Lucas/mh_proj/mutation_pred/intermediate_data/"
 histo_data_dir <- paste0(proj_dir, "0_HistoTME/TME_Spatial/TF0.0/uni2/")
-cohort_name <- "TCGA_PRAD"
-sample_id <- "OPX_216"
+cohort_name <- "Neptune"
 value_col <- "Checkpoint_inhibition" #Checkpoint_inhibition, T_cells
 cancer_data_dir <- paste0(proj_dir, "2_cancer_detection/", cohort_name, "/IMSIZE250_OL0/")
 
 ids <- c("OPX_129","OPX_167","OPX_207","OPX_198","OPX_216","OPX_263")
 ids <- c("TCGA-HC-7747-01Z-00-DX1.1fd2554f-29b9-4a9e-9fe1-93a1bc29f319","TCGA-XK-AAIW-01Z-00-DX1.31B98849-4AA9-4AC1-A697-A0C4165976B5")
-
+ids <- c("NEP-045PS1-1_HE_MH_03252024",
+         "NEP-076PS1-1_HE_MH_03282024",
+         "NEP-126PS1-1_HE_MH06032024",
+         "NEP-159PS1-1_HE_MH_06102024",
+         "NEP-212PS1-8_HE_MH_06282024",
+         "NEP-212PS2_HE_MH_06282024",
+         "NEP-280PS2-1_HE_MH_02072025")
+ids <- c("NEP-346PS1-1_HE_MH_03202025",
+         "NEP-377PS1-1_HE_MH_03212025")
 for (sample_id in ids) {
 #--- Read data
 df <- read.csv(paste0(histo_data_dir, sample_id, "_5fold.csv"))
