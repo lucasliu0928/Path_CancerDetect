@@ -21,6 +21,7 @@ cd Path_CancerDetect
 ## Create and activate a virtual environment
 ```
 conda env create -f paimg9.yml
+conda activate paimg9
 ```
 ### Executing program
 
