@@ -28,17 +28,25 @@ conda activate paimg9
 
 This pipeline enables a step-by-step workflow for histopathology data analysis:
 
+## 🧬 I. Mutation Prediction Pipeline
+
 1. 🧱 **Extract Tiles** — Split Whole Slide Images (WSIs) into smaller image tiles  
 2. 🔬 **Run Cancer Detection** — Identify and quantify tumor regions across tiles  
 3. 🧠 **Generate Embeddings** — Extract tile-level representations using foundation models  
-4. 🧬 **Train Mutation Prediction Model** — **🚧 TODO:** Develop supervised learning workflow  
-5. 🤖 **Run Inference for Mutation Prediction** — **🚧 TODO:** Apply trained model to unseen data  
-6. 📊 **Evaluate Model Performance** — **🚧 TODO:** Compute metrics such as ROC-AUC, accuracy, and F1-score
-7. 🧩 **Analyze Tumor Microenvironment (TME)** — Perform TME profiling with HistoTME
-8. 🧰 **Analyze Hand-Crafted Features**  — **🚧 TODO:** Integrate feature extraction pipeline  
+4. ⚙️ **Train Mutation Prediction Model** — **🚧 TODO:** Develop supervised learning workflow  
+5. 🧭 **Run Inference for Mutation Prediction** — **🚧 TODO:** Apply trained model to unseen data  
+6. 📊 **Evaluate Model Performance** — **🚧 TODO:** Compute metrics such as ROC-AUC, accuracy, and F1-score  
+
+---
+
+## 🧩 II. Additional Analyses
+
+7. 🌿 **Analyze Tumor Microenvironment (TME)** — Perform TME profiling using HistoTME  
+8. 🧰 **Analyze Hand-Crafted Features** — **🚧 TODO:** Integrate feature extraction pipeline  
+
 
    
-### ⚙️ Executing Program
+### 🧬 I. Mutation Prediction Pipeline
 
 #### 🧱 Step 1: Extract Tiles from WSI
 This step processes the Whole Slide Image (WSI) into tiles (only kept tiles with tissue coverage > 0.9 and white space < 0.9).
@@ -88,7 +96,7 @@ python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tun
 ```
 
 
-### 🧩 Run HistoTME (https://github.com/spatkar94/HistoTME)
+### 🧩 II. Additional Analyses (https://github.com/spatkar94/HistoTME)
 #### Step 1: Reformat data for HistoTME
 This step generate input data for running HistoTME
 **Available models:** Please refer to their official website for available foundation models
