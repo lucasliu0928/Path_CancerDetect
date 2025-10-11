@@ -1728,3 +1728,26 @@ def uniform_sample_all_samples(indata, incoords, max_bag = 100, grid = 32, sampl
         
         
     return new_data_list
+
+
+
+def filter_by_tumor_fraction(data, threshold=0.9):
+    filtered_data = []
+    masks = []
+    for features, label, tumor_fraction, site_loc in data:
+        mask = tumor_fraction >= threshold
+        if mask.any():
+            filtered_features = features[mask]
+            filtered_tumor_fraction = tumor_fraction[mask]
+            filtered_site_loc = site_loc[mask]
+            filtered_data.append((filtered_features, label, filtered_tumor_fraction, filtered_site_loc))
+            masks.append(mask)
+        else:
+            filtered_data.append((features, label, tumor_fraction, site_loc))
+            mask_all_true = torch.ones(len(tumor_fraction), dtype=torch.bool)
+            masks.append(mask_all_true)
+    return filtered_data,masks
+
+
+
+

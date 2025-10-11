@@ -51,18 +51,10 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
-
-
-def compute_logit_adjustment(train_loader, tau):
-    """compute the base probabilities
+def compute_label_freq(data_loader):
     
-    official implemenation: https://github.com/Chumsy0725/logit-adj-pytorch/blob/main/utils.py
-    Output: [1, N_C]: the logit adjustment for each class
-    
-    """
-
     label_freq = {}
-    for i, data in enumerate(train_loader):
+    for i, data in enumerate(data_loader):
         target = data[1][0].long().view(-1)
         for j in target:
             key = int(j.item())
@@ -70,10 +62,21 @@ def compute_logit_adjustment(train_loader, tau):
     label_freq = dict(sorted(label_freq.items()))
     label_freq_array = np.array(list(label_freq.values()))
     label_freq_array = label_freq_array / label_freq_array.sum()
+
+    return label_freq, label_freq_array
+    
+
+def compute_logit_adjustment(label_freq_array, tau):
+    """compute the base probabilities
+    
+    official implemenation: https://github.com/Chumsy0725/logit-adj-pytorch/blob/main/utils.py
+    Output: [1, N_C]: the logit adjustment for each class
+    
+    """
     adjustments = np.log(label_freq_array ** tau + 1e-12)
     adjustments = torch.from_numpy(adjustments)
     
-    return adjustments, label_freq
+    return adjustments
         
         
         

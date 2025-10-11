@@ -46,18 +46,25 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     Specificity = round(tn / (tn + fp),2)
     Precision = round(precision_score(y_true, y_pred_class),2)
     npv = round(tn / (tn + fn),2)
+    FPRate = round(fp / (fp + tn), 2)   # False Positive Rate
+
     
     perf_tb = pd.DataFrame({"best_thresh": best_thresh,
                             "AUC": AUC,
                             "PR_AUC":PR_AUC,
                             "Recall": Recall,
-                            "Specificity":Specificity,
-                            "ACC": ACC,
                             "Precision":Precision,
                             "NPV": npv,
+                            "Specificity":Specificity,
+                            "False_Positive_Rate": FPRate,
+                            "ACC": ACC,
                             "F1": F1,
                             "F2": F2,
-                            "F3": F3},index = [cohort_name])
+                            "F3": F3,
+                            "TP": tp,
+                            "TN": tn,
+                            "FP": fp,
+                            "FN": fn},index = [cohort_name])
     
     return perf_tb
 
@@ -788,3 +795,35 @@ def eval_decouple(net, indata, ids, y_true, outcome, use_adjusted, class_priors,
         
 
 
+def generate_attention_csv(model,
+                           test_data,
+                           test_sp_ids,
+                           mask_list,
+                           tile_info_data,
+                           outdir,
+                           device="cuda"):
+    model.eval()
+    for (i, parts) in enumerate(zip(test_data, test_sp_ids, mask_list)):
+        x, y, tf, sl = parts[0]
+        x = x.unsqueeze(0).to(device)      # add batch dim
+        y = y.long().view(-1).to(device)
+        sp_id = parts[1]
+        mask = parts[2]
+        
+        #Run model     
+        results, log_dict = model(x,return_attention=True,
+                           return_slide_feats=True)
+        attention = log_dict['attention']
+        s_feature = log_dict['slide_feats']
+        
+        #Get sample data
+        sample_entry = [d for d in tile_info_data if d["sample_id"] == sp_id][0]
+        tile_info = sample_entry['tile_info']            
+        tile_info['tumor_fraction'] = sample_entry['tumor_fraction']
+        
+        #Add att
+        tile_info['att'] = pd.NA
+        tile_info.loc[mask.numpy(), 'att'] = attention.squeeze().detach().cpu().numpy()
+        
+        att_df = tile_info[['pred_map_location',"att","tumor_fraction"]]
+        att_df.to_csv(os.path.join(outdir, sp_id + "_att.csv"))

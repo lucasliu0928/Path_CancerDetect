@@ -26,7 +26,7 @@ parser.add_argument('--mag_extract', default='20', type=int, help='specify magni
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles, do not change this, model trained at 250x250 at 20x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue detection: e.g., 1.25x')
-parser.add_argument('--cohort_name', default='PrECOG', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, PrECOG, "CCola/all_slides/"')
+parser.add_argument('--cohort_name', default='Pluvicto_Pretreatment_bx', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, Pluvicto_Pretreatment_bx, PrECOG, "CCola/all_slides/"')
 parser.add_argument('--out_dir', default='1_tile_pulling', type=str, help='output directory')
 
 if __name__ == '__main__':
@@ -57,6 +57,7 @@ if __name__ == '__main__':
     #TAN_TMA: 677
     #pluvicto: 606
     #PrECOG: 46
+    #Pluvicto_Pretreatment_bx: 21
     ############################################################################################################    
     if args.cohort_name == "CCola/all_slides/":
         all_ids = get_ids(wsi_location, include="(2017-0133)")  # 234
@@ -83,8 +84,7 @@ if __name__ == '__main__':
     ############################################################################################################
     #Start 
     ############################################################################################################
-    for cur_id in selected_ids:      
-        
+    for cur_id in selected_ids:     
         #create out path
         save_location = out_location + "/" + cur_id + "/"
         create_dir_if_not_exists(save_location)
@@ -120,9 +120,12 @@ if __name__ == '__main__':
                 slides_name = [f for f in os.listdir(os.path.join(wsi_location, cur_id)) if '.svs' in f][0].replace('.svs','')
                 _file = os.path.join(wsi_location, cur_id, slides_name + '.svs') 
                 rad_tissue = 2
+            elif 'Pluvicto_Pretreatment_bx' in args.cohort_name:
+                _file =  os.path.join(wsi_location, slides_name + ".tif") 
+                rad_tissue = 5
             
             #Generating tiles 
-            if args.cohort_name in ["OPX", "CCola/all_slides/", "Neptune", "PrECOG"]:                
+            if args.cohort_name in ["OPX", "CCola/all_slides/", "Neptune", "PrECOG", "Pluvicto_Pretreatment_bx"]:                
                 mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles(cur_id, _file, args.save_image_size, args.pixel_overlap, limit_bounds, args.mag_target_tiss, rad_tissue, args.mag_extract)
             elif args.cohort_name in ["TAN_TMA_Cores", "Pluvicto_TMA_Cores"]:
                 mpp, lvl_img, lvl_mask, tissue, tile_info_df = generating_tiles_tma(cur_id, _file, args.save_image_size, args.pixel_overlap, rad_tissue)

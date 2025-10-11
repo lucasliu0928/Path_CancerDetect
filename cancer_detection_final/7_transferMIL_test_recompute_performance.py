@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Thu Oct  9 21:41:39 2025
+
+@author: jliu6
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Sep 12 23:26:41 2025
 
 @author: jliu6
@@ -29,19 +37,13 @@ from torch.optim.lr_scheduler import StepLR
 
 sys.path.insert(0, '../Utils/')
 from data_loader import merge_data_lists, load_dataset_splits, filter_by_tumor_fraction
-from data_loader import combine_all, just_test, downsample, uniform_sample_all_samples
+from data_loader import combine_all, just_test, uniform_sample_all_samples
 from Loss import FocalLoss, compute_logit_adjustment, compute_label_freq
 from misc_utils import str2bool
 from misc_utils import create_dir_if_not_exists, set_seed
-from plot_utils import plot_loss
-from TransferMIL_utils import build_model, EarlyStopper, run_eval, train, validate
-from Eval import bootstrap_ci_from_df, bootstrap_ci_from_df_stratified, generate_attention_csv
 
-#FOR MIL-Lab
-sys.path.insert(0, os.path.normpath(os.path.join(os.getcwd(), '..', '..', 'other_model_code','MIL-Lab',"src")))
-from models.abmil import ABMILModel
-from models.dsmil import DSMILModel
-from models.transmil import TransMILModel
+
+
 
 # source ~/.bashrc
 # conda activate mil
@@ -53,19 +55,11 @@ parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fra
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
-parser.add_argument('--logit_adj_train', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--out_folder', default= 'pred_out_100125', type=str, help='out folder name')
 
-############################################################################################################
-#     Model Para
-############################################################################################################
-parser.add_argument('--DIM_OUT', default=512, type=int, help='')
-parser.add_argument('--droprate', default=0.01, type=float, help='drop out rate')
-parser.add_argument('--lr', default = 3e-4, type=float, help='learning rate') #0.01 works for DA with union , OPX + TCGA
-parser.add_argument('--train_epoch', default=10, type=int, help='')
 
-            
+
 if __name__ == '__main__':
     
     args = parser.parse_args()

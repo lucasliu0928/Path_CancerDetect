@@ -141,7 +141,7 @@ if __name__ == '__main__':
                 _file = os.path.join(wsi_location, slides_name + ".tif")
             elif args.cohort_name.replace("z_nostnorm_", "") == 'Pluvicto_TMA_Cores':
                 slides_name = cur_id
-                _file = wsi_location + slides_name + ".tif"
+                _file = os.path.join(wsi_location, slides_name + ".tif")
             elif args.cohort_name.replace("z_nostnorm_", "") == 'PrECOG':
                 slides_name = cur_id
                 _file = os.path.join(wsi_location, slides_name + ".svs")
@@ -183,5 +183,3 @@ if __name__ == '__main__':
         else:
             print('Already Processed:',cur_id)
 
-#'/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/Pluvicto_TMA_Cores/IMSIZE250_OL0/TMA109A_HE_40X_MH011824-A-2/prior_model/TMA109A_HE_40X_MH011824-A-2_TILE_TUMOR_PERC.csv''
-#'/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/2_cancer_detection/Pluvicto_TMA_Cores/IMSIZE250_OL0/TMA109A_HE_40X_MH011824-A-2/prior_model/TMA109A_HE_40X_MH011824-A-2_TILE_TUMOR_PERC.csv
