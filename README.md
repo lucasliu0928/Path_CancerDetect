@@ -28,10 +28,14 @@ conda activate paimg9
 
 This pipeline enables a step-by-step workflow for histopathology data analysis:
 
-1. 🧱 **Extract tiles** from Whole Slide Images (WSIs)  
-2. 🔬 **Run cancer detection** to identify tumor regions  
-3. 🧠 **Generate embeddings** using foundation models  
-4. 🧩 **Analyze Tumor Microenvironment (TME)** using HistoTME
+1. 🧱 **Extract Tiles** — Split Whole Slide Images (WSIs) into smaller image tiles  
+2. 🔬 **Run Cancer Detection** — Identify and quantify tumor regions across tiles  
+3. 🧠 **Generate Embeddings** — Extract tile-level representations using foundation models  
+4. 🧩 **Analyze Tumor Microenvironment (TME)** — Perform TME profiling with HistoTME  
+5. 🧮 **Analyze Hand-Crafted Features** — *(TODO: integrate feature extraction pipeline)*  
+6. 🧬 **Train Mutation Prediction Model** — *(TODO: develop supervised learning workflow)*  
+7. 🤖 **Run Inference for Mutation Prediction** — *(TODO: apply trained model to unseen data)*  
+8. 📊 **Evaluate Model Performance** — *(TODO: compute metrics such as ROC-AUC, accuracy, and F1-score)*
    
 ### ⚙️ Executing Program
 
