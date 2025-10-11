@@ -21,10 +21,10 @@ Predict Gene Mutation from H&E WSI Image for Prostate Cancer
 
 ### Executing program
 
-* How to run the program
-* Step-by-step bullets
+* Step1: Extract tiles from WSI: 
 ```
-code blocks for commands
+conda activate paimg9
+python3 -u 1_extract_patches_fixed-res.py  --cohort_name PrECOG --pixel_overlap 0
 ```
 
 
