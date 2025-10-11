@@ -26,7 +26,8 @@ conda activate paimg9
 ### ⚙️ Executing Program
 
 #### 🧱 Step 1: Extract Tiles from WSI
-This step processes the Whole Slide Image (WSI) into tiles (only kept tiles with tissue coverage > 0.9 and white space < 0.9) and generates the following output files:
+This step processes the Whole Slide Image (WSI) into tiles (only kept tiles with tissue coverage > 0.9 and white space < 0.9).
+**Generated output:**:
 
 - **`sampleid_tiles.csv`**    — Metadata of the extracted tiles containing white space % and tissue coverage %
 - **`sampleid_low-res.png`**  — Low-resolution WSI image  
@@ -39,7 +40,8 @@ python3 -u 1_extract_patches_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overl
 ```
 
 #### 🔬 Step 2: Run Cancer Detection Model on Extracted Tiles
-This step applies a trained cancer detection model to the extracted tiles and **Generated output:**:
+This step applies a trained cancer detection model to the extracted tiles.
+**Generated output:**:
 
 - **`sampleid_TILE_TUMOR_PERC.csv`** — Tile-level cancer probability and metadata  
 - **`sampleid_cancer_prob.jpeg`** — Cancer prediction probability heatmap  
@@ -55,12 +57,12 @@ python3 -u 2_cancer_inference_fixed-res.py --cohort_name TCGA_PRAD  --fine_tuned
 ```
 
 #### 🧠 Step 3: Run Foundation Models to Extract Tile Embeddings
-This step uses selected foundation models to compute tile-level embeddings.  
-**Available models:** `retccl`, `uni1`, `uni2`, `prov_gigapath`, `virchow2`.
-
+This step uses selected foundation models to compute tile-level embeddings. **Available models:** `retccl`, `uni1`, `uni2`, `prov_gigapath`, `virchow2`.
 **Generated output:**
+
 - **`sampleid/features_alltiles_modelname.h5`** — Tile-level embedding features  
   - `modelname`: One of `retccl`, `uni1`, `uni2`, `prov_gigapath`, `virchow2`
+    
 ```
 conda activate paimg9
 python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tuned_model True --feature_extraction_method uni2
