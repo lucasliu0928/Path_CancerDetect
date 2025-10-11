@@ -4,8 +4,15 @@ Predict Gene Mutation from H&E WSI Image for Prostate Cancer
 
 ## Description
 
-## Getting Started
-
+## Clone the repository
+```
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+```
+## Create and activate a virtual environment
+```
+conda env create -f paimg9.yml
+```
 ### Dependencies
 * For cancer detection
    - Python 3.8.20  [GCC 13.3.0]
