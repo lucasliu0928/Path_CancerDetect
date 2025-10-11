@@ -68,8 +68,6 @@ conda activate paimg9
 python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tuned_model True --feature_extraction_method uni2
 ```
 
-#### Step 4: Run Foundation Models to extract Tile Embeddings
-
 
 ## Authors
 Lucas J. Liu 
