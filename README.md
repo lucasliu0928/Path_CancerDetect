@@ -10,28 +10,30 @@ cd Path_CancerDetect
 ## Create and activate a virtual environment
 
 #### For Cancer Detection
-```bash
+```
 conda env create -f paimg9.yml
 conda activate paimg9
 ```
 
 #### For Mutation Prediction:
+##### Transfer MIL:
 ```
 conda env create -f mil.yml
 conda activate mil
 ```
 
+##### MIL from scratch:
 ```
 python3 -m venv acmil
 pip install -r requirements_acmil.txt
-'''
-
+```
 
 #### For Hand-crafted feature extraction:
+
 ```
 python3 -m venv hf
 pip install -r requirements_hf.txt
-'''
+```
 
 #### For HistoTME:
 ```
