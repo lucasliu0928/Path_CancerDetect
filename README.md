@@ -118,10 +118,12 @@ Note on Modifications :
 I added the following code to "data.py" in "HistoTME_regression folder" to make it easier to match all embedding model names and the names in the arguments for python predict_spatial.py [-h] [--h5_path H5_PATH] [--chkpts_dir CHKPTS_DIR] [--num_workers NUM_WORKERS]
 [--embed EMBED] [--save_loc SAVE_LOC]
 
+```
 elif 'uni1' in embedding_paths[0]:
     embedding_dim = 1024
 elif 'uni2' in embedding_paths[0]:
     embedding_dim = 1536
+```
 
     
 ## Authors
