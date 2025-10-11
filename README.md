@@ -6,8 +6,8 @@ Predict Gene Mutation from H&E WSI Image for Prostate Cancer
 
 ## Clone the repository
 ```
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/lucasliu0928/Path_CancerDetect.git
+cd Path_CancerDetect
 ```
 ## Create and activate a virtual environment
 ```
