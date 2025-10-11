@@ -31,11 +31,12 @@ This pipeline enables a step-by-step workflow for histopathology data analysis:
 1. 🧱 **Extract Tiles** — Split Whole Slide Images (WSIs) into smaller image tiles  
 2. 🔬 **Run Cancer Detection** — Identify and quantify tumor regions across tiles  
 3. 🧠 **Generate Embeddings** — Extract tile-level representations using foundation models  
-4. 🧩 **Analyze Tumor Microenvironment (TME)** — Perform TME profiling with HistoTME  
-5. 🧮 **Analyze Hand-Crafted Features** — *(TODO: integrate feature extraction pipeline)*  
-6. 🧬 **Train Mutation Prediction Model** — *(TODO: develop supervised learning workflow)*  
-7. 🤖 **Run Inference for Mutation Prediction** — *(TODO: apply trained model to unseen data)*  
-8. 📊 **Evaluate Model Performance** — *(TODO: compute metrics such as ROC-AUC, accuracy, and F1-score)*
+4. 🧬 **Train Mutation Prediction Model** — **🚧 TODO:** Develop supervised learning workflow  
+5. 🤖 **Run Inference for Mutation Prediction** — **🚧 TODO:** Apply trained model to unseen data  
+6. 📊 **Evaluate Model Performance** — **🚧 TODO:** Compute metrics such as ROC-AUC, accuracy, and F1-score
+7. 🧩 **Analyze Tumor Microenvironment (TME)** — Perform TME profiling with HistoTME
+8. 🧰 **Analyze Hand-Crafted Features**  — **🚧 TODO:** Integrate feature extraction pipeline  
+
    
 ### ⚙️ Executing Program
 
