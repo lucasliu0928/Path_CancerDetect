@@ -2,17 +2,6 @@
 
 Predict Gene Mutation from H&E WSI Image for Prostate Cancer
 
-## Dependencies
-* For cancer detection
-   - Python 3.8.20  [GCC 13.3.0]
-   - cv2 == 4.10.0
-   - fastai == 2.7.10
-   - torch == 2.4.1+cu121
-   - torchvision == 0.19.1+cu121
-   - openslide == 1.3.1
-   - histomicstk == 1.3.14 (python -m pip install histomicstk --find-links https://girder.github.io/large_image_wheels)
-* Python 3.11.11 [GCC 13.3.0]
-
 ## Clone the repository
 ```
 git clone https://github.com/lucasliu0928/Path_CancerDetect.git
@@ -138,6 +127,16 @@ elif 'uni2' in embedding_paths[0]:
     embedding_dim = 1536
 ```
 
+## Dependencies
+* For cancer detection
+   - Python 3.8.20  [GCC 13.3.0]
+   - cv2 == 4.10.0
+   - fastai == 2.7.10
+   - torch == 2.4.1+cu121
+   - torchvision == 0.19.1+cu121
+   - openslide == 1.3.1
+   - histomicstk == 1.3.14 (python -m pip install histomicstk --find-links https://girder.github.io/large_image_wheels)
+* Python 3.11.11 [GCC 13.3.0]
     
 ## Authors
 Lucas J. Liu 
