@@ -47,13 +47,25 @@ This step applies a trained cancer detection model to the extracted tiles and ge
   - `@#`: Magnification level  
   - `X#`, `Y#`: Tile coordinates  
   - `TF`: Tumor fraction score  
-- **`sampleid_cancer.json`** — Cancer region annotations  
-
-
+- **`sampleid_cancer.json`** — Cancer region annotations
+  
 ```
 conda activate paimg9
-python3 -u 2_cancer_inference_fixed-res.py --cohort_name TCGA_PRAD --fine_tuned_model True --pixel_overlap 0 --select_idx_start 0 --select_idx_end 21
+python3 -u 2_cancer_inference_fixed-res.py --cohort_name TCGA_PRAD  --fine_tuned_model True --pixel_overlap 0 
 ```
+
+#### 🧬 Step 3: Run Foundation Models to Extract Tile Embeddings
+This step uses selected foundation models to compute tile-level embeddings.  
+**Available models:** `retccl`, `uni1`, `uni2`, `prov_gigapath`, `virchow2`.
+**Generated output:**
+- **`sampleid/features_alltiles_modelname.h5`** — Tile-level embedding features  
+  - `modelname`: One of `retccl`, `uni1`, `uni2`, `prov_gigapath`, `virchow2`
+```
+conda activate paimg9
+python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tuned_model True --feature_extraction_method uni2
+```
+
+#### Step 4: Run Foundation Models to extract Tile Embeddings
 
 
 ## Authors
