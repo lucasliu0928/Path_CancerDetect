@@ -8,11 +8,26 @@ git clone https://github.com/lucasliu0928/Path_CancerDetect.git
 cd Path_CancerDetect
 ```
 ## Create and activate a virtual environment
+
+### 🔬 For Cancer Detection
+```bash
+conda env create -f paimg9.yml
+conda activate paimg9
 ```
 conda env create -f paimg9.yml
 conda activate paimg9
 ```
+For Mutation Prediction:
+```
+conda env create -f mil.yml
+conda activate mil
+```
 
+For HistoTME:
+```
+conda env create -f histoTME.yml
+conda activate histoTME
+```
 ## 📋 Overview
 
 This pipeline enables a step-by-step workflow for histopathology data analysis:
