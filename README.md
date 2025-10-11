@@ -97,7 +97,7 @@ python3 0_reformat_data.py --fe_method uni2 --cohort_name TCGA_PRAD --tumor_frac
 ```
 
 #### Step 2A: Run inference for a bulk of slides
-This step runs HistoTME model to get slide level signitures. 
+This step runs the HistoTME model to compute slide-level (bulk) signatures.
 
 ```
 conda activate histoTME
@@ -106,7 +106,7 @@ python3 predict_bulk.py  --cohort TCGA_PRAD --h5_folder /fh/fast/etzioni_r/Lucas
 ```
 
 #### Step 2B: Run spatial inference for each slide
-This step runs HistoTME model to get tile level signitures. 
+This step runs HistoTME in spatial mode to compute tile-level (spatial) signatures.
 
 ```
 conda activate histoTME
