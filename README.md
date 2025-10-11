@@ -26,9 +26,9 @@ conda activate paimg9
 ### 🧩 Executing Program
 
 #### Step 1: Extract Tiles from WSI
-This step processes the Whole Slide Image (WSI) into tiles and generates the following output files:
+This step processes the Whole Slide Image (WSI) into tiles (only kept tiles with tissue coverage > 0.9 and white space < 0.9) and generates the following output files:
 
-- **`sampleid_tiles.csv`**    — Metadata of the extracted tiles  
+- **`sampleid_tiles.csv`**    — Metadata of the extracted tiles containing white space % and tissue coverage %
 - **`sampleid_low-res.png`**  — Low-resolution WSI image  
 - **`sampleid_tissue.png`**   — Detected tissue mask image
 - **`sampleid_tissue.json`**  — Tissue region annotations  
@@ -36,6 +36,23 @@ This step processes the Whole Slide Image (WSI) into tiles and generates the fol
 ```
 conda activate paimg9
 python3 -u 1_extract_patches_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overlap 0
+```
+
+#### Step 2: Run Cancer Detection Model on Extracted Tiles
+This step applies a trained cancer detection model to the extracted tiles and generates the following output files:
+
+- **`sampleid_TILE_TUMOR_PERC.csv`** — Tile-level cancer probability and metadata  
+- **`sampleid_cancer_prob.jpeg`** — Cancer prediction probability heatmap  
+- **`TILE_@#_X#Y#_TF#.png`** — Top 5 tiles with the highest tumor fraction  
+  - `@#`: Magnification level  
+  - `X#`, `Y#`: Tile coordinates  
+  - `TF`: Tumor fraction score  
+- **`sampleid_cancer.json`** — Cancer region annotations  
+
+
+```
+conda activate paimg9
+python3 -u 2_cancer_inference_fixed-res.py --cohort_name TCGA_PRAD --fine_tuned_model True --pixel_overlap 0 --select_idx_start 0 --select_idx_end 21
 ```
 
 
