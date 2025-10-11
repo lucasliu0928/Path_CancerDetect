@@ -2,18 +2,7 @@
 
 Predict Gene Mutation from H&E WSI Image for Prostate Cancer
 
-## Description
-
-## Clone the repository
-```
-git clone https://github.com/lucasliu0928/Path_CancerDetect.git
-cd Path_CancerDetect
-```
-## Create and activate a virtual environment
-```
-conda env create -f paimg9.yml
-```
-### Dependencies
+## Dependencies
 * For cancer detection
    - Python 3.8.20  [GCC 13.3.0]
    - cv2 == 4.10.0
@@ -24,8 +13,15 @@ conda env create -f paimg9.yml
    - histomicstk == 1.3.14 (python -m pip install histomicstk --find-links https://girder.github.io/large_image_wheels)
 * Python 3.11.11 [GCC 13.3.0]
 
-### Installing
-
+## Clone the repository
+```
+git clone https://github.com/lucasliu0928/Path_CancerDetect.git
+cd Path_CancerDetect
+```
+## Create and activate a virtual environment
+```
+conda env create -f paimg9.yml
+```
 ### Executing program
 
 * Step1: Extract tiles from WSI: 
