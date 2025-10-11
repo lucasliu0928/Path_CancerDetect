@@ -83,7 +83,7 @@ python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tun
 ```
 
 
-### ⚙️ Run HistoTME (https://github.com/spatkar94/HistoTME)
+### 🧩 Run HistoTME (https://github.com/spatkar94/HistoTME)
 #### Step 1: Reformat data for HistoTME
 This step generate input data for running HistoTME
 **Available models:** Please refer to their official website for available foundation models
