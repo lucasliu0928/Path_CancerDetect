@@ -23,9 +23,16 @@ cd Path_CancerDetect
 conda env create -f paimg9.yml
 conda activate paimg9
 ```
-### Executing program
+### 🧩 Executing Program
 
-* Step1: Extract tiles from WSI: 
+#### Step 1: Extract Tiles from WSI
+This step processes the Whole Slide Image (WSI) and generates the following output files:
+
+- **`sampleid_tiles.csv`** — Metadata of the extracted tiles  
+- **`sampleid_low-res.png`** — Low-resolution overview image  
+- **`sampleid_tissue.png`** — Detected tissue mask  
+- **`sampleid_tissue.json`** — Tissue region annotations  
+
 ```
 conda activate paimg9
 python3 -u 1_extract_patches_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overlap 0
