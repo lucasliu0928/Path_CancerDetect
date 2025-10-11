@@ -26,12 +26,12 @@ conda activate paimg9
 ### 🧩 Executing Program
 
 #### Step 1: Extract Tiles from WSI
-This step processes the Whole Slide Image (WSI) and generates the following output files:
+This step processes the Whole Slide Image (WSI) into tiles and generates the following output files:
 
-- **`sampleid_tiles.csv`** — Metadata of the extracted tiles  
-- **`sampleid_low-res.png`** — Low-resolution overview image  
-- **`sampleid_tissue.png`** — Detected tissue mask  
-- **`sampleid_tissue.json`** — Tissue region annotations  
+- **`sampleid_tiles.csv`**    — Metadata of the extracted tiles  
+- **`sampleid_low-res.png`**  — Low-resolution WSI image  
+- **`sampleid_tissue.png`**   — Detected tissue mask image
+- **`sampleid_tissue.json`**  — Tissue region annotations  
 
 ```
 conda activate paimg9
