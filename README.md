@@ -65,7 +65,7 @@ conda activate histoTME
    
 ### 🧬 I. Mutation Prediction Pipeline
 
-#### 🧱 Step 1: Extract Tiles from WSI
+##### 🧱 Step 1: Extract Tiles from WSI
 This step processes the Whole Slide Image (WSI) into tiles (only kept tiles with tissue coverage > 0.9 and white space < 0.9).
 **Generated output:**:
 
@@ -80,7 +80,7 @@ cd cancer_detection_final
 python3 -u 1_extract_patches_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overlap 0
 ```
 
-#### 🔬 Step 2: Run Cancer Detection Model on Extracted Tiles
+##### 🔬 Step 2: Run Cancer Detection Model on Extracted Tiles
 This step applies a trained cancer detection model to the extracted tiles.
 **Generated output:**:
 
@@ -98,7 +98,7 @@ cd cancer_detection_final
 python3 -u 2_cancer_inference_fixed-res.py --cohort_name TCGA_PRAD  --fine_tuned_model True --pixel_overlap 0 
 ```
 
-#### 🧠 Step 3: Run Foundation Models to Extract Tile Embeddings
+##### 🧠 Step 3: Run Foundation Models to Extract Tile Embeddings
 This step uses selected foundation models to compute tile-level embeddings. 
 **Available models:** `retccl`, `uni1`, `uni2`, `prov_gigapath`, `virchow2`.
 **Generated output:**
@@ -115,7 +115,7 @@ python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tun
 
 ### 🧩 II. Additional Analyses 
 #### 🌿 1. **Analyze Tumor Microenvironment (TME)**
-#### Step 1: Reformat data for HistoTME (https://github.com/spatkar94/HistoTME)
+##### Step 1: Reformat data for HistoTME (https://github.com/spatkar94/HistoTME)
 This step generate input data for running HistoTME
 **Available models:** Please refer to their official website for available foundation models
 **Generated output:**
@@ -127,7 +127,7 @@ cd cancer_detection_final/histoTME
 python3 0_reformat_data.py --fe_method uni2 --cohort_name TCGA_PRAD --tumor_frac 0.0
 ```
 
-#### Step 2A: Run inference for a bulk of slides
+##### Step 2A: Run inference for a bulk of slides
 This step runs the HistoTME model to compute slide-level (bulk) signatures.
 
 ```
@@ -136,7 +136,7 @@ cd /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/HistoTME/Hist
 python3 predict_bulk.py  --cohort TCGA_PRAD --h5_folder /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/model_data/TF0.0/TCGA_PRAD/IMSIZE250_OL0/uni2 --chkpts_dir /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/other_model_code/HistoTME/local_dir/checkpoints  --save_loc /fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/TME/TF0.0/ --num_workers 10 --embed uni2 
 ```
 
-#### Step 2B: Run spatial inference for each slide
+##### Step 2B: Run spatial inference for each slide
 This step runs HistoTME in spatial mode to compute tile-level (spatial) signatures.
 
 ```
