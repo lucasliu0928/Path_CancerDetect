@@ -31,7 +31,7 @@ conda env create -f paimg9.yml
 * Step1: Extract tiles from WSI: 
 ```
 conda activate paimg9
-python3 -u 1_extract_patches_fixed-res.py  --cohort_name PrECOG --pixel_overlap 0
+python3 -u 1_extract_patches_fixed-res.py  --cohort_name TCGA_PRAD --pixel_overlap 0
 ```
 
 
