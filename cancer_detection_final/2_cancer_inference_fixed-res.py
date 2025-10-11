@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 #Run: 
 #source ~/.bashrc
 #conda activate paimg9
-#python3 -u 2_cancer_inference_fixed-res.py  --fine_tuned_model False --cohort_name PrECOG --pixel_overlap 0 --select_idx_start 0 --select_idx_end 46
+#python3 -u 2_cancer_inference_fixed-res.py  --fine_tuned_model False --cohort_name Pluvicto_Pretreatment_bx --pixel_overlap 0 --select_idx_start 0 --select_idx_end 21
 
 ############################################################################################################
 #Parser
@@ -29,7 +29,7 @@ parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the 
 parser.add_argument('--mag_target_prob', default='2.5', type=float, help='magnification for probabiligty map: e.g., 2.5x')
 parser.add_argument('--mag_target_tiss', default='1.25', type=float, help='magnification for tissue map: e.g., 1.25x')
 parser.add_argument('--bi_thres', default='0.4', type=float, help='Binary classification threshold for cancer mask')
-parser.add_argument('--cohort_name', default='PrECOG', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, PrECOG, "CCola/all_slides/"')
+parser.add_argument('--cohort_name', default='Pluvicto_Pretreatment_bx', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores,Pluvicto_Pretreatment_bx, PrECOG, "CCola/all_slides/"')
 parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 parser.add_argument('--fine_tuned_model', type=str2bool, default=True, help='whether or not to use fine-tuned model')
 
@@ -72,6 +72,7 @@ if __name__ == '__main__':
     #TAN_TMA: 677
     #pluvicto: 606
     #PrECOG: 46
+    #Pluvicto_Pretreatment_bx: 21
     ############################################################################################################    
     if args.cohort_name == "CCola/all_slides/":
         all_ids = get_ids(wsi_location, include="(2017-0133)")  # 234
@@ -142,6 +143,9 @@ if __name__ == '__main__':
             slides_name = [f for f in os.listdir(os.path.join(wsi_location, cur_id)) if '.svs' in f][0].replace('.svs','')
             _file = os.path.join(wsi_location, cur_id, slides_name + '.svs') 
             rad_tissue = 2
+        elif 'Pluvicto_Pretreatment_bx' in args.cohort_name:
+            _file =  os.path.join(wsi_location, slides_name + ".tif") 
+            rad_tissue = 5
     
     
         #Load model   

@@ -29,11 +29,12 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
-parser.add_argument('--cohort_name', default='OPX', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, PrECOG, "CCola/all_slides/"')
-parser.add_argument('--feature_extraction_method', default='prov_gigapath', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
+parser.add_argument('--cohort_name', default='Pluvicto_Pretreatment_bx', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, Pluvicto_Pretreatment_bx, PrECOG, "CCola/all_slides/"')
+parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
-parser.add_argument('--fine_tuned_model', type=str2bool, default=True, help='whether or not to use fine-tuned model')
+parser.add_argument('--fine_tuned_model', type=str2bool, default=True, help='whether or not to use fine-tuned cancer detection model')
+parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 parser.add_argument('--select_idx_start', type=int, default = 0)
 parser.add_argument('--select_idx_end', type=int, default = 1)
 
@@ -59,10 +60,9 @@ if __name__ == '__main__':
     # wsi_location_plu = proj_dir + 'data/Pluvicto_TMA_Cores/'
     info_path  = os.path.join(proj_dir,'intermediate_data','2_cancer_detection', args.cohort_name, folder_name)
     model_path = os.path.join(proj_dir,'models','feature_extraction_models', args.feature_extraction_method)
-    
     out_location = os.path.join(proj_dir,'intermediate_data', args.out_folder, args.cohort_name, folder_name)
+
     create_dir_if_not_exists(out_location)
-    
 
     ############################################################################################################
     #Select GPU
@@ -79,6 +79,7 @@ if __name__ == '__main__':
     #TAN_TMA: 677
     #pluvicto: 606
     #PrECOG: 46
+    #Pluvicto_Pretreatment_bx: 21
     ############################################################################################################    
     if args.cohort_name == "CCola/all_slides/":
         all_ids = get_ids(wsi_location, include="(2017-0133)")  # 234
@@ -102,53 +103,53 @@ if __name__ == '__main__':
     selected_ids.sort()
     print("n of selected IDs:",len(selected_ids))
 
+
     ############################################################################################################
     #Load normalization norm target image
     ############################################################################################################
-    tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
-    norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
+    if args.stain_norm == "norm":
+        tile_norm_img_path = os.path.join(proj_dir,'intermediate_data/6A_tile_for_stain_norm/')
+        norm_target_img = io.imread(os.path.join(tile_norm_img_path, 'SU21-19308_A1-2_HE_40X_MH110821_40_16500-20500_500-500.png'))
+    elif args.stain_norm == "no_norm":
+        norm_target_img = None
+        
+
     
     ############################################################################################################
     # Load Pretrained representation model
     ############################################################################################################
-    modelloader = PretrainedModelLoader(args.feature_extraction_method, model_path, device='cuda')
+    modelloader = PretrainedModelLoader(args.feature_extraction_method, model_path, device=device)
     model = modelloader.model
 
     ############################################################################################################
     #For each patient tile, get representation
     ############################################################################################################
+    start_time_all = time.time()
+    selected_range = selected_ids[args.select_idx_start:args.select_idx_end]
+    total = len(selected_range)
     ct = 0 
-    for cur_id in selected_ids[args.select_idx_start:args.select_idx_end]:
+    for cur_id in selected_range:
         if ct % 10 == 0: print(ct)
 
         save_location = os.path.join(out_location, cur_id , 'features')
         create_dir_if_not_exists(save_location)
         save_name = os.path.join(save_location, 'features_alltiles_' + args.feature_extraction_method + '.h5')
         
+        
         if os.path.exists(save_name) == False: #check if processed
-        #if os.path.exists(save_name) == True: #updates
-            if args.cohort_name.replace("z_nostnorm_", "") == "OPX":
-                slides_name = cur_id
-                _file = os.path.join(wsi_location, slides_name + ".tif")
-            elif args.cohort_name.replace("z_nostnorm_", "") == "TAN_TMA_Cores":
-                slides_name = cur_id
-                _file = os.path.join(wsi_location, slides_name + ".tif")
-            elif args.cohort_name.replace("z_nostnorm_", "") == 'TCGA_PRAD':
+            #Get slide file name
+            cohort = args.cohort_name.replace("z_nostnorm_", "")
+            slides_name = cur_id            
+            if cohort == "TCGA_PRAD":
                 slides_name = [f for f in os.listdir(os.path.join(wsi_location, cur_id)) if '.svs' in f][0].replace('.svs','')                
                 _file = os.path.join(wsi_location, cur_id, slides_name + ".svs")
-            elif args.cohort_name.replace("z_nostnorm_", "") == 'Neptune':
-                slides_name = cur_id
+            elif cohort in ["OPX", "TAN_TMA_Cores", "Neptune", "Pluvicto_TMA_Cores", "Pluvicto_Pretreatment_bx"]:
                 _file = os.path.join(wsi_location, slides_name + ".tif")
-            elif args.cohort_name.replace("z_nostnorm_", "") == 'Pluvicto_TMA_Cores':
-                slides_name = cur_id
-                _file = os.path.join(wsi_location, slides_name + ".tif")
-            elif args.cohort_name.replace("z_nostnorm_", "") == 'PrECOG':
-                slides_name = cur_id
+            elif cohort in ["PrECOG"]:
                 _file = os.path.join(wsi_location, slides_name + ".svs")
-    
-   
-    
-    
+            else:
+                raise ValueError(f"Unknown cohort: {cohort}")
+                
             #Get tile info
             if args.fine_tuned_model == True:
                 cur_tile_info_df = pd.read_csv(os.path.join(info_path, cur_id ,'ft_model', slides_name + "_TILE_TUMOR_PERC.csv"))
@@ -158,13 +159,13 @@ if __name__ == '__main__':
             print('NOT Processed:',cur_id, "N Tiles:", str(cur_tile_info_df.shape[0]))
             
             #Load slides, and Construct embedding extractor    
-            if args.cohort_name.replace("z_nostnorm_", "") in["OPX", "TCGA_PRAD", "Neptune", "PrECOG"]:
+            if cohort in["OPX", "TCGA_PRAD", "Neptune", "PrECOG", "Pluvicto_Pretreatment_bx"]:
                 oslide = openslide.OpenSlide(_file) 
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, oslide, args.feature_extraction_method, model, device, 
                                                          stain_norm_target_img = norm_target_img,
                                                          image_type = 'WSI')             
 
-            elif args.cohort_name.replace("z_nostnorm_", "") in ["TAN_TMA_Cores", "Pluvicto_TMA_Cores"]:      
+            elif cohort in ["TAN_TMA_Cores", "Pluvicto_TMA_Cores"]:      
                 tma = PIL.Image.open(_file)
                 embed_extractor = TileEmbeddingExtractor(cur_tile_info_df, tma, args.feature_extraction_method, model, device,
                                                          stain_norm_target_img = norm_target_img,
@@ -173,7 +174,7 @@ if __name__ == '__main__':
             #Get feature
             start_time = time.time()
             feature_list = [embed_extractor[i][1] for i in range(cur_tile_info_df.shape[0])]
-            print("--- %s seconds ---" % (time.time() - start_time))
+            print(f"--- {(time.time() - start_time) / 60:.2f} minutes ---")
             feature_df = np.concatenate(feature_list)
             feature_df = pd.DataFrame(feature_df)    
             feature_df.to_hdf(save_name, key='feature', mode='w')
@@ -182,4 +183,12 @@ if __name__ == '__main__':
             ct += 1
         else:
             print('Already Processed:',cur_id)
+        
+        
+    end_time_all = time.time()
+    duration_all = end_time_all - start_time_all
+    print(f"\n All {ct} IDs processed out of {total} total.")
+    print(f"Started at:  {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time_all))}")
+    print(f"Finished at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time_all))}")
+    print(f"Total duration: {duration_all/60:.2f} minutes\n")
 

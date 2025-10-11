@@ -86,7 +86,7 @@ if __name__ == '__main__':
     ###################################
     start_time = time.time()
     
-    if args.cohort_name != 'PrECOG':
+    if args.cohort_name not in ['PrECOG', 'Pluvicto_Pretreatment_bx', 'Pluvicto_TMA_Cores']:
         base_path = os.path.join(data_dir, 
                                  args.cohort_name, 
                                  folder_name, 
