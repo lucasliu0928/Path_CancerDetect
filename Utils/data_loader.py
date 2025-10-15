@@ -29,6 +29,8 @@ def get_feature_idexes(method, include_tumor_fraction = True):
         selected_feature = [str(i) for i in range(0,1536)] 
     elif method == 'virchow2':
         selected_feature = [str(i) for i in range(0,2560)] 
+    elif method == 'hoptimus0':
+        selected_feature = [str(i) for i in range(0,1536)] 
 
     if include_tumor_fraction == True:
         selected_feature = selected_feature + ['TUMOR_PIXEL_PERC'] 

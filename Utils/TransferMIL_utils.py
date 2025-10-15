@@ -78,7 +78,7 @@ def train(train_loader,
 
 def validate(test_data, sample_ids, model, device, criterion, logit_adjustments, 
              model_name = 'Transfer_MIL', logit_adj_infer = True, logit_adj_train = False,
-             l2_coef = 0, pred_thres = 0.5):
+             l2_coef = 0, pred_thres = 0.5, dict_flag = False):
        
     model.eval()
     with torch.no_grad():
@@ -87,7 +87,10 @@ def validate(test_data, sample_ids, model, device, criterion, logit_adjustments,
         labels_list = []
         logits_list_adj = []
         for i in range(len(test_data)):
-            x, y, tf, sl = test_data[i]        
+            if dict_flag:
+                x, y, tf, sl, *_ = test_data[i].values()        
+            else:
+                x, y, tf, sl, *_ = test_data[i]     
             x = x.unsqueeze(0).to(device)      # add batch dim
             y = y.long().view(-1).to(device)
                             
@@ -184,7 +187,9 @@ def get_predict_df(logits_list, labels_list, sample_ids, logits_list_adj = None,
     return df
 
 
-def run_eval(data, sp_ids, cohort, criterion, model, device, logit_adj_infer, logit_adj_train, logit_adjustments, l2_coef=0, pred_thres = 0.5):
+def run_eval(data, sp_ids, cohort, criterion, model, 
+             device, logit_adj_infer, logit_adj_train, logit_adjustments, 
+             l2_coef=0, pred_thres = 0.5, dict_flag = False):
     avg_loss, pred_df = validate(
         data, sp_ids, model, device, criterion,
         logit_adjustments,
@@ -192,7 +197,8 @@ def run_eval(data, sp_ids, cohort, criterion, model, device, logit_adj_infer, lo
         logit_adj_infer=logit_adj_infer,
         logit_adj_train=logit_adj_train,
         l2_coef = l2_coef,
-        pred_thres = pred_thres
+        pred_thres = pred_thres,
+        dict_flag = dict_flag
     )
 
     if logit_adj_infer:

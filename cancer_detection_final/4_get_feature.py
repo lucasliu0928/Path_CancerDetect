@@ -30,11 +30,11 @@ parser = argparse.ArgumentParser("Tile feature extraction")
 parser.add_argument('--pixel_overlap', default='0', type=int, help='specify the level of pixel overlap in your saved tiles')
 parser.add_argument('--save_image_size', default='250', type=int, help='the size of extracted tiles')
 parser.add_argument('--cohort_name', default='Pluvicto_Pretreatment_bx', type=str, help='Cohort name: OPX, TCGA_PRAD, Neptune, TAN_TMA_Cores,Pluvicto_TMA_Cores, Pluvicto_Pretreatment_bx, PrECOG, "CCola/all_slides/"')
-parser.add_argument('--feature_extraction_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
+parser.add_argument('--feature_extraction_method', default='hoptimus0', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2, hoptimus0')
+parser.add_argument('--fine_tuned_model', type=str2bool, default=False, help='whether or not to use fine-tuned cancer detection model')
+parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 parser.add_argument('--cuda_device', default='cuda:0', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--out_folder', default= '4_tile_feature', type=str, help='out folder name')
-parser.add_argument('--fine_tuned_model', type=str2bool, default=True, help='whether or not to use fine-tuned cancer detection model')
-parser.add_argument('--stain_norm', default='norm', type=str, help='norm or no_norm')
 parser.add_argument('--select_idx_start', type=int, default = 0)
 parser.add_argument('--select_idx_end', type=int, default = 1)
 
@@ -191,4 +191,6 @@ if __name__ == '__main__':
     print(f"Started at:  {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time_all))}")
     print(f"Finished at: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time_all))}")
     print(f"Total duration: {duration_all/60:.2f} minutes\n")
+
+
 

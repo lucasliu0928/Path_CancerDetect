@@ -11,7 +11,6 @@ sys.path.insert(0, '../../Utils/') #NOTE: need to have this to include data_load
 from histoTME_util import create_dir_if_not_exists, save_hdf5
 import ast
 import numpy as np
-import pandas as pd
 from data_loader import get_sample_feature,get_feature_idexes
 
 
@@ -19,7 +18,7 @@ from data_loader import get_sample_feature,get_feature_idexes
 For get data
 # source ~/.bashrc
 # conda activate histoTME
-python3 0_reformat_data.py --fe_method uni2 --cohort_name TCGA_PRAD --tumor_frac 0.0
+python3 0_reformat_data.py --fe_method uni2 --cohort_name Pluvicto_Pretreatment_bx --tumor_frac 0.0
 '''
 
 '''

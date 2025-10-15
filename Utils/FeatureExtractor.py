@@ -33,6 +33,8 @@ class PretrainedModelLoader:
             return self._load_prov_gigapath()
         elif self.model_name == 'virchow2':
             return self._load_virchow2()
+        elif self.model_name == 'hoptimus0':
+            return self._load_hoptimus0()
         else:
             raise ValueError(f"Unknown feature extraction method: {self.model_name}")        
 
@@ -75,6 +77,10 @@ class PretrainedModelLoader:
     
     def _load_virchow2(self):
         model = timm.create_model("hf-hub:paige-ai/Virchow2", pretrained=True, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU)
+        return model
+    
+    def _load_hoptimus0(self):
+        model = timm.create_model("hf-hub:bioptimus/H-optimus-0", pretrained=True, init_values=1e-5, dynamic_img_size=False)
         return model
 
 
@@ -161,13 +167,18 @@ class TileEmbeddingExtractor(Dataset):
         
         #Use model to get feature
         self.pretrain_model.eval()
-        with torch.no_grad():
-            features = self.pretrain_model(tile_pull_trns)
-        
-        if model_name == 'virchow2':
-            class_token =  features[:, 0]    
-            patch_tokens = features[:, 5:]  
-            features = torch.cat([class_token, patch_tokens.mean(1)], dim=-1)  # size: 1 x 2560
+        if model_name == "hoptimus0":
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                with torch.inference_mode():
+                    features = self.pretrain_model(tile_pull_trns)
+        else:
+            with torch.no_grad():
+                features = self.pretrain_model(tile_pull_trns)
+            
+            if model_name == 'virchow2':
+                class_token =  features[:, 0]    
+                patch_tokens = features[:, 5:]  
+                features = torch.cat([class_token, patch_tokens.mean(1)], dim=-1)  # size: 1 x 2560
         
         return features.cpu().numpy()
         
@@ -200,5 +211,16 @@ class TileEmbeddingExtractor(Dataset):
             )
         elif model_name == 'virchow2':
             trnsfrms = create_transform(**resolve_data_config(self.pretrain_model.pretrained_cfg, model=self.pretrain_model))
+            
+        elif model_name == "hoptimus0":
+            trnsfrms = transforms.Compose(
+                [
+                    transforms.Resize(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=(0.707223, 0.578729, 0.703617), 
+                        std=(0.211883, 0.230117, 0.177517)),
+                    ]
+                )
     
         return trnsfrms
