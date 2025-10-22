@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 #Run: 
 #source ~/.bashrc
 #conda activate paimg9
-#python3 -u 2_cancer_inference_fixed-res.py  --fine_tuned_model False --cohort_name Pluvicto_Pretreatment_bx --pixel_overlap 0 --select_idx_start 0 --select_idx_end 21
+#python3 -u 2_cancer_inference_fixed-res.py  --fine_tuned_model False --cohort_name Pluvicto_Pretreatment_bx --pixel_overlap 0 --select_idx_start 0 --select_idx_end 27
 
 ############################################################################################################
 #Parser
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     #TAN_TMA: 677
     #pluvicto: 606
     #PrECOG: 46
-    #Pluvicto_Pretreatment_bx: 21
+    #Pluvicto_Pretreatment_bx: 27
     ############################################################################################################    
     if args.cohort_name == "CCola/all_slides/":
         all_ids = get_ids(wsi_location, include="(2017-0133)")  # 234

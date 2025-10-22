@@ -79,7 +79,7 @@ if __name__ == '__main__':
     #TAN_TMA: 677
     #pluvicto: 606
     #PrECOG: 46
-    #Pluvicto_Pretreatment_bx: 21
+    #Pluvicto_Pretreatment_bx: 27
     ############################################################################################################    
     if args.cohort_name == "CCola/all_slides/":
         all_ids = get_ids(wsi_location, include="(2017-0133)")  # 234

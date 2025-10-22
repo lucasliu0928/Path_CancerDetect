@@ -4,6 +4,12 @@ library(tidyr)
 library(dplyr)
 library(yardstick)
 library(tibble)
+library(caret)
+library(pROC)
+library(PRROC)
+library(tibble)
+
+
 load_label <- function(cohort, cancer_thres){
   label_file <- file.path(label_dir,cohort, paste0("TFT",cancer_thres),"train_test_split.csv")
   label_df <- read.csv(label_file, stringsAsFactors = F)
@@ -18,17 +24,6 @@ compute_logit_adjustment <- function(label_freq, tau){
   return(adjustments)
 }
 
-
-
-library(caret)
-library(pROC)
-library(PRROC)
-library(tibble)
-
-library(caret)
-library(pROC)
-library(PRROC)
-library(tibble)
 
 compute_classification_metrics <- function(
     df,
@@ -192,142 +187,209 @@ find_best_cutoff_youden <- function(df,
 ################################################################################
 #User Input
 ################################################################################
-outcome_folder <- "pred_out_100125_check_0.98PREV" #pred_out_100125, pred_out_100125_check, pred_out_100125_check_0.98PREV
+outcome_folder <- "pred_out_100125_test" #pred_out_100125, pred_out_100125_check, pred_out_100125_check_0.98PREV
 mutation <- "MSI"
-cancer_threshold <- "0.0"
+#cancer_threshold <- "0.9"
+
+cancer_threshold_list <- c("0.0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9")
 
 
-################################################################################
-#Dir
-################################################################################
-proj_dir <- "/Volumes/Lucas/mh_proj/mutation_pred/intermediate_data"
-label_dir <- file.path(proj_dir,"3C_labels_train_test")
-
-
-################################################################################
-# Load the label df to compute train / validation label freq
-################################################################################
-label_df_opx <- load_label("OPX",cancer_threshold)
-label_df_tcga <- load_label("TCGA_PRAD",cancer_threshold)
-label_df_nep <- load_label("Neptune",cancer_threshold)
-label_df_opx_tcga <- do.call(rbind,list(label_df_opx,label_df_tcga))
-
-
-################################################################################
-#Compute CV performance avg += sd
-################################################################################
-folds <- c(0,1,2,3,4)
-perf_list <- list()
-for (i in 1:length(folds)){
-  cur_fold <- folds[i]
+for (cancer_threshold in cancer_threshold_list){
+  ################################################################################
+  #Dir
+  ################################################################################
+  proj_dir <- "/Volumes/Lucas/mh_proj/mutation_pred/intermediate_data"
+  label_dir <- file.path(proj_dir,"3C_labels_train_test")
   
+  
+  ################################################################################
+  # Load the label df to compute train / validation label freq
+  ################################################################################
+  label_df_opx <- load_label("OPX",cancer_threshold)
+  label_df_tcga <- load_label("TCGA_PRAD",cancer_threshold)
+  label_df_nep <- load_label("Neptune",cancer_threshold)
+  label_df_opx_tcga <- do.call(rbind,list(label_df_opx,label_df_tcga))
+  
+  
+  ################################################################################
+  #Compute CV performance avg += sd
+  ################################################################################
+  folds <- c(0,1,2,3,4)
+  perf_list <- list()
+  for (i in 1:length(folds)){
+    cur_fold <- folds[i]
+    
+    #Load prediction df
+    pref_file <- file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"), paste0("FOLD",cur_fold), paste0("perf_", cancer_threshold),"after_finetune_performance.csv")
+    pref_df <- read.csv(pref_file, stringsAsFactors = F)
+    pref_df["MODEL"] <- paste0("FOLD",cur_fold)
+    perf_list[[i]] <- pref_df
+  }
+  
+  all_perf_df <- do.call(rbind, perf_list)
+  
+  #Get current cutoff for each fold
+  valid_perf_df <- all_perf_df[which(all_perf_df[,"X"] == "OPX_TCGA_valid"),]
+  
+  
+  #CV performance
+  cv_perf <- all_perf_df %>%
+    group_by(X) %>%
+    summarise(
+      across(
+        where(is.numeric) & !last_col(),
+        list(
+          mean = ~mean(.x, na.rm = TRUE),
+          sd = ~sd(.x, na.rm = TRUE)
+        ),
+        .names = "{.col}_{.fn}"
+      )
+    ) %>%
+    rowwise() %>%
+    mutate(
+      across(
+        ends_with("_mean"),
+        ~ {
+          colname <- sub("_mean$", "", cur_column())
+          mean_val <- .x
+          sd_val <- get(paste0(colname, "_sd"))
+          sprintf("%.2f ± %.2f", mean_val, sd_val)
+        },
+        .names = "{sub('_mean$', '', .col)}"
+      )
+    ) %>%
+    select(X, !ends_with(c("_mean", "_sd"))) %>%
+    ungroup()
+  
+  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance")
+  if (!dir.exists(new_dir_path)) {
+    # If it doesn't exist, create it
+    dir.create(new_dir_path)
+    message(paste("Directory '", new_dir_path, "' created successfully.", sep = ""))
+  } else {
+    message(paste("Directory '", new_dir_path, "' already exists.", sep = ""))
+  }
+  
+  write.csv(cv_perf,file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance", paste0("TF",cancer_threshold, "_perf_CV_AVG_SD.csv")))
+  
+  
+  
+  ################################################################################
   #Load prediction df
-  pref_file <- file.path(proj_dir, outcome_folder, mutation, paste0("FOLD",cur_fold), paste0("perf_", cancer_threshold),"after_finetune_performance.csv")
-  pref_df <- read.csv(pref_file, stringsAsFactors = F)
-  pref_df["MODEL"] <- paste0("FOLD",cur_fold)
-  perf_list[[i]] <- pref_df
+  ################################################################################
+  folds <- c(0,1,2,3,4)
+  
+  pred_list <- list()
+  for (i in 1:length(folds)){
+    cur_fold <- folds[i]
+    
+    #Load prediction df
+    pred_file <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"), paste0("FOLD",cur_fold), paste0("predictions_", cancer_threshold),"after_finetune_prediction.csv")
+    pred_df <- read.csv(pred_file, stringsAsFactors = F)
+    
+    #select columns
+    pred_df <- pred_df[,c("SAMPLE_ID","adj_prob_1","Pred_Class_adj","True_y")]
+    pred_df["MODEL"] <- paste0("FOLD",cur_fold)
+    pred_list[[i]] <- pred_df
+    
+  }
+  
+  all_pred_df <- do.call(rbind, pred_list)
+  all_pred_df<- all_pred_df[!duplicated(all_pred_df),]
+  
+  
+  ################################################################################
+  #Ensemble model
+  ################################################################################
+  ensemble_pred_df <- all_pred_df %>%
+    group_by(SAMPLE_ID) %>%
+    summarise(
+      mean_adj_prob = mean(adj_prob_1, na.rm = TRUE),
+      majority_class = as.integer(names(which.max(table(Pred_Class_adj)))),
+      mean_adj_prob_votedclass = mean(adj_prob_1[Pred_Class_adj == majority_class]),   # average only on voted class
+      folds_voted = paste(MODEL[Pred_Class_adj == majority_class], collapse = ","),  # list folds voting that way
+      True_y = first(True_y) 
+    )
+  
+  ensemble_pred_df <- as.data.frame(ensemble_pred_df)
+  ensemble_pred_df[,"COHORT"] <- NA
+  ensemble_pred_df[which(grepl("OPX",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "OPX"
+  ensemble_pred_df[which(grepl("TCGA",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "TCGA"
+  ensemble_pred_df[which(grepl("NEP",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "NEP"
+  df_ensemble_opx <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "OPX"),]
+  df_ensemble_tcga <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "TCGA"),]
+  df_ensemble_nep <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "NEP"),]
+  
+  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_prediction")
+  if (!dir.exists(new_dir_path)) {
+    # If it doesn't exist, create it
+    dir.create(new_dir_path)
+    message(paste("Directory '", new_dir_path, "' created successfully.", sep = ""))
+  } else {
+    message(paste("Directory '", new_dir_path, "' already exists.", sep = ""))
+  }
+  write.csv(ensemble_pred_df, file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_prediction",paste0("TF",cancer_threshold, "_pred_ensemble.csv")))
+  
+  
+  res_opx <- compute_classification_metrics(df_ensemble_opx, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
+  res_opx["CORHOT"] <- "OPX"
+  res_tcga <- compute_classification_metrics(df_ensemble_tcga, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
+  res_tcga["CORHOT"] <- "TCGA"
+  res_nep <- compute_classification_metrics(df_ensemble_nep, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
+  res_nep["CORHOT"] <- "NEPTUNE"
+  
+  
+  ################################################################################
+  #If ensemble using majority class performance
+  #'@NOTE: ignore ROCAUC PrAUC, that is for mean_adj_prob, 
+  ################################################################################
+  ensemble_majority_class_perf <- do.call(rbind, list(res_opx, res_tcga, res_nep))
+  ensemble_majority_class_perf <- ensemble_majority_class_perf[, !(names(ensemble_majority_class_perf) %in% c("ROC_AUC","PR_AUC"))] #aucs are computed using avg prob not majority
+  
+  
+  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_performance")
+  if (!dir.exists(new_dir_path)) {
+    # If it doesn't exist, create it
+    dir.create(new_dir_path)
+    message(paste("Directory '", new_dir_path, "' created successfully.", sep = ""))
+  } else {
+    message(paste("Directory '", new_dir_path, "' already exists.", sep = ""))
+  }
+  
+  write.csv(ensemble_majority_class_perf,file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_performance",paste0("TF",cancer_threshold, "_perf_ensemble.csv")))
 }
 
-all_perf_df <- do.call(rbind, perf_list)
-
-#Get current cutoff for each fold
-valid_perf_df <- all_perf_df[which(all_perf_df[,"X"] == "OPX_TCGA_valid"),]
 
 
-#CV performance
-cv_perf <- all_perf_df %>%
-  group_by(X) %>%
-  summarise(
-    across(
-      where(is.numeric) & !last_col(),
-      list(
-        mean = ~mean(.x, na.rm = TRUE),
-        sd = ~sd(.x, na.rm = TRUE)
-      ),
-      .names = "{.col}_{.fn}"
-    )
-  ) %>%
-  rowwise() %>%
-  mutate(
-    across(
-      ends_with("_mean"),
-      ~ {
-        colname <- sub("_mean$", "", cur_column())
-        mean_val <- .x
-        sd_val <- get(paste0(colname, "_sd"))
-        sprintf("%.2f ± %.2f", mean_val, sd_val)
-      },
-      .names = "{sub('_mean$', '', .col)}"
-    )
-  ) %>%
-  select(X, !ends_with(c("_mean", "_sd"))) %>%
-  ungroup()
-write.csv(cv_perf,file.path(proj_dir, outcome_folder, mutation,"CV_performance","perf_CV_AVG_SD.csv"))
+##Combine all TF cv perf
+cv_folder <-  file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance")
+csv_files <-  list.files(cv_folder, pattern = "\\.csv$")
 
-
-################################################################################
-#Load prediction df
-################################################################################
-folds <- c(0,1,2,3,4)
-
-pred_list <- list()
-for (i in 1:length(folds)){
-  cur_fold <- folds[i]
-  
-  #Load prediction df
-  pred_file <- file.path(proj_dir, outcome_folder, mutation, paste0("FOLD",cur_fold), paste0("predictions_", cancer_threshold),"after_finetune_prediction.csv")
-  pred_df <- read.csv(pred_file, stringsAsFactors = F)
-  
-  #select columns
-  pred_df <- pred_df[,c("SAMPLE_ID","adj_prob_1","Pred_Class_adj","True_y")]
-  pred_df["MODEL"] <- paste0("FOLD",cur_fold)
-  pred_list[[i]] <- pred_df
-  
+cv_perf_list <- list()
+for (i in 1:length(csv_files)){
+  cur_df <- read.csv(file.path(cv_folder, csv_files[i]))
+  cur_df <- cur_df[, -which(names(cur_df) == "X.1")]
+  cur_df['TF'] <- gsub("_perf_CV_AVG_SD.csv", "", csv_files[i])
+  cv_perf_list[[i]] <- cur_df
 }
-
-all_pred_df <- do.call(rbind, pred_list)
-all_pred_df<- all_pred_df[!duplicated(all_pred_df),]
-
-
-################################################################################
-#Ensemble model
-################################################################################
-ensemble_pred_df <- all_pred_df %>%
-  group_by(SAMPLE_ID) %>%
-  summarise(
-    mean_adj_prob = mean(adj_prob_1, na.rm = TRUE),
-    majority_class = as.integer(names(which.max(table(Pred_Class_adj)))),
-    True_y = first(True_y) 
-  )
-
-ensemble_pred_df <- as.data.frame(ensemble_pred_df)
-ensemble_pred_df[,"COHORT"] <- NA
-ensemble_pred_df[which(grepl("OPX",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "OPX"
-ensemble_pred_df[which(grepl("TCGA",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "TCGA"
-ensemble_pred_df[which(grepl("NEP",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "NEP"
-df_ensemble_opx <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "OPX"),]
-df_ensemble_tcga <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "TCGA"),]
-df_ensemble_nep <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "NEP"),]
+combined_data <- do.call(rbind, cv_perf_list)
+write.csv(combined_data, paste0(cv_folder, "/ALL_TF_CV_performance.csv"))
 
 
 
-res_opx <- compute_classification_metrics(df_ensemble_opx, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
-res_opx["CORHOT"] <- "OPX"
-res_tcga <- compute_classification_metrics(df_ensemble_tcga, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
-res_tcga["CORHOT"] <- "TCGA"
-res_nep <- compute_classification_metrics(df_ensemble_nep, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
-res_nep["CORHOT"] <- "NEPTUNE"
+##Combine all TF ensemble perf
+cv_folder <-  file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_performance")
+csv_files <-  list.files(cv_folder, pattern = "\\.csv$")
 
-
-################################################################################
-#If ensemble using majority class performance
-#'@NOTE: ignore ROCAUC PrAUC, that is for mean_adj_prob, 
-################################################################################
-ensemble_majority_class_perf <- do.call(rbind, list(res_opx, res_tcga, res_nep))
-ensemble_majority_class_perf <- ensemble_majority_class_perf[, !(names(ensemble_majority_class_perf) %in% c("ROC_AUC","PR_AUC"))] #aucs are computed using avg prob not majority
-
-write.csv(ensemble_majority_class_perf,file.path(proj_dir, outcome_folder, mutation,"ensemble_performance","perf_ensemble.csv"))
-
+cv_perf_list <- list()
+for (i in 1:length(csv_files)){
+  cur_df <- read.csv(file.path(cv_folder, csv_files[i]))
+  cur_df <- cur_df[, -which(names(cur_df) == "X")]
+  cur_df['TF'] <- gsub("_perf_ensemble.csv", "", csv_files[i])
+  cv_perf_list[[i]] <- cur_df
+}
+combined_data <- do.call(rbind, cv_perf_list)
+write.csv(combined_data, paste0(cv_folder, "/ALL_TF_ensemble_performance.csv"))
 
 # ################################################################################
 # # Use avg predicted prob to find best threshold
