@@ -6,18 +6,9 @@ Created on Sat Sep  6 16:37:19 2025
 @author: jliu6
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
-import umap
-import umap.plot
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-import torch
-import torch.nn as nn
 import os
 
-
-    
 
 def plot_loss(train_loss, val_loss, save_path):
     plt.figure(figsize=(8,5))

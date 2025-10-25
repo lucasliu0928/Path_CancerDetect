@@ -9,17 +9,259 @@ if (!requireNamespace("ComplexHeatmap", quietly = TRUE)) BiocManager::install("C
 library(tidyverse)
 library(ComplexHeatmap)
 library(circlize)
+library(ggplot2)
+library(tidyr)
+library(pheatmap)
+library(RColorBrewer)
+library(ggplotify)  # to convert pheatmap -> ggplot
+library(dendsort)
+library(rstatix)
 
+save_heatmap <- function(pheatmap_obj, filename, width = 10, height = 6, dpi = 300) {
+  gg <- ggplotify::as.ggplot(pheatmap_obj$gtable)
+  gg <- gg + theme_void(base_size = 12) + theme(
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(2, 2, 2, 2)  # tight margins
+  )
+  ggsave(filename, gg, width = width, height = height, dpi = dpi, bg = "white")
+}
+plot_heatmap_TME <- function(tme_data, cohort, group_by_flag, out_dir){
+  
+  #Plot data
+  rownames(tme_data) <- tme_data[,"ID"]
+  
+  #Feature cols
+  selected_cols <- c("MHCI", "MHCII", "Coactivation_molecules", "Effector_cells",
+                     "T_cells", "T_cell_traffic", "NK_cells", "B_cells", "M1_signatures",
+                     "Th1_signature", "Antitumor_cytokines", "Checkpoint_inhibition",
+                     "Macrophage_DC_traffic", "T_reg_traffic", "Treg", "Th2_signature",
+                     "Macrophages", "Neutrophil_signature", "Granulocyte_traffic",
+                     "MDSC_traffic", "MDSC", "Protumor_cytokines", "Proliferation_rate",
+                     "EMT_signature", "Matrix", "Matrix_remodeling", "Endothelium",
+                     "CAF", "Angiogenesis")
+  
+  # Build feature matrix (numeric only)
+  feature_mat <- as.matrix(t(tme_data[ ,selected_cols]))
+  
+  
+  # build top annotations (one column per bar)
+  
+  if ("death" %in% colnames(tme_data)){
+      annotation_col <- data.frame(
+        Responder = factor(tme_data[, "Responder"]),
+        death = factor(tme_data[, "death"])
+      )
+      rownames(annotation_col) <- colnames(feature_mat)  
+      
+      # colors for each annotation (levels -> colors)
+      ann_colors <- list(
+        Responder = c(
+          "Responder" = "#81C784",      # softer green
+          "Nonresponder" = "#D55E00",   # warm amber/gold
+          "NE_final" = "#FFB300"        # rich red
+        ),
+        death = c(
+          "0" = "#CC79A7",              # gentle green for alive
+          "1" = "#999999"               # deep orange-red for dead
+        )
+      )
+  }else{
+    annotation_col <- data.frame(
+      Responder = factor(tme_data[, "Responder"])
+    )
+    rownames(annotation_col) <- colnames(feature_mat)  
+    
+    # colors for each annotation (levels -> colors)
+    if ("NE_final" %in% unique(tme_data[, "Responder"])){
+        ann_colors <- list(
+          Responder = c(
+            "Responder" = "#81C784",      # softer green
+            "Nonresponder" = "#D55E00",   # warm amber/gold
+            "NE_final" = "#FFB300"        # rich red
+          ))
+    }else{
+      ann_colors <- list(
+        Responder = c(
+          "Responder" = "#81C784",      # softer green
+          "Nonresponder" = "#D55E00"   # warm amber/gold
+        )
+        )
+     }
+    
+  }
+  
+  
+  if (group_by_flag == "None"){
+    p <- pheatmap(
+      feature_mat,
+      annotation_col = annotation_col,          # <-- stacked bars on top
+      annotation_colors = ann_colors,
+      color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+      clustering_distance_rows = "euclidean",
+      clustering_distance_cols = "euclidean",
+      cluster_rows = FALSE,
+      cluster_cols = TRUE, 
+      clustering_method = "ward.D2",
+      fontsize_row = 10,
+      fontsize_col = 10,
+      border_color = NA,
+      show_colnames = FALSE,
+      main = cohort,
+    )
+  }else if (group_by_flag == "Responder"){
+    
+    
+    # group factor in desired display order
+    group_var <- factor(tme_data$Responder,
+                        levels = c("Responder", "Nonresponder", "NE_final"))
+    
+    # 2) Score each column to define the gradient direction (blue→red = low→high)
+    #    Use column mean; replace with your preferred score if needed.
+    col_score <- colMeans(feature_mat, na.rm = TRUE)
+    
+    # 3) For each group, order columns by ascending score (low→high)
+    col_idx_by_group <- split(seq_len(ncol(feature_mat)), group_var)
+    orders <- lapply(col_idx_by_group, function(idx) {
+      if (length(idx) <= 1) return(idx)
+      idx[order(col_score[idx], na.last = NA)]
+    })
+    
+    # 4) Concatenate in group order and compute gaps
+    ordered_cols <- unlist(orders, use.names = FALSE)
+    
+    gap_positions <- cumsum(vapply(col_idx_by_group, length, integer(1)))
+    gap_positions <- gap_positions[gap_positions < ncol(feature_mat)]
+    
+    # 5) Reorder data + annotations
+    feature_mat_ord    <- feature_mat[, ordered_cols, drop = FALSE]
+    annotation_col_ord <- annotation_col[ordered_cols, , drop = FALSE]
+    
+    # 6) Plot: no within-group clustering, consistent gradient, visible group splits
+    p <- pheatmap(
+      feature_mat_ord,
+      annotation_col    = annotation_col_ord,
+      annotation_colors = ann_colors,
+      color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+      cluster_cols = FALSE,            # <- no within-group clustering
+      cluster_rows = TRUE,
+      clustering_distance_rows = "euclidean",
+      clustering_method = "ward.D2",
+      gaps_col = gap_positions,
+      show_colnames = FALSE,
+      fontsize_row = 10,
+      fontsize_col = 10,
+      border_color = NA,
+      main = paste(cohort, "- \n grouped by Responder")
+    )
+  }
+  print(p)
+  
+  save_heatmap(p, paste0(out_dir, cohort, "_" ,group_by_flag, "_histTME_heatmap.png"))
+}
+plot_feature_comparison <- function(tme_data, cohort, target_group, x_label){
+  
+  
+  
+  rownames(tme_data) <- tme_data[,"ID"]
+  
+  selected_cols <- c("MHCI", "MHCII", "Coactivation_molecules", "Effector_cells",
+                     "T_cells", "T_cell_traffic", "NK_cells", "B_cells", "M1_signatures",
+                     "Th1_signature", "Antitumor_cytokines", "Checkpoint_inhibition",
+                     "Macrophage_DC_traffic", "T_reg_traffic", "Treg", "Th2_signature",
+                     "Macrophages", "Neutrophil_signature", "Granulocyte_traffic",
+                     "MDSC_traffic", "MDSC", "Protumor_cytokines", "Proliferation_rate",
+                     "EMT_signature", "Matrix", "Matrix_remodeling", "Endothelium",
+                     "CAF", "Angiogenesis")
+  
+  study_df <- tme_data[,c(target_group,selected_cols)]
+  
+  #Exclude NA respond-er
+  indx_to_remove <- which(study_df[,target_group] == "NE_final")
+  if (length(indx_to_remove) > 0){
+    study_df <- study_df[-indx_to_remove,]
+  }
+  
+  # Ensure Label is a factor
+  study_df[,target_group] <- factor(study_df[,target_group], levels = c("Nonresponder", "Responder"))
+  
+  
+  #Long formart
+  df_long <- study_df %>%
+    pivot_longer(
+      cols = all_of(selected_cols),
+      names_to = "Feature",
+      values_to = "Value"
+    )
+  
+  
+  if ("Responder" %in% target_group){
+    comps <- list(c("Nonresponder", "Responder"))
+  }
+  
+  
+  
+  # Plot
+  p <- ggplot(df_long, aes(x = !!sym(target_group), y = !!sym("Value")))  +
+    geom_boxplot(width = 0.6, fill = "grey80", color = "black") +  # keep outliers
+    facet_wrap(~ Feature, scales = "free_y") +
+    stat_compare_means(
+      comparisons = comps,
+      method = "wilcox.test",
+      label = "p.signif",         # show exact p-value; use "p.signif" for stars
+      label.y.npc = 0.98,         # put label near the top of each facet
+      bracket.size = 0.6,
+      tip.length = 0.01,
+      hide.ns = FALSE
+    ) +
+    labs(x = x_label, y = "Value") +
+    theme_bw() +
+    theme(
+      axis.text = element_text(size = 14),
+      axis.title = element_text(size = 14, face = "bold"),
+      strip.text = element_text(size = 14, face = "bold"),
+      legend.position = "none",
+      strip.background = element_rect(fill = "grey90", color = NA)
+    )
+  
+  return(p)
+}
+group_by_patient <- function(indata){
+  
+  #Feature cols
+  selected_cols <- c("MHCI", "MHCII", "Coactivation_molecules", "Effector_cells",
+                     "T_cells", "T_cell_traffic", "NK_cells", "B_cells", "M1_signatures",
+                     "Th1_signature", "Antitumor_cytokines", "Checkpoint_inhibition",
+                     "Macrophage_DC_traffic", "T_reg_traffic", "Treg", "Th2_signature",
+                     "Macrophages", "Neutrophil_signature", "Granulocyte_traffic",
+                     "MDSC_traffic", "MDSC", "Protumor_cytokines", "Proliferation_rate",
+                     "EMT_signature", "Matrix", "Matrix_remodeling", "Endothelium",
+                     "CAF", "Angiogenesis")
+  other_cols <- setdiff(colnames(indata),c(selected_cols,"Patient"))
+  
+  df_avg <- indata %>%
+    group_by(Patient) %>%
+    summarise(
+      across(all_of(selected_cols), ~ mean(.x, na.rm = TRUE)),
+      across(all_of(other_cols), ~ first(.x)),
+      .groups = "drop"
+    )
+  return(df_avg)
+}
 #################### Dir ####################
-cohort <- "Pluvicto_Pretreatment_bx"
+cohort <- "Pluvicto_TMA_Cores" #Pluvicto_Pretreatment_bx
 label_var <- "Responder"
+model <- "ensemble"
 proj_dir <- "/Volumes/Lucas/mh_proj/mutation_pred/"
 tme_dir   <- paste0(proj_dir, "intermediate_data/0_HistoTME/TME/TF0.0/")
 label_dir <- paste0(proj_dir, "data/MutationCalls/",cohort, "/")
+out_dir <- "/Volumes/Lucas/mh_proj/mutation_pred/intermediate_data/0_HistoTME/pluvicto_analysis/"
 
 #################### Load ####################
-tme_df   <- read.csv(paste0(tme_dir, cohort, "_predictions_uni2.csv"), check.names = FALSE)
+#1.Load TME
+tme_df   <- read.csv(paste0(tme_dir, cohort, "_", model,".csv"), check.names = FALSE)
 
+#2.Load label
 if (cohort == "Pluvicto_Pretreatment_bx") {
   label_df <- read.xlsx(paste0(label_dir, "R_NR_labels_v1.xlsx"))
   colnames(label_df)[which(colnames(label_df) == "image")] <- "ID"
@@ -29,241 +271,30 @@ if (cohort == "Pluvicto_Pretreatment_bx") {
   label_df <- read.xlsx(paste0(label_dir, "TMA_sample_mapping.xlsx"))
   colnames(label_df)[which(colnames(label_df) == "Sample")] <- "ID"
   label_df <- label_df[which(label_df[,"Group"] == "pluvicto"),]
+  label_df <- label_df[-which(label_df$TMA %in%  c('TMA113A', 'TMA113B')),]
 }
 
-
+#3. Combine
 comb_df  <- merge(tme_df, label_df, by = "ID")
+
+#average per patient
+if (cohort == "Pluvicto_TMA_Cores"){
+  comb_df <- as.data.frame(group_by_patient(comb_df))
+  comb_df <- comb_df %>%
+    mutate(Responder = recode(Responder,
+                                "Non-responder" = "Nonresponder",
+                                "Responder" = "Responder"))
+  
+}
 
 table(comb_df$Responder)
 
-#################### Plot ####################
-# Columns of interest
-cols <- c("MHCI", "MHCII", "Coactivation_molecules", "Effector_cells",
-          "T_cells", "T_cell_traffic", "NK_cells", "B_cells", "M1_signatures",
-          "Th1_signature", "Antitumor_cytokines", "Checkpoint_inhibition",
-          "Macrophage_DC_traffic", "T_reg_traffic", "Treg", "Th2_signature",
-          "Macrophages", "Neutrophil_signature", "Granulocyte_traffic",
-          "MDSC_traffic", "MDSC", "Protumor_cytokines", "Proliferation_rate",
-          "EMT_signature", "Matrix", "Matrix_remodeling", "Endothelium",
-          "CAF", "Angiogenesis")
+#4. Plot heatmap
+plot_heatmap_TME(comb_df, cohort, "None", out_dir)
+plot_heatmap_TME(comb_df, cohort, "Responder", out_dir)
 
 
-# ---- First dataset (sh_df) ----
-data_matrix1 <- as.matrix(comb_df[, cols])
-t_matrix1 <- t(scale(data_matrix1))
+#5. Comparison between groups
+p <- plot_feature_comparison(comb_df, cohort, "Responder","")
+ggsave(paste0(out_dir,"/", cohort, "_responder_TME_comparison.png"), p, width = 18, height = 20, dpi = 300)
 
-# Run clustering once (don't draw yet)
-ph1 <- pheatmap(t_matrix1,
-                color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
-                cluster_rows = TRUE,
-                cluster_cols = TRUE,
-                treeheight_row = 0,
-                treeheight_col = 0,
-                show_rownames = TRUE,
-                show_colnames = TRUE,
-                fontsize_row = 8,
-                fontsize_col = 8,
-                border_color = NA,
-                silent = FALSE)   # prevents plotting immediately
-ph1
-
-
-
-
-
-###########2nd way:
-# Extract label vector and coerce to factor
-labels <- as.factor(comb_df[, label_var])
-
-# Build feature matrix (numeric only)
-feature_df <- comb_df[, cols]
-feature_df[] <- lapply(feature_df, function(x) as.numeric(as.character(x)))
-feature_mat <- as.matrix(t(feature_df))  # rows = features, cols = samples
-
-# ---- Map labels to readable names (adjust mapping if needed) ----
-# Assumes "1" = Responder, "0" = Non-responder; tweak if your meaning differs
-label_names <- ifelse(as.character(labels) %in% c("1", "Responder"),
-                      "Responder", "Non-responder")
-label_names <- factor(label_names, levels = c("Non-responder", "Responder"))
-
-# ---- Order: Non-responder first, then Responder ----
-ord <- order(label_names)
-feature_mat  <- feature_mat[, ord, drop = FALSE]
-labels_ord   <- label_names[ord]
-
-# ---- Annotation for columns ----
-annotation_col <- data.frame(Label = labels_ord)
-rownames(annotation_col) <- colnames(feature_mat)
-
-ann_colors <- list(Label = c("Responder" = "darkgreen",
-                             "Non-responder" = "salmon"))
-
-# ---- Add a vertical gap between groups & keep columns unclustered ----
-gap_pos <- sum(labels_ord == "Non-responder")
-
-p <- pheatmap(
-  feature_mat,
-  scale = "row",
-  cluster_rows = TRUE,
-  cluster_cols = TRUE,        # <-- keep the label-based separation
-  treeheight_row = 0,
-  treeheight_col = 0,
-  annotation_col = annotation_col,
-  annotation_colors = ann_colors,
-  #gaps_col = gap_pos,          # vertical divider between groups
-  show_colnames = FALSE,
-  color = colorRampPalette(c("navy", "white", "firebrick3"))(50)
-)
-
-p
-
-
-
-
-#3rd way
-library(ComplexHeatmap)
-library(circlize)
-
-# feature_mat and label_names from above
-col_split <- label_names  # factor with desired order
-
-Heatmap(
-  feature_mat,
-  name = "z",
-  color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
-  cluster_rows = TRUE,
-  cluster_columns = TRUE,       # clusters within each split
-  column_split = col_split,     # <-- separates by label
-  show_column_names = FALSE,
-  top_annotation = HeatmapAnnotation(
-    Label = col_split,
-    col = list(Label = c("Responder" = "darkgreen",
-                         "Non-responder" = "salmon"))
-  ),
-  column_title = NULL
-)
-
-############################################
-#Coor
-###########
-df <- comb_df[,c("Responder",cols)]
-colnames(df)[which(colnames(df) == "Responder")] <- "Label"
-
-# Ensure Label is a factor
-df$Label <- factor(df$Label, levels = c("Nonresponder", "Responder"))
-
-# Convert Label to numeric (0 = Non-responder, 1 = Responder)
-df$Label_numeric <- ifelse(df$Label == "Responder", 1, 0)
-
-# Select only numeric columns (features)
-feature_cols <- df %>%
-  select(-Label) %>%
-  select(where(is.numeric)) %>%
-  select(-Label_numeric) %>%
-  colnames()
-
-# Compute correlations between each feature and the Label
-cor_results <- sapply(feature_cols, function(x) {
-  cor(df[[x]], df$Label_numeric, method = "spearman", use = "complete.obs")
-})
-
-# Convert to data frame
-cor_df <- data.frame(
-  Feature = names(cor_results),
-  Spearman_correlation = as.numeric(cor_results)
-) %>%
-  arrange(desc(Spearman_correlation))
-
-# Print sorted correlations
-print(cor_df)
-
-# Optional: visualize
-library(ggplot2)
-ggplot(cor_df, aes(x = reorder(Feature, Spearman_correlation),
-                   y = Spearman_correlation,
-                   fill = Spearman_correlation)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white") +
-  theme_minimal() +
-  labs(title = "Correlation between features and response (Spearman)",
-       x = "Feature", y = "Correlation (Responder = 1)")
-
-# Packages
-# Load packages
-# Load libraries
-# Load libraries
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(purrr)
-
-# --- INPUT ---
-# df must have:
-#   df$Label: "Responder" / "Nonresponder"
-#   numeric feature columns
-
-df$Label <- factor(df$Label, levels = c("Nonresponder", "Responder"))
-
-# Get numeric feature names
-feature_cols <- df %>%
-  select(-Label) %>%
-  select(where(is.numeric)) %>%
-  colnames()
-
-# Define star labeling function
-stars <- function(p) {
-  case_when(
-    is.na(p)     ~ "",
-    p < 0.001    ~ "***",
-    p < 0.01     ~ "**",
-    p < 0.05     ~ "*",
-    p < 0.1      ~ "·",
-    TRUE         ~ ""
-  )
-}
-
-# --- Loop through each feature and save plot ---
-for (feat in feature_cols) {
-  
-  # Subset data for this feature
-  d <- df %>% select(Label, all_of(feat)) %>%
-    rename(Score = all_of(feat))
-  
-  # Compute t-test (raw p-value)
-  r <- d %>% filter(Label == "Responder") %>% pull(Score)
-  n <- d %>% filter(Label == "Nonresponder") %>% pull(Score)
-  tt <- tryCatch(t.test(r, n, var.equal = FALSE), error = function(e) NULL)
-  pval <- if (!is.null(tt)) unname(tt$p.value) else NA_real_
-  star <- stars(pval)
-  
-  # For label placement
-  y_max <- max(d$Score, na.rm = TRUE)
-  y_label <- y_max + 0.05 * (abs(y_max) + 1e-9)
-  
-  # Create plot
-  p <- ggplot(d, aes(x = Label, y = Score, fill = Label)) +
-    geom_boxplot(width = 0.6, outlier.shape = NA, alpha = 0.8) +
-    geom_jitter(width = 0.15, alpha = 0.5, size = 1) +
-    geom_text(aes(x = 1.5, y = y_label, label = star),
-              inherit.aes = FALSE, size = 6, fontface = "bold") +
-    scale_fill_manual(values = c("Nonresponder" = "#d62728", "Responder" = "#2ca02c")) +
-    theme_minimal(base_size = 13) +
-    theme(
-      panel.grid.minor = element_blank(),
-      legend.position = "none",
-      plot.title = element_text(face = "bold")
-    ) +
-    labs(
-      title = paste0(feat, " (p = ", signif(pval, 3), ")"),
-      subtitle = "Raw p-value (Welch t-test)",
-      x = NULL,
-      y = "Score"
-    )
-  
-  # Save one PNG per feature
-  fname <- paste0("boxplot_", feat, ".png")
-  ggsave(filename = fname, plot = p, width = 5, height = 4, dpi = 300)
-  
-  message("Saved: ", fname)
-}
