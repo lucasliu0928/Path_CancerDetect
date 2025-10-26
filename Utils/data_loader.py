@@ -18,6 +18,9 @@ import random
 import ast
 import matplotlib.pyplot as plt
 import numpy as np
+import h5py
+import io
+import json
 
 def get_feature_idexes(method, include_tumor_fraction = True):
     
@@ -90,28 +93,28 @@ def get_cohort_data(data_path, cohort_name, fe_method, tumor_frac):
     
     return data_comb
 
-def combine_cohort_data(data_dir, id_data_dir, cohort_name, fe_method, tumor_frac):
+# def combine_cohort_data(data_dir, id_data_dir, cohort_name, fe_method, tumor_frac):
     
-    #norm and nonorm data
-    stnorm0 = get_cohort_data(data_dir, "z_nostnorm_" + cohort_name, fe_method, tumor_frac)
-    stnorm1 = get_cohort_data(data_dir, cohort_name, fe_method, tumor_frac)
+#     #norm and nonorm data
+#     stnorm0 = get_cohort_data(data_dir, "z_nostnorm_" + cohort_name, fe_method, tumor_frac)
+#     stnorm1 = get_cohort_data(data_dir, cohort_name, fe_method, tumor_frac)
 
-    ################################################
-    # Combine stnorm and nostnorm 
-    ################################################
-    ol100_union = combine_data_from_stnorm_and_nostnorm(stnorm0['OL100'], stnorm1['OL100'], method = 'union')
-    ol0_union   = combine_data_from_stnorm_and_nostnorm(stnorm0['OL0'], stnorm1['OL0'], method = 'union')
+#     ################################################
+#     # Combine stnorm and nostnorm 
+#     ################################################
+#     ol100_union = combine_data_from_stnorm_and_nostnorm(stnorm0['OL100'], stnorm1['OL100'], method = 'union')
+#     ol0_union   = combine_data_from_stnorm_and_nostnorm(stnorm0['OL0'], stnorm1['OL0'], method = 'union')
 
 
-    cdata = {'stnorm0_OL100':     stnorm0['OL100'],
-                'stnorm0_OL0':       stnorm0['OL0'],
-                'stnorm1_OL100':     stnorm1['OL100'],
-                'stnorm1_OL0':       stnorm1['OL0'],
-                'Union_OL100': ol100_union, 
-                'Union_OL0':  ol0_union}
+#     cdata = {'stnorm0_OL100':     stnorm0['OL100'],
+#                 'stnorm0_OL0':       stnorm0['OL0'],
+#                 'stnorm1_OL100':     stnorm1['OL100'],
+#                 'stnorm1_OL0':       stnorm1['OL0'],
+#                 'Union_OL100': ol100_union, 
+#                 'Union_OL0':  ol0_union}
 
     
-    return cdata
+#     return cdata
 
 
 def get_matching_tile_index(indata, common_tiles_xy):
@@ -591,350 +594,6 @@ def get_final_model_data_v2(opx, tcga, nep, id_data_dir, train_cohort, mutation,
         }, selected_labels
 
 
-# def get_final_model_data(data_dir, id_data_dir, train_cohort, mutation, fe_method, tumor_frac, s_fold):
-#     #OPX data
-#     data_opx_stnorm0 = get_cohort_data(data_dir, "z_nostnorm_OPX", fe_method, tumor_frac)
-#     data_opx_stnorm1 = get_cohort_data(data_dir, "OPX", fe_method, tumor_frac) #TODO: Check OPX_001 was removed beased no cancer detected in stnormed
-
-
-#     #TCGA data
-#     data_tcga_stnorm0 = get_cohort_data(data_dir, "z_nostnorm_TCGA_PRAD", fe_method, tumor_frac)
-#     data_tcga_stnorm1 = get_cohort_data(data_dir, "TCGA_PRAD", fe_method, tumor_frac)
-
-    
-#     #Neptune
-#     data_nep_stnorm0 = get_cohort_data(data_dir, "z_nostnorm_Neptune", fe_method, tumor_frac)
-#     data_nep_stnorm1 = get_cohort_data(data_dir, "Neptune", fe_method, tumor_frac)
-    
-
-#     ################################################
-#     # Combine stnorm and nostnorm 
-#     ################################################
-#     #OPX
-#     data_ol100_opx_union = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL100'], data_opx_stnorm1['OL100'], method = 'union')
-#     data_ol0_opx_union   = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL0'], data_opx_stnorm1['OL0'], method = 'union')
-#     data_opx_stnorm10_union = {'OL100': data_ol100_opx_union, 'OL0': data_ol0_opx_union}
-
-#     data_ol100_opx_comb = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL100'],  data_opx_stnorm1['OL100'], method = 'combine_all')
-#     data_ol0_opx_comb = combine_data_from_stnorm_and_nostnorm(data_opx_stnorm0['OL0'], data_opx_stnorm1['OL0'], method = 'combine_all')
-#     data_opx_stnorm10_comb = {'OL100': data_ol100_opx_comb, 'OL0': data_ol0_opx_comb}
-
-#     #TCGA
-#     data_ol100_tcga_union = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL100'], data_tcga_stnorm1['OL100'], method = 'union')
-#     data_ol0_tcga_union = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL0'], data_tcga_stnorm0['OL0'], method = 'union')
-#     data_tcga_stnorm10_union = {'OL100': data_ol100_tcga_union, 'OL0': data_ol0_tcga_union}
-
-#     data_ol100_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL100'], data_tcga_stnorm1['OL100'], method = 'combine_all')
-#     data_ol0_tcga_comb = combine_data_from_stnorm_and_nostnorm(data_tcga_stnorm0['OL0'], data_tcga_stnorm0['OL0'], method = 'combine_all')
-#     data_tcga_stnorm10_comb = {'OL100': data_ol100_tcga_comb, 'OL0': data_ol0_tcga_comb}
-    
-#     #NEP
-#     #TODO:Need to update using OL100 later for nep
-#     data_ol0_nep_union = combine_data_from_stnorm_and_nostnorm(data_nep_stnorm0['OL0'], data_nep_stnorm1['OL0'], method = 'union')
-#     data_nep_stnorm10_union = {'OL100': data_ol0_nep_union, 'OL0': data_ol0_nep_union}
-#     data_ol0_nep_comb = combine_data_from_stnorm_and_nostnorm(data_nep_stnorm0['OL0'], data_nep_stnorm1['OL0'], method = 'combine_all')
-#     data_nep_stnorm10_comb = {'OL100': data_ol0_nep_comb, 'OL0': data_ol0_nep_comb}
-    
-#     ################################################
-#     #Get Train, test, val data
-#     ################################################    
-#     train_cohort_map = {
-#         #stain normed
-#         'OPX': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm1,
-#             'train_cohort2': None,
-#             'model_data2': None,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-#         'TCGA_PRAD': {
-#             'train_cohort1': 'TCGA_PRAD',
-#             'model_data1': data_tcga_stnorm1,
-#             'train_cohort2': None,
-#             'model_data2': None,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-#         'Neptune': {
-#             'train_cohort1': 'Neptune',
-#             'model_data1': data_nep_stnorm1,
-#             'train_cohort2': None,
-#             'model_data2': None,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-        
-#         #no stain normed
-#         'z_nostnorm_OPX': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm0,
-#             'train_cohort2': None,
-#             'model_data2': None,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-#         'z_nostnorm_TCGA_PRAD': {
-#             'train_cohort1': 'TCGA_PRAD',
-#             'model_data1': data_tcga_stnorm0,
-#             'train_cohort2': None,
-#             'model_data2': None,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-#         'z_nostnorm_Neptune': {
-#             'train_cohort1': 'Neptune',
-#             'model_data1': data_nep_stnorm0,
-#             'train_cohort2': None,
-#             'model_data2': None,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-        
-#         #two corhot, no st
-#         'z_nostnorm_OPX_TCGA': {
-#             'train_cohort1': 'z_nostnorm_OPX',
-#             'model_data1': data_opx_stnorm0,
-#             'train_cohort2': 'z_nostnorm_TCGA_PRAD',
-#             'model_data2': data_tcga_stnorm0,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-#         'z_nostnorm_OPX_NEP': {
-#             'train_cohort1': 'z_nostnorm_OPX',
-#             'model_data1': data_opx_stnorm0,
-#             'train_cohort2': 'z_nostnorm_Neptune',
-#             'model_data2': data_nep_stnorm0,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-#         'z_nostnorm_TCGA_NEP': {
-#             'train_cohort1': 'z_nostnorm_TCGA_PRAD',
-#             'model_data1': data_tcga_stnorm0,
-#             'train_cohort2': 'z_nostnorm_Neptune',
-#             'model_data2': data_nep_stnorm0,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         },
-        
-#         #two corhot, st
-#         'OPX_TCGA': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm1,
-#             'train_cohort2': 'TCGA_PRAD',
-#             'model_data2': data_tcga_stnorm1,
-#             'train_cohort3':  None,
-#             'model_data3': None,
-#             'ext_cohort':  'Neptune',
-#             'ext_data_nost':  data_nep_stnorm0['OL0'],
-#             'ext_data_st':    data_nep_stnorm1['OL0'],
-#             'ext_data_union': data_nep_stnorm10_union['OL0']
-#         },
-#         'OPX_NEP': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm1,
-#             'train_cohort2': 'Neptune',
-#             'model_data2': data_nep_stnorm1,
-#             'train_cohort3':  None,
-#             'model_data3': None,
-#             'ext_cohort':  'TCGA_PRAD',
-#             'ext_data_nost':  data_tcga_stnorm0['OL0'],
-#             'ext_data_st':    data_tcga_stnorm1['OL0'],
-#             'ext_data_union': data_tcga_stnorm10_union['OL0']
-#         },
-#         'TCGA_NEP': {
-#             'train_cohort1': 'TCGA_PRAD',
-#             'model_data1': data_tcga_stnorm1,
-#             'train_cohort2': 'Neptune',
-#             'model_data2': data_nep_stnorm1,
-#             'train_cohort3':  None,
-#             'model_data3': None,
-#             'ext_cohort':  'OPX',
-#             'ext_data_nost':  data_opx_stnorm0['OL0'],
-#             'ext_data_st':    data_opx_stnorm1['OL0'],
-#             'ext_data_union': data_opx_stnorm10_union['OL0']
-#         },
-        
-#         #two cohort, union of st and no-st
-#         'union_STNandNSTN_OPX_TCGA': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm10_union,
-#             'train_cohort2': 'TCGA_PRAD',
-#             'model_data2': data_tcga_stnorm10_union,
-#             'train_cohort3':  None,
-#             'model_data3': None,
-#             'ext_cohort':  'Neptune',
-#             'ext_data_nost':  data_nep_stnorm0['OL0'],
-#             'ext_data_st':    data_nep_stnorm1['OL0'],
-#             'ext_data_union': data_nep_stnorm10_union['OL0'],
-
-#         },
-#         'union_STNandNSTN_OPX_NEP': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm10_union,
-#             'train_cohort2': 'Neptune',
-#             'model_data2': data_nep_stnorm10_union,
-#             'train_cohort3':  None,
-#             'model_data3': None,
-#             'ext_cohort':  'TCGA_PRAD',
-#             'ext_data_nost':  data_tcga_stnorm0['OL0'],
-#             'ext_data_st':    data_tcga_stnorm1['OL0'],
-#             'ext_data_union': data_tcga_stnorm10_union['OL0'],
-#         },
-#         'union_STNandNSTN_TCGA_NEP': {
-#             'train_cohort1': 'TCGA_PRAD',
-#             'model_data1': data_tcga_stnorm10_union,
-#             'train_cohort2': 'Neptune',
-#             'model_data2': data_nep_stnorm10_union,
-#             'train_cohort3':  None,
-#             'model_data3': None,
-#             'ext_cohort':  'OPX',
-#             'ext_data_nost':  data_opx_stnorm0['OL0'],
-#             'ext_data_st':    data_opx_stnorm1['OL0'],
-#             'ext_data_union': data_opx_stnorm10_union['OL0'],
-#         },
-        
-#         #three cohort, union of st and no-st
-#         'union_STNandNSTN_OPX_TCGA_NEP': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm10_union,
-#             'train_cohort2': 'TCGA_PRAD',
-#             'model_data2': data_tcga_stnorm10_union,
-#             'train_cohort3':  'Neptune',
-#             'model_data3': data_nep_stnorm10_union,
-#             'ext_cohort':  None,
-#             'ext_data_nost':  None,
-#             'ext_data_st':    None,
-#             'ext_data_union': None,
-#         },
-        
-        
-#         #two cohort, combine and later sampling
-#         'comb_STNandNSTN_OPX_TCGA': {
-#             'train_cohort1': 'OPX',
-#             'model_data1': data_opx_stnorm10_comb,
-#             'train_cohort2': 'TCGA_PRAD',
-#             'model_data2': data_tcga_stnorm10_comb,
-#             'train_cohort3':  None,
-#             'model_data3': None
-#         }
-#     }
-    
-#     if train_cohort in train_cohort_map:
-        
-#         config = train_cohort_map[train_cohort]
-#         train_cohort1 = config['train_cohort1']
-#         model_data1 = config['model_data1']
-#         train_cohort2 = config['train_cohort2']
-#         model_data2 = config['model_data2']
-#         train_cohort3 = config['train_cohort3']
-#         model_data3 = config['model_data3']
-#         ext_cohort = config['ext_cohort']
-#         ext_data_st0 = config['ext_data_nost']
-#         ext_data_st1 = config['ext_data_st']
-#         ext_data_union = config['ext_data_union']
-        
-        
-#     else:
-#         raise ValueError(f"Unknown training cohort: {train_cohort}")
-
-#     #TODO for three cohort train
-    
-#     #Get Train, validation and test
-#     split_data = get_final_split_data(id_data_dir,
-#                                     train_cohort1,
-#                                     model_data1, 
-#                                     train_cohort2, 
-#                                     model_data2, 
-#                                     train_cohort3,
-#                                     model_data3,
-#                                     tumor_frac, 
-#                                     s_fold)
-    
-#     train_data, _ = split_data["train"]
-#     val_data, _ = split_data["val"]
-#     test_data, _ = split_data["test"]
-#     test_data1, _ = split_data["test1"]
-#     test_data2, _ = split_data["test2"]
-#     test_data3, _ = split_data["test3"]
-    
-
-#     #Get sanple ID:
-#     train_ids =  [x[-2] for x in train_data]
-#     val_ids =  [x[-2] for x in val_data]
-#     test_ids =  [x[-2] for x in test_data]
-#     test_ids1 =  [x[-2] for x in test_data1]
-#     test_ids2 =  [x[-2] for x in test_data2]
-#     test_ids3 =  [x[-2] for x in test_data3]
-    
-#     if train_cohort != "union_STNandNSTN_OPX_TCGA_NEP":
-#         ext_ids0 =  [x[-2] for x in ext_data_st0]
-#         ext_ids1 =  [x[-2] for x in ext_data_st1]
-#         ext_ids =  [x[-2] for x in ext_data_union]
-#     else:
-#         ext_ids0 = []
-#         ext_ids1 = []
-#         ext_ids = []        
-    
-    
-#     #Update labels
-#     selected_labels, selected_label_index = get_selected_labels(mutation, train_cohort)
-#     print(selected_labels)
-#     print(selected_label_index)
-
-#     train_data = update_label(train_data, selected_label_index)
-#     val_data = update_label(val_data, selected_label_index)
-#     test_data = update_label(test_data, selected_label_index)
-#     test_data1 = update_label(test_data1, selected_label_index)
-#     test_data2 = update_label(test_data2, selected_label_index)
-#     test_data3 = update_label(test_data3, selected_label_index)
-
-#     if train_cohort != "union_STNandNSTN_OPX_TCGA_NEP":
-#         ext_data_st0 = update_label(ext_data_st0, selected_label_index)
-#         ext_data_st1 = update_label(ext_data_st1, selected_label_index)
-#         ext_data_union = update_label(ext_data_union, selected_label_index)
-#     else:
-#         ext_data_st0 = []
-#         ext_data_st1 = []
-#         ext_data_union = []
-    
-#     #update item for model
-            
-#     if train_cohort == 'comb_STNandNSTN_OPX_TCGA': 
-#         #Keep feature1, label, tf,1 dlabel, feature2, tf2
-#         train_data = [(item[0], item[1], item[2], item[3], item[7], item[9]) for item in train_data]
-#         test_data1 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data1]
-#         test_data2 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data2]
-#         test_data3 = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data3]
-
-#         test_data = [(item[0], item[1], item[2], item[6], item[8]) for item in test_data]
-#         val_data = [(item[0], item[1], item[2],  item[6], item[8]) for item in val_data]
-#     else:
-#         #Exclude tile info data, sample ID, patient ID, do not needed it for training
-#         train_data = [item[:-3] for item in train_data]
-#         test_data1 = [item[:-3] for item in test_data1]   
-#         test_data2 = [item[:-3] for item in test_data2]   
-#         test_data3 = [item[:-3] for item in test_data3]   
-#         test_data = [item[:-3] for item in test_data]   
-#         val_data = [item[:-3] for item in val_data]
-    
-#     if train_cohort != "union_STNandNSTN_OPX_TCGA_NEP":
-#         ext_data_st0 = [item[:-3] for item in ext_data_st0] #no st norm
-#         ext_data_st1 = [item[:-3] for item in ext_data_st1] #st normed
-#         ext_data_union = [item[:-3] for item in ext_data_union]
-
-
-    
-#     return {'train': (train_data, train_ids, "Train"),
-#             'val': (val_data, val_ids, "VAL"),
-#             'test': (test_data, test_ids,"Test"),
-#             'test1': (test_data1, test_ids1, train_cohort1),
-#             'test2': (test_data2, test_ids2, train_cohort2),
-#             'test3': (test_data3, test_ids3, train_cohort3),
-#             'ext_data_st0': (ext_data_st0, ext_ids0, ext_cohort),
-#             'ext_data_st1': (ext_data_st1, ext_ids1, ext_cohort),
-#             'ext_data_union': (ext_data_union, ext_ids, ext_cohort)
-#         }, selected_labels
 
 
 
@@ -1752,4 +1411,197 @@ def filter_by_tumor_fraction(data, threshold=0.9):
 
 
 
+import h5py, numpy as np, pandas as pd, json, os
+from pathlib import Path
+
+def write_h5_dataset(path, dataset):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    index = []  # rows: one per case
+    with h5py.File(path, "w", libver="latest") as f:
+        f.attrs["version"] = "v2"
+        grp = f.create_group("cases")
+
+        for i in range(len(dataset)):
+            # pull directly from your lists to avoid __getitem__ overhead
+            x  = dataset.x[i].numpy()
+            y  = dataset.y[i].numpy()
+            tf = dataset.tf[i].numpy()
+            sl = dataset.site_loc[i].numpy()
+            of = dataset.other_info[i]  # pandas DF
+
+            case = grp.create_group(str(i))
+            # chunk along the first dim to match batch access
+            chunk0 = min(len(x), 1024) if x.ndim > 0 else 1
+
+            case.create_dataset("x", data=x, chunks=(chunk0,)+x.shape[1:], compression="lzf", shuffle=True)
+            case.create_dataset("y", data=y, compression="lzf", shuffle=True)
+            case.create_dataset("tumor_fraction", data=tf, compression="lzf", shuffle=True)
+            case.create_dataset("site_location", data=sl, compression="lzf", shuffle=True)
+
+            # Save other_info as CSV bytes inside HDF5 (or write sidecar parquet files, see Option B)
+            other_csv = of.to_csv(index=False).encode("utf-8")
+            case.create_dataset("other_info_csv", data=np.frombuffer(other_csv, dtype="uint8"))
+
+            # scalar attrs
+            case.attrs["fold0"] = dataset.fold0[i]
+            case.attrs["fold1"] = dataset.fold1[i]
+            case.attrs["fold2"] = dataset.fold2[i]
+            case.attrs["fold3"] = dataset.fold3[i]
+            case.attrs["fold4"] = dataset.fold4[i]
+            case.attrs["sample_id"] = str(of["SAMPLE_ID"].unique().item())
+            case.attrs["patient_id"] = str(of["PATIENT_ID"].unique().item())
+
+            index.append({"i": i})
+
+
+class H5Cases(Dataset):
+    def __init__(self, h5_path):
+        self.h5_path = str(h5_path)
+        with h5py.File(self.h5_path, "r") as f:
+            self.n = len(f["cases"])
+        self._f = None
+
+    def _ensure(self):
+        if self._f is None:
+            self._f = h5py.File(self.h5_path, "r", swmr=True)
+
+    def __len__(self): return self.n
+
+    def __getitem__(self, i):
+        self._ensure()
+        g = self._f["cases"][str(i)]
+        x  = torch.from_numpy(g["x"][...])         # reads only needed chunks
+        y  = torch.from_numpy(g["y"][...])
+        tf = torch.from_numpy(g["tumor_fraction"][...])
+        sl = torch.from_numpy(g["site_location"][...])
+
+        # reconstruct other_info from bytes
+        csv_bytes = bytes(g["other_info_csv"][...].tobytes()).decode("utf-8")
+        other = pd.read_csv(io.StringIO(csv_bytes))
+
+        return {
+            "x": x, "y": y,
+            "tumor_fraction": tf,
+            "site_location": sl,
+            "tile_info": other,
+            "sample_id": g.attrs["sample_id"],
+            "patient_id": g.attrs["patient_id"],
+            "fold0": g.attrs["fold0"],
+            "fold1": g.attrs["fold1"],
+            "fold2": g.attrs["fold2"],
+            "fold3": g.attrs["fold3"],
+            "fold4": g.attrs["fold4"],
+        }
+    
+    
+    
+
+
+# ----- config -----
+ATOL = 1e-6
+RTOL = 1e-5
+
+def t2np(t):
+    # convert torch tensor -> numpy (CPU) without copying if possible
+    if isinstance(t, torch.Tensor):
+        return t.detach().cpu().numpy()
+    return t
+
+def allclose(a, b, name):
+    if isinstance(a, torch.Tensor): a = a.detach().cpu()
+    if isinstance(b, torch.Tensor): b = b.detach().cpu()
+    if isinstance(a, torch.Tensor) and isinstance(b, torch.Tensor):
+        if a.shape != b.shape:
+            return False, f"{name}: shape {tuple(a.shape)} != {tuple(b.shape)}"
+        ok = torch.allclose(a, b, atol=ATOL, rtol=RTOL, equal_nan=True)
+        return ok, ("" if ok else f"{name}: values differ (rtol={RTOL}, atol={ATOL}, equal_nan={True})")
+    else:
+        # numpy path
+        import numpy as np
+        a = np.asarray(a); b = np.asarray(b)
+        if a.shape != b.shape:
+            return False, f"{name}: shape {a.shape} != {b.shape}"
+        ok = np.allclose(a, b, rtol=RTOL, atol=ATOL, equal_nan=True)
+        return ok, ("" if ok else f"{name}: values differ (rtol={RTOL}, atol={ATOL}, equal_nan={True})")
+
+def df_equal(df1: pd.DataFrame, df2: pd.DataFrame, name="other_info"):
+    # we stored CSV in H5, so dtypes may differ slightly. Compare values ignoring dtype.
+    try:
+        # align columns if order differs
+        if set(df1.columns) != set(df2.columns):
+            return False, f"{name}: column sets differ: {set(df1.columns) ^ set(df2.columns)}"
+        df2 = df2[df1.columns]
+        pd.testing.assert_frame_equal(
+            df1.reset_index(drop=True),
+            df2.reset_index(drop=True),
+            check_dtype=False,
+            check_like=True,       # allow column reordering
+        )
+        return True, ""
+    except AssertionError as e:
+        return False, f"{name}: {str(e).splitlines()[0]}"
+
+def read_other_info_from_h5(group):
+    csv_bytes = bytes(group["other_info_csv"][...].tobytes()).decode("utf-8")
+    return pd.read_csv(io.StringIO(csv_bytes))
+
+def compare_case(i, ds_pth, g_h5):
+    mismatches = []
+
+    # tensors/arrays
+    ok, msg = allclose(ds_pth.x[i], torch.from_numpy(g_h5["x"][...]), "x")
+    if not ok: mismatches.append(msg)
+
+    ok, msg = allclose(ds_pth.y[i], torch.from_numpy(g_h5["y"][...]), "y")
+    if not ok: mismatches.append(msg)
+
+    ok, msg = allclose(ds_pth.tf[i], torch.from_numpy(g_h5["tumor_fraction"][...]), "tumor_fraction")
+    if not ok: mismatches.append(msg)
+
+    ok, msg = allclose(ds_pth.site_loc[i], torch.from_numpy(g_h5["site_location"][...]), "site_location")
+    if not ok: mismatches.append(msg)
+
+    # DataFrame
+    df_pth = ds_pth.other_info[i]
+    df_h5 = read_other_info_from_h5(g_h5)
+    ok, msg = df_equal(df_pth, df_h5, "other_info")
+    if not ok: mismatches.append(msg)
+
+    # scalar attrs
+    # sample_id / patient_id from pth side:
+    sp_pth = df_pth["SAMPLE_ID"].unique().item()
+    pt_pth = df_pth["PATIENT_ID"].unique().item()
+    sp_h5 = g_h5.attrs["sample_id"]
+    pt_h5 = g_h5.attrs["patient_id"]
+    if str(sp_pth) != str(sp_h5):
+        mismatches.append(f"sample_id: {sp_pth} != {sp_h5}")
+    if str(pt_pth) != str(pt_h5):
+        mismatches.append(f"patient_id: {pt_pth} != {pt_h5}")
+
+    # Folds (string comparison)
+    folds_pth = [
+        ds_pth.fold0[i],
+        ds_pth.fold1[i],
+        ds_pth.fold2[i],
+        ds_pth.fold3[i],
+        ds_pth.fold4[i],
+    ]
+    folds_h5 = [
+        g_h5.attrs["fold0"],
+        g_h5.attrs["fold1"],
+        g_h5.attrs["fold2"],
+        g_h5.attrs["fold3"],
+        g_h5.attrs["fold4"],
+    ]
+    
+    # Normalize to string to avoid any subtle dtype differences (e.g., np.string_ vs str)
+    folds_pth = [str(v) for v in folds_pth]
+    folds_h5  = [str(v) for v in folds_h5]
+    
+    if folds_pth != folds_h5:
+        mismatches.append(f"folds: {folds_pth} != {folds_h5}")
+
+    return mismatches
 

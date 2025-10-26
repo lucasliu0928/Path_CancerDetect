@@ -51,7 +51,7 @@ if __name__ == '__main__':
     #DIR
     ############################################################################################################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/'
-    wsi_location = os.path.join(proj_dir, "data", args.cohort_name)
+    wsi_location = os.path.join(proj_dir, "data", args.cohort_name.replace("z_nostnorm_", ""))
     # wsi_location_opx = proj_dir + '/data/OPX/'
     # wsi_location_tan = proj_dir + 'data/TAN_TMA_Cores/'
     # wsi_location_ccola = proj_dir + '/data/CCola/all_slides/'
