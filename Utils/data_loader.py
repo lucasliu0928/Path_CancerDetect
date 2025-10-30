@@ -957,8 +957,6 @@ def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUM
     
     return all_comb_df, all_comb
 
-import ast
-import numpy as np
 def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', selected_label = 'HR1', concat_tf  = False):
     
     #Get label
@@ -1110,6 +1108,146 @@ def merge_data_lists(list1, list2, merge_type = 'union'):
 
     return merged_list
 
+
+def _index_sid_to_idx(ds):
+    ds._ensure()
+    idx = {}
+    cases = ds._f["cases"]
+    for k in cases.keys():
+        sid = cases[k].attrs["sample_id"]
+        idx[sid] = int(k)  # group names are "0","1",...
+    return idx
+
+
+def merge_sample(d1, d2, merge_type = "union"):
+    
+    if merge_type == 'union':
+        #add tf and original row idx
+        c1 = prep(d1['tile_info'], d1['tumor_fraction'], 1)
+        c2 = prep(d2['tile_info'], d2['tumor_fraction'], 2)
+        both = pd.concat([c1, c2], ignore_index=True)
+        
+        #pick the row with max tumor_fraction per tile key
+        best_idx = both.groupby('__key__')['tumor_fraction'].idxmax() # idx of the max tumor_fraction within each key group
+        chosen = both.loc[best_idx].reset_index(drop=True)
+        
+        # --- split chosen by source to slice tensors efficiently and in order
+        chosen1 = chosen[chosen['dataset'] == 1]
+        chosen2 = chosen[chosen['dataset'] == 2]
+        idx1 = chosen1['original_row_idx'].tolist()
+        idx2 = chosen2['original_row_idx'].tolist()
+        
+        
+        # --- slice tensors (handle empty-index cases)
+        parts_x = []
+        parts_tf = []
+        parts_sl = []
+        ti_parts = []
+    
+        if len(idx1):
+            parts_x.append(d1['x'][idx1])
+            parts_tf.append(d1['tumor_fraction'][idx1])
+            parts_sl.append(d1['site_location'][idx1])
+            ti_parts.append(d1['tile_info'].iloc[idx1])
+            
+        if len(idx2):
+            parts_x.append(d2['x'][idx2])
+            parts_tf.append(d2['tumor_fraction'][idx2])
+            parts_sl.append(d2['site_location'][idx2])
+            ti_parts.append(d2['tile_info'].iloc[idx2])
+            
+            
+        X = torch.cat(parts_x, dim=0) if len(parts_x) > 1 else (parts_x[0] if parts_x else torch.empty(0))
+        TF = torch.cat(parts_tf, dim=0) if len(parts_tf) > 1 else (parts_tf[0] if parts_tf else torch.empty(0))
+        SL = torch.cat(parts_sl, dim=0) if len(parts_sl) > 1 else (parts_sl[0] if parts_sl else torch.empty(0))
+        TI = pd.concat(ti_parts, axis=0).reset_index(drop=True)
+
+
+
+    # --- final merged sample dict
+    merged = {
+        'x': X,
+        'y': d1.get('y', d2.get('y')),  #keep whichever is available
+        'tumor_fraction': TF,
+        'site_location': SL,
+        'tile_info': TI,                 # does NOT include helper columns
+        'sample_id': d1.get('sample_id', d2.get('sample_id')),
+        'patient_id': d1.get('patient_id', d2.get('patient_id')),
+        'fold0': d1.get('fold0', d2.get('fold0')),
+        'fold1': d1.get('fold1', d2.get('fold1')),
+        'fold2': d1.get('fold2', d2.get('fold2')),
+        'fold3': d1.get('fold3', d2.get('fold3')),
+        'fold4': d1.get('fold4', d2.get('fold4')),
+    }
+    
+    return merged
+            
+    
+
+def merge_data_lists_h5(h5_case1, h5_case2, merge_type = 'union'):
+    """
+    same as merge_data_list, works for h5
+    """
+
+    #get ID to IDX map
+    idx_a = _index_sid_to_idx(h5_case1)
+    idx_b = _index_sid_to_idx(h5_case2)
+    
+    all_ids = sorted(set(idx_a) | set(idx_b))  #union of the two ids
+    
+    merged_list = []
+    for i, sid in enumerate(all_ids):
+        if i % 10 == 0:
+            print(i)
+        
+        d1 = h5_case1[idx_a[sid]] if sid in idx_a else None
+        d2 = h5_case2[idx_b[sid]] if sid in idx_b else None
+        
+        
+        if d1 and d2: #if both exsits
+            merged = merge_sample(d1, d2, merge_type = "union")
+            merged_list.append(merged)
+
+    return merged_list
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+def _merge_one_sid(sid, idx_a, idx_b, h5_case1, h5_case2, merge_type):
+    
+    d1 = h5_case1[idx_a[sid]] if sid in idx_a else None
+    d2 = h5_case2[idx_b[sid]] if sid in idx_b else None
+    
+    if not (d1 and d2):
+        return None
+
+    return merge_sample(d1, d2, merge_type)  
+
+def merge_data_lists_h5_parallel(h5_case1, h5_case2, merge_type='union', max_workers=None):
+    idx_a = _index_sid_to_idx(h5_case1)
+    idx_b = _index_sid_to_idx(h5_case2)
+
+    # iterate only ids that yield merged results (both exist)
+    all_ids = list(idx_a.keys() & idx_b.keys())
+
+    # choose a reasonable default
+    if max_workers is None:
+        max_workers = max(2, (os.cpu_count() or 8))
+
+    results = [None] * len(all_ids)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        fut2pos = {
+            ex.submit(_merge_one_sid, sid, idx_a, idx_b, h5_case1, h5_case2, merge_type): pos
+            for pos, sid in enumerate(all_ids)
+        }
+        # for fut in tqdm(as_completed(fut2pos), total=len(fut2pos)):  # progress bar (optional)
+        for fut in tqdm(as_completed(fut2pos), total=len(fut2pos), desc="Merging samples", unit="sample"):
+            pos = fut2pos[fut]
+            r = fut.result()
+            results[pos] = r
+
+    # keep original order, drop None
+    return [r for r in results if r is not None]
 
 
 class ListDataset(Dataset):
@@ -1391,6 +1529,65 @@ def uniform_sample_all_samples(indata, incoords, max_bag = 100, grid = 32, sampl
     return new_data_list
 
 
+def uniform_sample_all_samples_h5(indata, incoords, max_bag = 100, grid = 32, sample_by_tf = True, plot = False, tf_threshold = 0.0):
+    
+    new_data_list = []
+    for data_item, coord_item in zip(indata,incoords):            
+        
+        #get feature
+        feats = data_item['x'] #(N_tiles, 1536)
+        label = data_item['y']
+        tfs  = data_item['tumor_fraction']
+        sl  = data_item['site_location']
+        #get coordiantes
+        coords = coord_item
+        
+        
+        # keep a copy of full coords for plotting
+        coords_all = coords.copy()
+
+        # apply threshold filtering if requested
+        if tf_threshold is not None:
+            mask = tfs >= tf_threshold
+            feats = feats[mask]
+            tfs = tfs[mask]
+            sl = sl[mask]
+            coords = coords[mask]
+        
+            # # skip if nothing remains after filtering
+            # if len(feats) == 0:
+            #     continue
+
+
+        #uniform sampling
+        if sample_by_tf == False:
+            sampled_feats, sampled_coords, sampled_index = _uniform_sample(coords, feats, max_bag, grid = grid, seed = 1)
+        else:
+            sampled_feats, sampled_coords, sampled_index = _uniform_sample_with_cancer_prob(coords, feats, tfs, max_bag, 
+                                                                                            seed = 1, 
+                                                                                            grid = grid, 
+                                                                                            strength = 1.0)
+
+        if plot:
+            # 3. Plot results
+            plt.figure(figsize=(8, 8))
+            plt.scatter(coords_all[:, 0], -coords_all[:, 1], alpha=0.3, label="All Tiles") #- for  flip Y
+            plt.scatter(sampled_coords[:, 0], -sampled_coords[:, 1], color="red", label="Sampled Tiles") #- for  flip Y
+            plt.legend()
+            plt.title("Uniform Sampling with Grid Constraint")
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            plt.show()
+        
+        
+        sampled_tf = tfs[sampled_index]
+        sampled_site_loc =sl[sampled_index]
+        new_tuple = (sampled_feats,label, sampled_tf, sampled_site_loc)
+        new_data_list.append(new_tuple)
+        
+        
+    return new_data_list
+
 
 def filter_by_tumor_fraction(data, threshold=0.9):
     filtered_data = []
@@ -1495,7 +1692,33 @@ class H5Cases(Dataset):
             "fold4": g.attrs["fold4"],
         }
     
+  
+def get_fold_subset(dataset, fold_key="fold0", fold_value="TRAIN"):
+    """
+    Return a torch.utils.data.Subset containing only samples whose HDF5
+    attribute `fold_key` equals `fold_value`.
+
+    This function does NOT load the tensors into memory—it only inspects
+    the HDF5 attributes.
+    """
+    dataset._ensure()  # make sure the HDF5 file handle is open
+    indices = []
+    for i in range(len(dataset)):
+        attr = dataset._f["cases"][str(i)].attrs[fold_key]
+        # normalize bytes to str if needed
+        if isinstance(attr, bytes):
+            attr = attr.decode("utf-8")
+        if attr == fold_value:
+            indices.append(i)
+    return Subset(dataset, indices)
+
+
+def get_train_test_valid_h5(h5_data, fold_num):
+    train_data = get_fold_subset(h5_data, 'fold' + str(fold_num), "TRAIN")
+    test_data  = get_fold_subset(h5_data, 'fold' + str(fold_num), "TEST")
+    val_data   = get_fold_subset(h5_data, 'fold' + str(fold_num), "VALID")
     
+    return  train_data, test_data, val_data
     
 
 
@@ -1605,3 +1828,113 @@ def compare_case(i, ds_pth, g_h5):
 
     return mismatches
 
+
+
+import numpy as np
+
+def _to_numpy(arr):
+    if isinstance(arr, torch.Tensor):
+        return arr.detach().cpu().numpy()
+    return np.asarray(arr)
+
+def _is_string_dtype(series: pd.Series) -> bool:
+    return pd.api.types.is_string_dtype(series) or series.dtype == object
+
+def _write_tile_info(group: h5py.Group, df: pd.DataFrame):
+    """Store a DataFrame column-wise under group 'tile_info'."""
+    tig = group.create_group('tile_info')
+    # Keep column order
+    tig.attrs['columns'] = np.array(df.columns.tolist(), dtype=h5py.string_dtype('utf-8'))
+    dtypes = {}
+    for col in df.columns:
+        s = df[col]
+        if _is_string_dtype(s):
+            # Convert to UTF-8 varlen strings
+            dt = h5py.string_dtype('utf-8')
+            data = s.fillna("").astype(str).to_numpy()
+            tig.create_dataset(col, data=data, dtype=dt, compression="gzip", shuffle=True)
+            dtypes[col] = 'str'
+        else:
+            data = np.asarray(s.to_numpy())
+            tig.create_dataset(col, data=data, compression="gzip", shuffle=True)
+            dtypes[col] = str(s.dtype)
+    # save dtype hints for reconstruction
+    tig.attrs['dtypes'] = np.array([f"{k}:{v}" for k,v in dtypes.items()], dtype=h5py.string_dtype('utf-8'))
+
+def _read_tile_info(group: h5py.Group) -> pd.DataFrame:
+    """Example of how to read it back."""
+    tig = group['tile_info']
+    cols = [c for c in tig.attrs['columns']]
+    out = {}
+    for col in cols:
+        out[col] = tig[col][()]  # np array
+    df = pd.DataFrame(out)
+    return df
+
+def save_merged_to_h5(out_path: str, merged_list: list, x_compression="gzip"):
+    """
+    Save merged samples to HDF5.
+    Each sample becomes a group named by its sample_id (or index if missing).
+    """
+    with h5py.File(out_path, "w") as f:
+        f.attrs['format'] = 'merged_h5_cases_v1'
+
+        for i, sample in enumerate(merged_list):
+            sid = str(sample.get('sample_id', f"sample_{i}"))
+            g = f.create_group(sid)
+
+            # Core arrays
+            if 'x' in sample:
+                x_np = _to_numpy(sample['x'])
+                g.create_dataset('x', data=x_np, compression=x_compression, shuffle=True, chunks=True)
+            if 'tumor_fraction' in sample:
+                tf_np = _to_numpy(sample['tumor_fraction'])
+                g.create_dataset('tumor_fraction', data=tf_np, compression="gzip", shuffle=True)
+            if 'site_location' in sample:
+                sl_np = _to_numpy(sample['site_location'])
+                g.create_dataset('site_location', data=sl_np, compression="gzip", shuffle=True)
+            if 'y' in sample and sample['y'] is not None:
+                y_np = _to_numpy(sample['y'])
+                g.create_dataset('y', data=y_np)
+
+            # tile_info DataFrame
+            if 'tile_info' in sample and isinstance(sample['tile_info'], pd.DataFrame):
+                _write_tile_info(g, sample['tile_info'])
+
+            # Metadata as attributes (strings/ints)
+            def setattr_if_present(name):
+                val = sample.get(name, None)
+                if val is not None:
+                    if isinstance(val, (str, bytes)):
+                        g.attrs[name] = str(val)
+                    else:
+                        try:
+                            g.attrs[name] = np.asarray(val)
+                        except Exception:
+                            g.attrs[name] = str(val)
+
+            for meta in ['sample_id', 'patient_id', 'fold0', 'fold1', 'fold2', 'fold3', 'fold4']:
+                setattr_if_present(meta)
+
+def load_merged_from_h5(path: str):
+    """Tiny loader showing how to get things back (per sample)."""
+    out = []
+    with h5py.File(path, "r") as f:
+        for sid in f.keys():
+            g = f[sid]
+            item = {
+                'sample_id': sid,
+                'x': g['x'][()] if 'x' in g else None,
+                'tumor_fraction': g['tumor_fraction'][()] if 'tumor_fraction' in g else None,
+                'site_location': g['site_location'][()] if 'site_location' in g else None,
+                'y': g['y'][()] if 'y' in g else None,
+                'tile_info': _read_tile_info(g) if 'tile_info' in g else None,
+                'patient_id': g.attrs.get('patient_id', None),
+                'fold0': g.attrs.get('fold0', None),
+                'fold1': g.attrs.get('fold1', None),
+                'fold2': g.attrs.get('fold2', None),
+                'fold3': g.attrs.get('fold3', None),
+                'fold4': g.attrs.get('fold4', None),
+            }
+            out.append(item)
+    return out

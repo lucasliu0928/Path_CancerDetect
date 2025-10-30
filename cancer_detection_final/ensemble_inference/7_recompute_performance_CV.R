@@ -187,11 +187,12 @@ find_best_cutoff_youden <- function(df,
 ################################################################################
 #User Input
 ################################################################################
-outcome_folder <- "pred_out_100125_test" #pred_out_100125, pred_out_100125_check, pred_out_100125_check_0.98PREV
+outcome_folder <- "pred_out_100125_onlystnorm" #"pred_out_100125_test" #pred_out_100125, pred_out_100125_check, pred_out_100125_check_0.98PREV
 mutation <- "MSI"
 #cancer_threshold <- "0.9"
 
-cancer_threshold_list <- c("0.0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9")
+#cancer_threshold_list <- c("0.0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9")
+cancer_threshold_list <- c("0.0","0.6","0.8","0.9")
 
 
 for (cancer_threshold in cancer_threshold_list){
@@ -220,7 +221,8 @@ for (cancer_threshold in cancer_threshold_list){
     cur_fold <- folds[i]
     
     #Load prediction df
-    pref_file <- file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"), paste0("FOLD",cur_fold), paste0("perf_", cancer_threshold),"after_finetune_performance.csv")
+    #pref_file <- file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"), paste0("FOLD",cur_fold), paste0("perf_", cancer_threshold),"after_finetune_performance.csv")
+    pref_file <- file.path(proj_dir, outcome_folder, paste0(mutation,"_traintf", cancer_threshold), paste0("FOLD",cur_fold), paste0("perf_", cancer_threshold),"after_finetune_performance.csv")
     pref_df <- read.csv(pref_file, stringsAsFactors = F)
     pref_df["MODEL"] <- paste0("FOLD",cur_fold)
     perf_list[[i]] <- pref_df
@@ -261,7 +263,9 @@ for (cancer_threshold in cancer_threshold_list){
     select(X, !ends_with(c("_mean", "_sd"))) %>%
     ungroup()
   
-  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance")
+  #new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance")
+  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_traintf", cancer_threshold),"CV_performance")
+  
   if (!dir.exists(new_dir_path)) {
     # If it doesn't exist, create it
     dir.create(new_dir_path)
@@ -270,7 +274,7 @@ for (cancer_threshold in cancer_threshold_list){
     message(paste("Directory '", new_dir_path, "' already exists.", sep = ""))
   }
   
-  write.csv(cv_perf,file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance", paste0("TF",cancer_threshold, "_perf_CV_AVG_SD.csv")))
+  write.csv(cv_perf,file.path(proj_dir, outcome_folder, paste0(mutation,"_traintf", cancer_threshold),"CV_performance", paste0("TF",cancer_threshold, "_perf_CV_AVG_SD.csv")))
   
   
   
@@ -284,7 +288,7 @@ for (cancer_threshold in cancer_threshold_list){
     cur_fold <- folds[i]
     
     #Load prediction df
-    pred_file <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"), paste0("FOLD",cur_fold), paste0("predictions_", cancer_threshold),"after_finetune_prediction.csv")
+    pred_file <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_traintf", cancer_threshold), paste0("FOLD",cur_fold), paste0("predictions_", cancer_threshold),"after_finetune_prediction.csv")
     pred_df <- read.csv(pred_file, stringsAsFactors = F)
     
     #select columns
@@ -320,7 +324,7 @@ for (cancer_threshold in cancer_threshold_list){
   df_ensemble_tcga <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "TCGA"),]
   df_ensemble_nep <- ensemble_pred_df[which(ensemble_pred_df[,"COHORT"] == "NEP"),]
   
-  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_prediction")
+  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_traintf", cancer_threshold),"ensemble_prediction")
   if (!dir.exists(new_dir_path)) {
     # If it doesn't exist, create it
     dir.create(new_dir_path)
@@ -328,7 +332,7 @@ for (cancer_threshold in cancer_threshold_list){
   } else {
     message(paste("Directory '", new_dir_path, "' already exists.", sep = ""))
   }
-  write.csv(ensemble_pred_df, file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_prediction",paste0("TF",cancer_threshold, "_pred_ensemble.csv")))
+  write.csv(ensemble_pred_df, file.path(proj_dir, outcome_folder, paste0(mutation,"_traintf", cancer_threshold),"ensemble_prediction",paste0("TF",cancer_threshold, "_pred_ensemble.csv")))
   
   
   res_opx <- compute_classification_metrics(df_ensemble_opx, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
@@ -347,7 +351,7 @@ for (cancer_threshold in cancer_threshold_list){
   ensemble_majority_class_perf <- ensemble_majority_class_perf[, !(names(ensemble_majority_class_perf) %in% c("ROC_AUC","PR_AUC"))] #aucs are computed using avg prob not majority
   
   
-  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_performance")
+  new_dir_path <- file.path(proj_dir, outcome_folder,  paste0(mutation,"_traintf", cancer_threshold),"ensemble_performance")
   if (!dir.exists(new_dir_path)) {
     # If it doesn't exist, create it
     dir.create(new_dir_path)
@@ -356,13 +360,13 @@ for (cancer_threshold in cancer_threshold_list){
     message(paste("Directory '", new_dir_path, "' already exists.", sep = ""))
   }
   
-  write.csv(ensemble_majority_class_perf,file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_performance",paste0("TF",cancer_threshold, "_perf_ensemble.csv")))
+  write.csv(ensemble_majority_class_perf,file.path(proj_dir, outcome_folder, paste0(mutation,"_traintf", cancer_threshold),"ensemble_performance",paste0("TF",cancer_threshold, "_perf_ensemble.csv")))
 }
 
 
 
 ##Combine all TF cv perf
-cv_folder <-  file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"CV_performance")
+cv_folder <-  file.path(proj_dir, outcome_folder, paste0(mutation,"_traintf", cancer_threshold),"CV_performance")
 csv_files <-  list.files(cv_folder, pattern = "\\.csv$")
 
 cv_perf_list <- list()
@@ -378,7 +382,7 @@ write.csv(combined_data, paste0(cv_folder, "/ALL_TF_CV_performance.csv"))
 
 
 ##Combine all TF ensemble perf
-cv_folder <-  file.path(proj_dir, outcome_folder, paste0(mutation,"_train_restrict_to_0.9sampling"),"ensemble_performance")
+cv_folder <-  file.path(proj_dir, outcome_folder, paste0(mutation,"_traintf", cancer_threshold),"ensemble_performance")
 csv_files <-  list.files(cv_folder, pattern = "\\.csv$")
 
 cv_perf_list <- list()

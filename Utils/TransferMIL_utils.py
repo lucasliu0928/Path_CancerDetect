@@ -274,7 +274,10 @@ def build_model(model_name: str, device, num_classes=2, n_feature=None):
             raise ValueError("n_feature must be provided for TransMIL")
         model = TransMIL(n_classes=num_classes, in_dim=n_feature)
         model.to(device)
-
+    
+    elif model_name == "ABMIL":
+        model = create_model('abmil',num_classes=num_classes, in_dim=n_feature, from_pretrained=False)
+        model.to(device)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 

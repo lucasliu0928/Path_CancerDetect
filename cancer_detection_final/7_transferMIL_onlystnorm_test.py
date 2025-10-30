@@ -22,7 +22,8 @@ from Loss import FocalLoss, compute_logit_adjustment, compute_label_freq
 from misc_utils import str2bool, create_dir_if_not_exists
 from TransferMIL_utils import build_model, run_eval
 from Eval import bootstrap_ci_from_df_stratified, generate_attention_csv
-
+from data_loader import H5Cases
+from data_loader import get_train_test_valid_h5
 
 
 # source ~/.bashrc
@@ -31,13 +32,13 @@ from Eval import bootstrap_ci_from_df_stratified, generate_attention_csv
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Test")
-parser.add_argument('--tumor_frac', default= 0.9, type=int, help='tile tumor fraction threshold')
+parser.add_argument('--tumor_frac', default= 0.0, type=int, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--logit_adj_train', default=False, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
-parser.add_argument('--out_folder', default= 'pred_out_100125_test', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_100125_onlystnorm', type=str, help='out folder name')
 
 ############################################################################################################
 #     Model Para
@@ -58,8 +59,9 @@ if __name__ == '__main__':
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
     data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
-    model_dir =  os.path.join(proj_dir, 'intermediate_data/pred_out_100125',args.mutation,'locked_models/')
+    model_dir =  os.path.join(proj_dir, 'intermediate_data/',args.out_folder, args.mutation + "_traintf" + str(args.tumor_frac),'locked_models/')
     
+        
     ###################################
     #Load
     ###################################
@@ -74,61 +76,49 @@ if __name__ == '__main__':
     
     data = {}
     
+    #updates: load h5
     for cohort_name in cohorts:
         start_time = time.time()
         base_path = os.path.join(data_dir, 
                                  cohort_name, 
                                  "IMSIZE250_{}", 
                                  f'feature_{args.fe_method}', 
-                                 f"TFT0.0", 
-                                 f'{cohort_name}_data.pth')
+                                 "TFT0.0", 
+                                 f'{cohort_name}_data.h5')
     
-        data[f'{cohort_name}_ol100'] = torch.load(base_path.format("OL100"), weights_only = False)
-        data[f'{cohort_name}_ol0'] = torch.load(base_path.format("OL0"),weights_only = False)
+        data[f'{cohort_name}_ol100'] = H5Cases(os.path.join(base_path.format("OL100")))
+        data[f'{cohort_name}_ol0']   = H5Cases(os.path.join(base_path.format("OL0")))
         
         elapsed_time = time.time() - start_time
         print(f"Time taken for {cohort_name}: {elapsed_time/60:.2f} minutes")
-    
-    ##########################################################################################
-    #Non-st norm 
-    ##########################################################################################
-    opx_ol100_nst = data['z_nostnorm_OPX_ol100']
-    opx_ol0_nst = data['z_nostnorm_OPX_ol0']
-    tcga_ol100_nst = data['z_nostnorm_TCGA_PRAD_ol100']
-    tcga_ol0_nst = data['z_nostnorm_TCGA_PRAD_ol0']
-    nep_ol100_nst = data['z_nostnorm_Neptune_ol100']
-    nep_ol0_nst = data['z_nostnorm_Neptune_ol0']
-    
-    ##########################################################################################
-    #ST-norm
-    ##########################################################################################
-    opx_ol100 = data['OPX_ol100']
+        
+   
     opx_ol0 = data['OPX_ol0']
-    tcga_ol100 = data['TCGA_PRAD_ol100']
     tcga_ol0 = data['TCGA_PRAD_ol0']
-    nep_ol100 = data['Neptune_ol100']
     nep_ol0= data['Neptune_ol0']
+    comb_ol0 = opx_ol0 + tcga_ol0
+        
+    import psutil, os
+    print("Before:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
+    opx_list = [opx_ol0[i] for i in range(len(opx_ol0))]
+    print("After:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
     
-            
-    ##########################################################################################
-    #Merge st norm and no st-norm
-    ##########################################################################################
-    opx_union_ol100  = merge_data_lists(opx_ol100_nst, opx_ol100, merge_type = 'union')
-    opx_union_ol0    = merge_data_lists(opx_ol0_nst, opx_ol0, merge_type = 'union')
-    tcga_union_ol100 = merge_data_lists(tcga_ol100_nst, tcga_ol100, merge_type = 'union')
-    tcga_union_ol0   = merge_data_lists(tcga_ol0_nst, tcga_ol0, merge_type = 'union')
-    nep_union_ol100  = merge_data_lists(nep_ol100_nst, nep_ol100, merge_type = 'union')
-    nep_union_ol0    = merge_data_lists(nep_ol0_nst, nep_ol0, merge_type = 'union')
     
-    #Combine
-    comb_ol100 = opx_union_ol100 + tcga_union_ol100 
-    comb_ol0   = opx_union_ol0 + tcga_union_ol0 
+    print("Before:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
+    tcga_list = [tcga_ol0[i] for i in range(len(tcga_ol0))]
+    print("After:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
     
+    
+    print("Before:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
+    nep_list = [nep_ol0[i] for i in range(len(nep_ol0))]
+    print("After:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
+
+    comb_list = opx_list + tcga_list
     
 
     for f in fold_list:
         tf_list = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-        #tf_list =[0.0]
+        tf_list =[0.0,0.6,0.8,0.9]
         for tf in tf_list:
             
             args.tumor_frac = tf
@@ -137,7 +127,7 @@ if __name__ == '__main__':
             #Create output-dir
             ######################
             outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                                   args.mutation,
+                                   args.mutation + '_traintf' + str(args.tumor_frac),
                                    'FOLD' + str(f))
             outdir4 =  outdir0  + "/predictions_" + str(args.tumor_frac) + "/"
             outdir5 =  outdir0  + "/perf_" + str(args.tumor_frac) + "/"
@@ -148,50 +138,37 @@ if __name__ == '__main__':
             for out_path in outdir_list:
                 create_dir_if_not_exists(out_path)
                 
+
             ####################################
             #Load data
-            ####################################
-            #Get Validation data
-            comb_splits  =  load_dataset_splits(comb_ol0, comb_ol0, f, args.mutation, concat_tf = False)
-            val_data, val_sp_ids, val_pt_ids, val_cohorts, val_coord = comb_splits['val']
+            ####################################    
+            #get train test and valid
+            opx_split    =  load_dataset_splits(opx_list, opx_list, f, args.mutation, concat_tf = False)
+            tcga_split   =  load_dataset_splits(tcga_list, tcga_list, f, args.mutation, concat_tf = False)
+            nep_split    =  load_dataset_splits(nep_list, nep_list, f, args.mutation, concat_tf = False)
+            comb_splits  =  load_dataset_splits(comb_list, comb_list, f, args.mutation, concat_tf = False)
+        
+        
+            test_data, test_sp_ids, test_pt_ids, test_cohorts, _ = comb_splits['test']
+            val_data, val_sp_ids, val_pt_ids, val_cohorts,_ = comb_splits['val']
             
-
-            
-            #get train test and valid split
-            opx_split        =  load_dataset_splits(opx_union_ol0, opx_union_ol0, f, args.mutation, concat_tf = False)
-            opx_st_split     =  load_dataset_splits(opx_ol0, opx_ol0, f, args.mutation, concat_tf = False)
-            opx_nst_split    =  load_dataset_splits(opx_ol0_nst, opx_ol0_nst, f, args.mutation, concat_tf = False)
-
-            
-            tcga_split        =  load_dataset_splits(tcga_union_ol0, tcga_union_ol0, f, args.mutation, concat_tf = False)
-            tcga_st_split     =  load_dataset_splits(tcga_ol0, tcga_ol0, f, args.mutation, concat_tf = False)
-            tcga_nst_split    =  load_dataset_splits(tcga_ol0_nst, tcga_ol0_nst, f, args.mutation, concat_tf = False)
-            
-           
-            nep_split         =  load_dataset_splits(nep_union_ol0, nep_union_ol0, f, args.mutation, concat_tf = False)
-            nep_st_split      =  load_dataset_splits(nep_ol0, nep_ol0, f, args.mutation, concat_tf = False)
-            nep_nst_split     =  load_dataset_splits(nep_ol0_nst, nep_ol0_nst, f, args.mutation, concat_tf = False)
-            
-            
+                    
             # NEP combine train, test and valid in to one test
-            test_data_nep_st, test_sp_id_nep_st, *_ = combine_all(nep_st_split)
+            test_data_nep_st, test_sp_id_nep_st, *_ = combine_all(nep_split)
 
             # OPX test only
             test_data_opx,  test_sp_ids_opx, *_ = just_test(opx_split)
             
             #TCGA test only
             test_data_tcga, test_sp_ids_tcga, *_ = just_test(tcga_split)
-    
-    
-
-    
+                        
+            
             ###filtered 0.9
             test_data_nep_st, mask_nep_st = filter_by_tumor_fraction(test_data_nep_st, threshold = args.tumor_frac)
             test_data_opx, mask_opx = filter_by_tumor_fraction(test_data_opx, threshold = args.tumor_frac)
             test_data_tcga, mask_tcga = filter_by_tumor_fraction(test_data_tcga, threshold = args.tumor_frac)
             val_data, mask_val = filter_by_tumor_fraction(val_data, threshold = args.tumor_frac)
-    
-                
+                        
             ####################################################
             #Select GPU
             ####################################################
@@ -269,7 +246,7 @@ if __name__ == '__main__':
                                                   pred_thres = best_th) #updated validation performance by using its own best thres
             
             #OPX
-            avg_loss, pred_df_opx, pref_tb_opx = run_eval(test_data_opx, test_sp_ids_opx, "OPX_union_test",     
+            avg_loss, pred_df_opx, pref_tb_opx = run_eval(test_data_opx, test_sp_ids_opx, "OPX_test",     
                                                   loss_fn, model= model, device = device,logit_adj_infer = True, 
                                                   logit_adj_train = args.logit_adj_train, 
                                                   logit_adjustments=logit_adjustments, 
@@ -277,7 +254,7 @@ if __name__ == '__main__':
             pref_tb_opx['best_thresh'] = pd.NA
 
             #tcga
-            avg_loss, pred_df_tcga, pref_tb_tcga = run_eval(test_data_tcga, test_sp_ids_tcga, "TCGA_union_test",    
+            avg_loss, pred_df_tcga, pref_tb_tcga = run_eval(test_data_tcga, test_sp_ids_tcga, "TCGA_test",    
                                                   loss_fn, model= model, device = device,logit_adj_infer = True, 
                                                   logit_adj_train = args.logit_adj_train, 
                                                   logit_adjustments=logit_adjustments, 
@@ -285,10 +262,9 @@ if __name__ == '__main__':
             pref_tb_tcga['best_thresh'] = pd.NA
 
             #NEP
-            #TODO correct:
             label_freq_array_ext = np.array([0.98,0.02])
             logit_adjustments_ext = compute_logit_adjustment(label_freq_array_ext, tau = 0.1)
-            avg_loss, pred_df_nep, pref_tb_nep = run_eval(test_data_nep_st, test_sp_id_nep_st, "NEP_st_ALL",
+            avg_loss, pred_df_nep, pref_tb_nep = run_eval(test_data_nep_st, test_sp_id_nep_st, "NEP_ALL",
                                                   loss_fn, model= model, device = device,logit_adj_infer = True, 
                                                   logit_adj_train = args.logit_adj_train, 
                                                   logit_adjustments=logit_adjustments_ext, 
@@ -315,9 +291,9 @@ if __name__ == '__main__':
             
             
             #get attention:
-            generate_attention_csv(model, test_data_opx,   test_sp_ids_opx, mask_opx, opx_union_ol0, outdir6)
-            generate_attention_csv(model, test_data_tcga,  test_sp_ids_tcga, mask_tcga, tcga_union_ol0, outdir6)
-            generate_attention_csv(model, test_data_nep_st, test_sp_id_nep_st, mask_nep_st, nep_ol0, outdir6)
+            generate_attention_csv(model, test_data_opx,   test_sp_ids_opx, mask_opx, opx_list, outdir6)
+            generate_attention_csv(model, test_data_tcga,  test_sp_ids_tcga, mask_tcga, tcga_list, outdir6)
+            generate_attention_csv(model, test_data_nep_st, test_sp_id_nep_st, mask_nep_st, nep_list, outdir6)
     
     
                 
