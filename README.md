@@ -119,6 +119,7 @@ python3 -u 4_get_feature.py --cohort_name TCGA_PRAD --pixel_overlap 0 --fine_tun
 This step generate input data for running HistoTME
 
 **Available models:** Please refer to their official website for available foundation models
+
 **Generated output:**
 - **`sampleid_features.hdf5`** — Tile-level embedding features with features and coords
   
