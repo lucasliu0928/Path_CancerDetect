@@ -28,18 +28,22 @@ from data_loader import get_train_test_valid_h5
 
 # source ~/.bashrc
 # conda activate mil
+# python3 -u 7_transferMILunion2_test.py --tumor_frac 0.9 --model_name ABMIL --fe_method uni1
+# python3 -u 7_transferMILunion2_test.py --tumor_frac 0.9 --model_name ABMIL --fe_method prov_gigapath
+# python3 -u 7_transferMILunion2_test.py --tumor_frac 0.9 --model_name ABMIL --fe_method retccl
+
 ############################################################################################################
 #Parser
 ############################################################################################################
 parser = argparse.ArgumentParser("Test")
-parser.add_argument('--tumor_frac', default= 0.0, type=int, help='tile tumor fraction threshold')
-parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
+parser.add_argument('--tumor_frac', default= 0.9, type=float, help='tile tumor fraction threshold')
+parser.add_argument('--fe_method', default='uni1', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--logit_adj_train', default=False, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--out_folder', default= 'pred_out_100125_union2', type=str, help='out folder name')
-parser.add_argument('--model_name', default='Transfer_MIL', type=str, help='model name: e.g., Transfer_MIL, ABMIL')
+parser.add_argument('--model_name', default='ABMIL', type=str, help='model name: e.g., Transfer_MIL, ABMIL')
 
 ############################################################################################################
 #     Model Para
@@ -61,7 +65,7 @@ if __name__ == '__main__':
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
     data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
     model_dir =  os.path.join(proj_dir, 'intermediate_data/',args.out_folder, 
-                              args.mutation + "_traintf" + str(args.tumor_frac) + "_" + args.model_name,
+                              args.mutation + "_traintf" + str(args.tumor_frac) + "_" + args.model_name + "_" + args.fe_method,
                               'locked_models/')
         
     ###################################
@@ -70,7 +74,7 @@ if __name__ == '__main__':
     cohorts = [
         "z_nostnorm_OPX",
         "z_nostnorm_TCGA_PRAD",
-        "z_nostnorm_Neptune",
+        #"z_nostnorm_Neptune",
         "OPX",
         "TCGA_PRAD",
         "Neptune"
@@ -87,8 +91,8 @@ if __name__ == '__main__':
                                  f'feature_{args.fe_method}', 
                                  "TFT0.0", 
                                  f'{cohort_name}_data.h5')
-    
-        data[f'{cohort_name}_ol100'] = H5Cases(os.path.join(base_path.format("OL100")))
+        if cohort_name != "Neptune":
+            data[f'{cohort_name}_ol100'] = H5Cases(os.path.join(base_path.format("OL100")))    
         data[f'{cohort_name}_ol0']   = H5Cases(os.path.join(base_path.format("OL0")))
         
         elapsed_time = time.time() - start_time
@@ -102,8 +106,6 @@ if __name__ == '__main__':
     opx_ol0_nst = data['z_nostnorm_OPX_ol0']
     tcga_ol100_nst = data['z_nostnorm_TCGA_PRAD_ol100']
     tcga_ol0_nst = data['z_nostnorm_TCGA_PRAD_ol0']
-    nep_ol100_nst = data['z_nostnorm_Neptune_ol100']
-    nep_ol0_nst = data['z_nostnorm_Neptune_ol0']
     
     ##########################################################################################
     #ST-norm
@@ -112,7 +114,6 @@ if __name__ == '__main__':
     opx_ol0 = data['OPX_ol0']
     tcga_ol100 = data['TCGA_PRAD_ol100']
     tcga_ol0 = data['TCGA_PRAD_ol0']
-    nep_ol100 = data['Neptune_ol100']
     nep_ol0= data['Neptune_ol0']
     
     
@@ -149,7 +150,7 @@ if __name__ == '__main__':
             #Create output-dir
             ######################
             outdir0 = os.path.join(proj_dir + "intermediate_data/" + args.out_folder,
-                                   args.mutation + '_traintf' + str(args.tumor_frac) + "_" + args.model_name,
+                                   args.mutation + '_traintf' + str(args.tumor_frac) + "_" + args.model_name + "_" + args.fe_method,
                                    'FOLD' + str(f))
             outdir4 =  outdir0  + "/predictions_" + str(tf) + "/"
             outdir5 =  outdir0  + "/perf_" + str(tf) + "/"
@@ -216,7 +217,7 @@ if __name__ == '__main__':
             
             args.lr = 1e-4
             args.l2_coef = 5e-4
-            model_name = "Transfer_MIL"
+            model_name = args.model_name
             
            
            

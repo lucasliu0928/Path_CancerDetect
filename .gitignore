@@ -1,6 +1,7 @@
 # Ignore Mac system files
 *.DS_store
-
+*.Rhistory
+*.RData
 # Ignore __pycache__ folder
 **/__pycache__/
 

@@ -37,13 +37,17 @@ att_df <- as.data.frame(read_parquet(paste0(data_dir, "TF", format(infer_tf, nsm
 ########################################################################################################################
 #Plot
 ########################################################################################################################
+# cond1 <- att_df[,"majority_class"] == att_df[,"True_y"]
+# cond2 <- att_df[,"True_y"] == 1
+# true_pos_ids <- unique(att_df[which(cond1 & cond2),"SAMPLE_ID"])
+
 cond1 <- att_df[,"majority_class"] == att_df[,"True_y"]
-cond2 <- att_df[,"True_y"] == 1
-true_pos_ids <- unique(att_df[which(cond1 & cond2),"SAMPLE_ID"])
+cond2 <- att_df[,"True_y"] == 0
+true_neg_ids <- unique(att_df[which(cond1 & cond2),"SAMPLE_ID"])
+true_neg_ids <- true_neg_ids[144:160]
+out_folder_name <- "True_negatives_"
 
-
-
-for (sample_id in true_pos_ids){
+for (sample_id in true_neg_ids){
     df <-  att_df[which(att_df[,"SAMPLE_ID"] == sample_id),]
     df <-  df[which(df[,"tumor_fraction"] >= plot_tf),]
     
@@ -67,9 +71,9 @@ for (sample_id in true_pos_ids){
       #   name    = "Attention\nScore"
       # ) +
       theme_void() +
-      labs(title = paste0("Predicted Prob: ", format(round(pred_prob,2),nsmall = 2)), fill = "mean_att") +
+      #labs(title = paste0("Predicted Prob: ", format(round(pred_prob,2),nsmall = 2)), fill = "mean_att") +
       theme(
-        legend.position = "bottom",
+        legend.position = "none",
         legend.title = element_text(size = 6, face = "bold"),
         legend.text = element_text(size = 5),
         legend.key.height = unit(0.25, "cm"),
@@ -80,6 +84,6 @@ for (sample_id in true_pos_ids){
         panel.background = element_rect(fill = "grey95", color = NA)
       )
     print(p)
-    ggsave(paste0(data_dir, sample_id, ".png"), plot = p, width = 2.5, height = 3, dpi = 300)
+    ggsave(paste0(data_dir,out_folder_name, sample_id, ".png"), plot = p, width = 2.3, height = 3, dpi = 200)
 
 }

@@ -9,7 +9,7 @@ library(tidyverse)
 library(ggpubr)
 library(rstatix)
 library(arrow)
-source("tme_utils.R")
+#source("~/histoTME/tme_utils.R")
 
 
 ########################################################################################################################

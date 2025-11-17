@@ -7,7 +7,7 @@ import os
 import torch
 import argparse
 import time
-sys.path.insert(0, '../../Utils/') #NOTE: need to have this to include data_loader.py for modeldata_diffdim_v2
+sys.path.insert(0, '../../Utils/') 
 from histoTME_util import create_dir_if_not_exists, save_hdf5
 import ast
 import numpy as np

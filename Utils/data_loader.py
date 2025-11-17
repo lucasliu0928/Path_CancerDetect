@@ -20,7 +20,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import io
-import json
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
+from tqdm import tqdm
+from pathlib import Path
 
 def get_feature_idexes(method, include_tumor_fraction = True):
     
@@ -494,8 +497,6 @@ def get_final_model_data_v2(opx, tcga, nep, id_data_dir, train_cohort, mutation,
         
     else:
         raise ValueError(f"Unknown training cohort: {train_cohort}")
-
-    #TODO for three cohort train
     
     #Get Train, validation and test
     split_data = get_final_split_data(id_data_dir,
@@ -958,7 +959,7 @@ def combine_features_label_allsamples(selected_ids, feature_path, fe_method, TUM
     return all_comb_df, all_comb
 
 def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', selected_label = 'HR1', concat_tf  = False):
-    
+
     #Get label
     all_labels = ["AR", "HR1", "HR2", "PTEN","RB1","TP53","TMB","MSI"]
     label_idx = all_labels.index(selected_label) 
@@ -986,8 +987,26 @@ def get_model_ready_data(datalist, fold_name = 'fold0', data_type = 'TRAIN', sel
     
     return data_tensor, sample_ids, patient_ids, corhor_names, coords
 
+def find_missing_groups(ds, idx_map):
+    """
+    Find sample_ids whose mapped group key does NOT exist in ds._f["cases"].
+    idx_map is the result of your index_sid_to_idx or index_sid_to_key.
+    """
+    ds._ensure()
+    cases = ds._f["cases"]
+    existing_keys = set(cases.keys())
+
+    missing = []
+    for sid, key in idx_map.items():
+        key = str(key)  # ensure string
+        if key not in existing_keys:
+            missing.append((sid, key))
+
+    return missing
+
 
 def load_dataset_splits(ol100, ol0, fold, label, concat_tf = False):
+    
     """Load train, validation, and test splits for a dataset."""
     train, train_sp_ids, train_pt_ids, train_cohorts, train_coords = get_model_ready_data(
         ol100, f'fold{fold}', 'TRAIN', selected_label=label, concat_tf = concat_tf
@@ -1109,13 +1128,16 @@ def merge_data_lists(list1, list2, merge_type = 'union'):
     return merged_list
 
 
-def _index_sid_to_idx(ds):
-    ds._ensure()
+def index_sid_to_idx(ds):
+    ds._ensure()                     # ensures ds._f is an open h5py.File
     idx = {}
     cases = ds._f["cases"]
-    for k in cases.keys():
-        sid = cases[k].attrs["sample_id"]
-        idx[sid] = int(k)  # group names are "0","1",...
+
+    for k in cases.keys():           # keys are "0", "1", "2", ...
+        g = cases[k]
+        sid = g.attrs["sample_id"]   # read the attribute only (very cheap)
+        idx[sid] = int(k)
+
     return idx
 
 
@@ -1190,28 +1212,84 @@ def merge_data_lists_h5(h5_case1, h5_case2, merge_type = 'union'):
     """
 
     #get ID to IDX map
-    idx_a = _index_sid_to_idx(h5_case1)
-    idx_b = _index_sid_to_idx(h5_case2)
+    idx_a = index_sid_to_idx(h5_case1)
+    idx_b = index_sid_to_idx(h5_case2)
     
     all_ids = sorted(set(idx_a) | set(idx_b))  #union of the two ids
     
     merged_list = []
-    for i, sid in enumerate(all_ids):
-        if i % 10 == 0:
-            print(i)
-        
+    for sid in tqdm(all_ids, desc="Merging samples"):
         d1 = h5_case1[idx_a[sid]] if sid in idx_a else None
         d2 = h5_case2[idx_b[sid]] if sid in idx_b else None
         
         
         if d1 and d2: #if both exsits
-            merged = merge_sample(d1, d2, merge_type = "union")
+            merged = merge_sample(d1, d2, merge_type = merge_type)
             merged_list.append(merged)
 
     return merged_list
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
+
+
+def save_merged_samples_to_h5(merged_samples, out_path):
+    """
+    Save a list (or iterable) of merged sample dicts into an HDF5 file
+    with the same structure expected by H5Cases:
+
+        /cases/<idx>/
+            x
+            y
+            tumor_fraction
+            site_location
+            other_info_csv
+            attrs: sample_id, patient_id, fold0..4
+    """
+    def _to_numpy(arr):
+        # Handle torch tensors and numpy arrays
+        if isinstance(arr, torch.Tensor):
+            return arr.detach().cpu().numpy()
+        return np.asarray(arr)
+
+    def _write_tile_info(group, df: pd.DataFrame):
+        # Store tile_info DataFrame as CSV bytes, like your loader expects
+        csv_str = df.to_csv(index=False)
+        csv_bytes = np.frombuffer(csv_str.encode("utf-8"), dtype='uint8')
+        group.create_dataset("other_info_csv", data=csv_bytes)
+
+    with h5py.File(out_path, "w") as f:
+        cases = f.create_group("cases")
+
+        # tqdm progress bar
+        for i, sample in tqdm(
+            enumerate(merged_samples),
+            total=len(merged_samples),
+            desc="Writing merged HDF5"
+        ):
+            g = cases.create_group(str(i))
+
+            # --- main tensors/arrays
+            g.create_dataset("x",              data=_to_numpy(sample["x"]))
+            g.create_dataset("y",              data=_to_numpy(sample["y"]))
+            g.create_dataset("tumor_fraction", data=_to_numpy(sample["tumor_fraction"]))
+            g.create_dataset("site_location",  data=_to_numpy(sample["site_location"]))
+
+            # --- tile_info as CSV bytes
+            _write_tile_info(g, sample["tile_info"])
+
+            # --- attributes
+            g.attrs["sample_id"]  = sample["sample_id"]
+            g.attrs["patient_id"] = sample["patient_id"]
+            g.attrs["fold0"] = sample["fold0"]
+            g.attrs["fold1"] = sample["fold1"]
+            g.attrs["fold2"] = sample["fold2"]
+            g.attrs["fold3"] = sample["fold3"]
+            g.attrs["fold4"] = sample["fold4"]
+
+
+
+def h5_to_list(ds):
+    return [ds[i] for i in tqdm(range(len(ds)), desc="Loading H5 cases")]
+
 def _merge_one_sid(sid, idx_a, idx_b, h5_case1, h5_case2, merge_type):
     
     d1 = h5_case1[idx_a[sid]] if sid in idx_a else None
@@ -1223,8 +1301,8 @@ def _merge_one_sid(sid, idx_a, idx_b, h5_case1, h5_case2, merge_type):
     return merge_sample(d1, d2, merge_type)  
 
 def merge_data_lists_h5_parallel(h5_case1, h5_case2, merge_type='union', max_workers=None):
-    idx_a = _index_sid_to_idx(h5_case1)
-    idx_b = _index_sid_to_idx(h5_case2)
+    idx_a = index_sid_to_idx(h5_case1)
+    idx_b = index_sid_to_idx(h5_case2)
 
     # iterate only ids that yield merged results (both exist)
     all_ids = list(idx_a.keys() & idx_b.keys())
@@ -1249,6 +1327,116 @@ def merge_data_lists_h5_parallel(h5_case1, h5_case2, merge_type='union', max_wor
     # keep original order, drop None
     return [r for r in results if r is not None]
 
+
+
+def merge_data_lists_h5_parallel_v2(h5_case1, h5_case2, merge_type="union", max_workers=4):
+    idx_a = index_sid_to_idx(h5_case1)
+    idx_b = index_sid_to_idx(h5_case2)
+    all_ids = sorted(set(idx_a) | set(idx_b))
+
+    def worker(sid):
+        if sid in idx_a and sid in idx_b:
+            d1 = h5_case1[idx_a[sid]]
+            d2 = h5_case2[idx_b[sid]]
+            return merge_sample(d1, d2, merge_type)
+        return None
+
+    merged = []
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        for i, out in enumerate(ex.map(worker, all_ids)):
+            if i % 10 == 0:
+                print(i)
+            if out is not None:
+                merged.append(out)
+    return merged
+
+
+def merge_data_lists_h5_serial(h5_case1, h5_case2, merge_type='union'):
+    idx_a = index_sid_to_idx(h5_case1)
+    idx_b = index_sid_to_idx(h5_case2)
+    all_ids = list(idx_a.keys() & idx_b.keys())
+
+    results = []
+    for sid in tqdm(all_ids, desc="Merging samples", unit="sample"):
+        r = _merge_one_sid(sid, idx_a, idx_b, h5_case1, h5_case2, merge_type)
+        if r is not None:
+            results.append(r)
+    return results
+
+
+
+
+def _to_np(x):
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.asarray(x)
+
+def merge_data_lists_h5_to_file(h5_case1, h5_case2, out_path, merge_type="union", max_workers=4):
+    idx_a = index_sid_to_idx(h5_case1)
+    idx_b = index_sid_to_idx(h5_case2)
+    all_ids = sorted(set(idx_a) | set(idx_b))
+
+    start = time.time()
+    def worker(args):
+        sid, idx = args
+        if sid in idx_a and sid in idx_b:
+            d1 = h5_case1[idx_a[sid]]
+            d2 = h5_case2[idx_b[sid]]
+            merged = merge_sample(d1, d2, merge_type)
+            # return what we need to write
+            return sid, idx, merged, d1, d2
+        return None
+
+    with h5py.File(out_path, "w") as fout:
+        cases = fout.create_group("cases")
+
+        # optional: store how many we planned to write
+        cases.attrs["planned_n"] = len(all_ids)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            for i, result in enumerate(ex.map(worker, [(sid, i) for i, sid in enumerate(all_ids)])):
+                if result is None:
+                    continue
+                sid, i, merged, d1, d2 = result
+
+                g = cases.create_group(str(i))
+                # --- datasets ---
+                g.create_dataset("x", data=_to_np(merged["x"]), compression="gzip", compression_opts=4, shuffle=True)
+                g.create_dataset("y", data=_to_np(merged["y"]), compression="gzip", compression_opts=4, shuffle=True)
+                g.create_dataset("tumor_fraction", data=_to_np(merged["tumor_fraction"]))
+                g.create_dataset("site_location",  data=_to_np(merged["site_location"]))
+
+                # Save CSV info as bytes
+                if hasattr(merged["tile_info"], "to_csv"):
+                    csv_bytes = merged["tile_info"].to_csv(index=False).encode("utf-8")
+                else:
+                    # if already raw CSV string/bytes
+                    csv_bytes = (merged["tile_info"].encode("utf-8")
+                                 if isinstance(merged["tile_info"], str)
+                                 else bytes(merged["tile_info"]))
+                g.create_dataset("other_info_csv", data=np.frombuffer(csv_bytes, dtype=np.uint8))
+
+                # --- attributes (make file compatible with H5Cases) ---
+                g.attrs["sample_id"] = sid
+                # prefer values on merged; else fall back to d1/d2; else default
+                g.attrs["patient_id"] = (merged.get("patient_id", None)
+                                         or d1.get("patient_id", None)
+                                         or d2.get("patient_id", ""))
+
+                for k in ("fold0","fold1","fold2","fold3","fold4"):
+                    val = (merged.get(k, None) if isinstance(merged, dict) else None)
+                    if val is None: val = d1.get(k, None)
+                    if val is None: val = d2.get(k, None)
+                    if val is None: val = -1
+                    g.attrs[k] = val
+
+                if i % 10 == 0:
+                    print(f"{i}/{len(all_ids)} written in {time.time()-start:.2f}s")
+
+    print(f"✅ Done writing merged HDF5 to {out_path} ({time.time()-start:.2f}s)")
+
+
+    
 
 class ListDataset(Dataset):
     def __init__(self, data):
@@ -1608,8 +1796,7 @@ def filter_by_tumor_fraction(data, threshold=0.9):
 
 
 
-import h5py, numpy as np, pandas as pd, json, os
-from pathlib import Path
+
 
 def write_h5_dataset(path, dataset):
     path = Path(path)
@@ -1871,50 +2058,7 @@ def _read_tile_info(group: h5py.Group) -> pd.DataFrame:
     df = pd.DataFrame(out)
     return df
 
-def save_merged_to_h5(out_path: str, merged_list: list, x_compression="gzip"):
-    """
-    Save merged samples to HDF5.
-    Each sample becomes a group named by its sample_id (or index if missing).
-    """
-    with h5py.File(out_path, "w") as f:
-        f.attrs['format'] = 'merged_h5_cases_v1'
 
-        for i, sample in enumerate(merged_list):
-            sid = str(sample.get('sample_id', f"sample_{i}"))
-            g = f.create_group(sid)
-
-            # Core arrays
-            if 'x' in sample:
-                x_np = _to_numpy(sample['x'])
-                g.create_dataset('x', data=x_np, compression=x_compression, shuffle=True, chunks=True)
-            if 'tumor_fraction' in sample:
-                tf_np = _to_numpy(sample['tumor_fraction'])
-                g.create_dataset('tumor_fraction', data=tf_np, compression="gzip", shuffle=True)
-            if 'site_location' in sample:
-                sl_np = _to_numpy(sample['site_location'])
-                g.create_dataset('site_location', data=sl_np, compression="gzip", shuffle=True)
-            if 'y' in sample and sample['y'] is not None:
-                y_np = _to_numpy(sample['y'])
-                g.create_dataset('y', data=y_np)
-
-            # tile_info DataFrame
-            if 'tile_info' in sample and isinstance(sample['tile_info'], pd.DataFrame):
-                _write_tile_info(g, sample['tile_info'])
-
-            # Metadata as attributes (strings/ints)
-            def setattr_if_present(name):
-                val = sample.get(name, None)
-                if val is not None:
-                    if isinstance(val, (str, bytes)):
-                        g.attrs[name] = str(val)
-                    else:
-                        try:
-                            g.attrs[name] = np.asarray(val)
-                        except Exception:
-                            g.attrs[name] = str(val)
-
-            for meta in ['sample_id', 'patient_id', 'fold0', 'fold1', 'fold2', 'fold3', 'fold4']:
-                setattr_if_present(meta)
 
 def load_merged_from_h5(path: str):
     """Tiny loader showing how to get things back (per sample)."""

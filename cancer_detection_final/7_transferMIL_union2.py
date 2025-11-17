@@ -16,8 +16,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 sys.path.insert(0, '../Utils/')
-from data_loader import merge_data_lists_h5, load_dataset_splits, merge_data_lists_h5_parallel, save_merged_to_h5
-from data_loader import combine_all, just_test, uniform_sample_all_samples
+from data_loader import load_dataset_splits, h5_to_list, combine_all, just_test, uniform_sample_all_samples
 from Loss import FocalLoss, compute_logit_adjustment, compute_label_freq
 from misc_utils import str2bool
 from misc_utils import create_dir_if_not_exists, set_seed
@@ -38,7 +37,7 @@ from abmil import ABMILModel
 
 # source ~/.bashrc
 # conda activate mil
-# python3 -u 7_transferMIL_union2.py --tumor_frac 0.9 --fe_method prov_gigapath
+# python3 -u 7_transferMIL_union2.py --tumor_frac 0.9 --fe_method virchow2
 #   
 #   
 
@@ -52,7 +51,7 @@ parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda devi
 parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--logit_adj_train', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
-parser.add_argument('--out_folder', default= 'pred_out_100125_union2', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_111625_union2', type=str, help='out folder name')
 parser.add_argument('--model_name', default='ABMIL', type=str, help='model name: e.g., Transfer_MIL, ABMIL')
 
 
@@ -76,70 +75,36 @@ if __name__ == '__main__':
     ##################
     proj_dir = '/fh/fast/etzioni_r/Lucas/mh_proj/mutation_pred/' 
     data_dir = os.path.join(proj_dir, "intermediate_data", "5_combined_data")
-    data_out_dir = os.path.join(proj_dir, "intermediate_data", "7_final_model_ready_data")
-        
+    folder_name_100 = "IMSIZE250_OL100/TFT0.0"
+    folder_name_0 = "IMSIZE250_OL0/TFT0.0"
+    
     ###################################
-    #Load
+    #Load data
     ###################################
-    cohorts = [
-        "z_nostnorm_OPX",
-        "z_nostnorm_TCGA_PRAD",
-        #"z_nostnorm_Neptune",
-        "OPX",
-        "TCGA_PRAD",
-        "Neptune"
-    ]
-    
-    data = {}
-    
-    #updates: load h5
-    for cohort_name in cohorts:
-        start_time = time.time()
-        base_path = os.path.join(data_dir, 
-                                 cohort_name, 
-                                 "IMSIZE250_{}", 
-                                 f'feature_{args.fe_method}', 
-                                 "TFT0.0", 
-                                 f'{cohort_name}_data.h5')
-        
-        if cohort_name != "Neptune":
-            data[f'{cohort_name}_ol100'] = H5Cases(os.path.join(base_path.format("OL100")))
-        data[f'{cohort_name}_ol0']   = H5Cases(os.path.join(base_path.format("OL0")))
-        
-        elapsed_time = time.time() - start_time
-        print(f"Time taken for {cohort_name}: {elapsed_time/60:.2f} minutes")
-        
-   
-    opx_ol100_nst = data['z_nostnorm_OPX_ol100']
-    opx_ol0_nst = data['z_nostnorm_OPX_ol0']
-    tcga_ol100_nst = data['z_nostnorm_TCGA_PRAD_ol100']
-    tcga_ol0_nst = data['z_nostnorm_TCGA_PRAD_ol0']
-    
-    opx_ol100 = data['OPX_ol100']
-    opx_ol0 = data['OPX_ol0']
-    tcga_ol100 = data['TCGA_PRAD_ol100']
-    tcga_ol0 = data['TCGA_PRAD_ol0']
-    nep_ol0= data['Neptune_ol0']
-    
+    opx_union_ol100  = H5Cases(os.path.join(data_dir, "Union_OPX", folder_name_100 , f'union_opx_feature_{args.fe_method}_ol100.h5'))
+    opx_union_ol0    = H5Cases(os.path.join(data_dir, "Union_OPX", folder_name_0 , f'union_opx_feature_{args.fe_method}_ol0.h5'))
+    tcga_union_ol100 = H5Cases(os.path.join(data_dir, "Union_TCGA_PRAD", folder_name_100 , f'union_TCGA_PRAD_feature_{args.fe_method}_ol100.h5'))
+    tcga_union_ol0 =  H5Cases(os.path.join(data_dir, "Union_TCGA_PRAD", folder_name_0 , f'union_TCGA_PRAD_feature_{args.fe_method}_ol0.h5'))
 
-    def h5_to_list(ds):
-        """Convert an H5Cases dataset to a list of sample dicts."""
-        return [ds[i] for i in range(len(ds))]
+    nep_ol0 = H5Cases(os.path.join(data_dir, "Neptune", "IMSIZE250_OL0", f'feature_{args.fe_method}', "TFT0.0", 'Neptune_data.h5'))
+        
+
+    #conver h5cases to list
+    opx_union_ol100 = h5_to_list(opx_union_ol100)
+    opx_union_ol0 = h5_to_list(opx_union_ol0)
+    tcga_union_ol100 = h5_to_list(tcga_union_ol100)
+    tcga_union_ol0 = h5_to_list(tcga_union_ol0)
     nep_ol0 = h5_to_list(nep_ol0)
+
+
     
     ##########################################################################################
-    #Merge st norm and no st-norm
+    #Combine TCGA and OPX
     ##########################################################################################
-    opx_union_ol100  = merge_data_lists_h5_parallel(opx_ol100_nst, opx_ol100, merge_type = 'union')
-    opx_union_ol0  = merge_data_lists_h5_parallel(opx_ol0_nst, opx_ol0, merge_type = 'union')
-    tcga_union_ol100 = merge_data_lists_h5_parallel(tcga_ol100_nst, tcga_ol100, merge_type = 'union')
-    tcga_union_ol0   = merge_data_lists_h5_parallel(tcga_ol0_nst, tcga_ol0, merge_type = 'union')
-
     #Combine
     comb_ol100 = opx_union_ol100 + tcga_union_ol100 
     comb_ol0   = opx_union_ol0 + tcga_union_ol0 
-    
-    #save_merged_to_h5(os.path.join(data_out_dir,"opx_union_ol100.h5"), opx_union_ol100)
+
 
     ######################
     #Train
@@ -162,7 +127,6 @@ if __name__ == '__main__':
         
         for out_path in outdir_list:
             create_dir_if_not_exists(out_path)
-            
             
             
         ####################################
