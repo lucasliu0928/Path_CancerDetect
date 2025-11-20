@@ -8,7 +8,7 @@ Created on Sat Nov 16 19:32:29 2024
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix,fbeta_score,average_precision_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix,fbeta_score,average_precision_score, precision_recall_curve
 from sklearn import metrics
 import torchvision
 import numpy as np
@@ -36,6 +36,9 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
     
     # Average precision score = PR-AUC
     PR_AUC = average_precision_score(y_true, y_pred_prob)
+    
+    precision_, recall_, thresholds = precision_recall_curve(y_true, y_pred_prob)
+    best_thresh_prauc = sorted(list(zip(np.abs(precision_ - recall_), thresholds)), key=lambda i: i[0], reverse=False)[0][1]
 
     AUC = round(metrics.auc(fpr, tpr),2)
     ACC = round(accuracy_score(y_true, y_pred_class),2)
@@ -50,6 +53,7 @@ def compute_performance(y_true,y_pred_prob,y_pred_class, cohort_name):
 
     
     perf_tb = pd.DataFrame({"best_thresh": best_thresh,
+                            "best_thresh_prauc": best_thresh_prauc,
                             "AUC": AUC,
                             "PR_AUC":PR_AUC,
                             "Recall": Recall,
@@ -827,3 +831,16 @@ def generate_attention_csv(model,
         
         att_df = tile_info[['pred_map_location',"att","tumor_fraction"]]
         att_df.to_csv(os.path.join(outdir, sp_id + "_att.csv"))
+
+
+def get_final_perf(pred_data, cohort, logit_adj_infer = True):
+
+    if logit_adj_infer:
+        y_true, prob, pred = pred_data['True_y'], pred_data['adj_prob_1'], pred_data['Pred_Class_adj']
+    else:
+        y_true, prob, pred = pred_data['True_y'], pred_data['prob_1'], pred_data['Pred_Class']
+    
+    perf_tb = compute_performance(y_true, prob, pred, cohort)
+    perf_tb['best_thresh'] = pd.NA
+    
+    return perf_tb

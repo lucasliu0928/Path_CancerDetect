@@ -78,6 +78,7 @@ tme_df <- merge(tme_df,pred_df, by = "SAMPLE_ID")
 plot_heatmap_TME(tme_df, "NEP", out_dir)
 plot_heatmap_TME(tme_df, "OPX", out_dir)
 plot_heatmap_TME(tme_df, "TCGA", out_dir)
+plot_heatmap_TME(tme_df, NA, out_dir)
 
 
 
@@ -198,15 +199,19 @@ true_pos_ids <- unique(att_df[which(cond1 & cond2),"SAMPLE_ID"])
 all_test_ids <- unique(att_df[,"SAMPLE_ID"])
 plot_tf <- 0.0
 
+
+att_df_true_pos_list <- list()
+ct <- 0
 for (sample_id in true_pos_ids){
-  
+  ct <- ct + 1
   df <-  att_df[which(att_df[,"SAMPLE_ID"] == sample_id),]
   df <-  df[which(df[,"tumor_fraction"] >= plot_tf),]
-
+  
   pred_prob <- unique(df[,"mean_adj_prob_votedclass"])
   
   # Get min/max for normalization
   df <- min_max_norm(df,"mean_att")
+  att_df_true_pos_list[[ct]] <- df
   folder_id <- unique(df$FOLDER_ID)
   
   #Load slide hitTME
@@ -263,12 +268,65 @@ for (sample_id in true_pos_ids){
 }
 
 
-# Data in two numeric vectors
-women_weight <- c(38.9, 61.2, 73.3, 21.8, 63.4, 64.6, 48.4, 48.8, 48.5)
-men_weight <- c(67.8, 60, 63.4, 76, 89.4, 73.3, 67.3, 61.3, 62.4) 
-# Create a data frame
-my_data <- data.frame( 
-  group = rep(c("Woman", "Man"), each = 9),
-  weight = c(women_weight,  men_weight)
+#Normlized att for true pos
+att_df_true_pos_norm <- do.call(rbind,att_df_true_pos_list)
+
+df <- att_df_true_pos_norm
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+
+## 1. Define tumor_fraction groups
+df$tumor_group <- cut(
+  df$tumor_fraction,
+  breaks  = c(0, 0.05, 0.5, 1),
+  labels  = c("No Tumor", "Low Tumor", "High Tumor"),
+  include.lowest = TRUE
 )
+
+## 2. Get the actual range of tumor_fraction in each group
+ranges <- df %>%
+  group_by(tumor_group) %>%
+  summarise(
+    min_frac = min(tumor_fraction, na.rm = TRUE),
+    max_frac = max(tumor_fraction, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ranges   # this prints a table with min/max for each group
+
+## 3. Build labels that include the ranges (rounded here)
+range_labels <- with(
+  ranges,
+  setNames(
+    paste0(as.character(tumor_group),
+           "\n(", round(min_frac, 3), "–", round(max_frac, 3), ")"),
+    as.character(tumor_group)
+  )
+)
+
+comparisons <- list(
+  c("No Tumor", "Low Tumor"),
+  c("Low Tumor", "High Tumor"),
+  c("No Tumor", "High Tumor")
+)
+
+ggplot(df, aes(x = tumor_group, y = mean_att, fill = tumor_group)) +
+  geom_boxplot(alpha = 0.6) +
+  stat_compare_means(
+    comparisons = comparisons,
+    method = "wilcox.test",
+    label = "p.signif",
+    label.y = c(1.15, 1.22, 1.29)
+  ) +
+  scale_x_discrete(labels = range_labels) +  # <-- shows the ranges
+  labs(
+    #title = "Attention Score Across Tumor Fraction Groups",
+    x = "Tumor Fraction Group",
+    y = "Attention Score"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
 

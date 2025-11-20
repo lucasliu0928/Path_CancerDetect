@@ -45,7 +45,7 @@ parser = argparse.ArgumentParser("Train")
 parser.add_argument('--tumor_frac', default= 0.0, type=float, help='tile tumor fraction threshold')
 parser.add_argument('--fe_method', default='uni2', type=str, help='feature extraction model: retccl, uni1, uni2, prov_gigapath, virchow2')
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
-parser.add_argument('--mutation', default='HR2', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
+parser.add_argument('--mutation', default='MSI', type=str, help='Selected Mutation e.g., MT for speciifc mutation name')
 parser.add_argument('--logit_adj_train', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--out_folder', default= 'pred_out_100125', type=str, help='out folder name')
@@ -223,6 +223,10 @@ if __name__ == '__main__':
                     device = device, 
                     num_classes=2, 
                     n_feature = N_FEATURE)
+        
+        # Iterate and print all parameters
+        for param in model.parameters():
+            print(param)
             
         #loss_fn = FocalLoss(alpha=-1, gamma=0, reduction='mean')
         loss_fn = FocalLoss(alpha=0.25, gamma=2, reduction='mean')

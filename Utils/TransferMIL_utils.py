@@ -190,6 +190,7 @@ def get_predict_df(logits_list, labels_list, sample_ids, logits_list_adj = None,
 def run_eval(data, sp_ids, cohort, criterion, model, 
              device, logit_adj_infer, logit_adj_train, logit_adjustments, 
              l2_coef=0, pred_thres = 0.5, dict_flag = False):
+    
     avg_loss, pred_df = validate(
         data, sp_ids, model, device, criterion,
         logit_adjustments,

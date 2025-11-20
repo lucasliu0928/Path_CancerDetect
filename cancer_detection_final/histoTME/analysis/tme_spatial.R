@@ -60,7 +60,7 @@ plot_tile_metric <- function(
 ############################################################################################################
 proj_dir <- "/Volumes/Lucas/mh_proj/mutation_pred/intermediate_data/"
 histo_data_dir <- paste0(proj_dir, "0_HistoTME/TME_Spatial/TF0.0/uni2/")
-cohort_name <- "Neptune"
+cohort_name <- "OPX"
 value_col <- "Checkpoint_inhibition" #Checkpoint_inhibition, T_cells
 cancer_data_dir <- paste0(proj_dir, "2_cancer_detection/", cohort_name, "/IMSIZE250_OL0/")
 

@@ -99,95 +99,13 @@ compute_classification_metrics <- function(
   return(out)
 }
 
-library(pROC)
-library(dplyr)
-library(tibble)
-
-find_best_cutoff_youden <- function(df,
-                                    truth_col = "True_y",
-                                    prob_col  = "mean_adj_prob",
-                                    positive_label = 1) {
-  # --- Prepare inputs ---------------------------------------------------------
-  actual_raw <- df[[truth_col]]
-  prob       <- df[[prob_col]]
-  
-  # Coerce truth to a factor with levels "0","1" (positive = "1")
-  # Works whether original is 0/1 numeric, character, or factor
-  to01 <- function(x, pos = positive_label) {
-    if (is.factor(x)) x <- as.character(x)
-    if (is.character(x)) {
-      as.integer(x == as.character(pos))
-    } else {
-      as.integer(x == pos)
-    }
-  }
-  actual01 <- to01(actual_raw, pos = positive_label)
-  actual_f <- factor(actual01, levels = c(0, 1), labels = c("0", "1"))
-  
-  # Guard: need >1 unique probability value for ROC to be defined
-  if (length(unique(na.omit(prob))) < 2) {
-    return(tibble(
-      thresh = NA_real_, Sensitivity = NA_real_, Specificity = NA_real_,
-      Youden_J = NA_real_, TP = NA_integer_, FP = NA_integer_,
-      TN = NA_integer_, FN = NA_integer_, ROC_AUC = NA_real_
-    ))
-  }
-  
-  # --- ROC & AUC --------------------------------------------------------------
-  roc_obj <- roc(response = actual_f,
-                 predictor = prob,
-                 levels   = c("0", "1"), # "1" is positive
-                 direction = ">",        # higher prob => positive
-                 quiet = TRUE)
-  
-  roc_auc_value <- as.numeric(auc(roc_obj))
-  
-  # --- Best cutoff by Youden's J ----------------------------------------------
-  # coords returns a data.frame when transpose = FALSE
-  best_df <- coords(
-    roc_obj,
-    x = "best",
-    best.method = "youden",
-    ret = c("threshold", "sensitivity", "specificity"),
-    transpose = FALSE
-  ) %>% as.data.frame()
-  
-  # If multiple candidates tie, break ties by:
-  # 1) max J, then 2) closest to sens == spec (balanced), then 3) smallest threshold
-  best_row <- best_df %>%
-    mutate(Youden_J = sensitivity + specificity - 1,
-           tie_bal  = abs(sensitivity - specificity)) %>%
-    arrange(desc(Youden_J), tie_bal, threshold) %>%
-    slice(1)
-  
-  thresh <- as.numeric(best_row$threshold)
-  sens   <- as.numeric(best_row$sensitivity)
-  spec   <- as.numeric(best_row$specificity)
-  J      <- as.numeric(best_row$Youden_J)
-  
-  # --- Confusion counts at this threshold -------------------------------------
-  pred01 <- as.integer(prob >= thresh)
-  TP <- sum(pred01 == 1 & actual01 == 1, na.rm = TRUE)
-  FP <- sum(pred01 == 1 & actual01 == 0, na.rm = TRUE)
-  TN <- sum(pred01 == 0 & actual01 == 0, na.rm = TRUE)
-  FN <- sum(pred01 == 0 & actual01 == 1, na.rm = TRUE)
-  
-  tibble(
-    thresh = thresh,
-    Sensitivity = sens,
-    Specificity = spec,
-    Youden_J = J,
-    TP = TP, FP = FP, TN = TN, FN = FN,
-    ROC_AUC = roc_auc_value
-  )
-}
 
 
 
 ################################################################################
 #User Input
 ################################################################################
-outcome_folder <- "pred_out_100125_union2" #"pred_out_100125_test" #pred_out_100125, pred_out_100125_check, pred_out_100125_check_0.98PREV
+outcome_folder <- "pred_out_100125_union2_check" #"pred_out_100125_union2" 
 mutation <- "MSI"
 #model_folder<- "MSI_traintf0.9_Transfer_MIL_uni2/"
 #cancer_threshold <- "0.9"
@@ -211,6 +129,7 @@ model_list = c('MSI_traintf0.9_ABMIL_prov_gigapath',
                'MSI_traintf0.2_Transfer_MIL_uni2',
                'MSI_traintf0.1_Transfer_MIL_uni2',
                'MSI_traintf0.0_Transfer_MIL_uni2')
+model_list = c("MSI_traintf0.9_Transfer_MIL_uni2")
 for (model_folder in model_list){
   
   
@@ -336,6 +255,7 @@ for (model_folder in model_list){
           True_y = first(True_y) 
         )
       
+      
       ensemble_pred_df <- as.data.frame(ensemble_pred_df)
       ensemble_pred_df[,"COHORT"] <- NA
       ensemble_pred_df[which(grepl("OPX",ensemble_pred_df[,"SAMPLE_ID"])),"COHORT"] <- "OPX"
@@ -363,6 +283,78 @@ for (model_folder in model_list){
       res_nep <- compute_classification_metrics(df_ensemble_nep, truth_col = "True_y", prob_col = "mean_adj_prob",pred_col = "majority_class")
       res_nep["CORHOT"] <- "NEPTUNE"
       
+      #TODO
+      #compute_classification_metrics(ensemble_pred_df, truth_col = "True_y", prob_col = "mean_adj_prob_votedclass",pred_col = "majority_class")
+      
+      df <- ensemble_pred_df
+      colnames(df)[colnames(df) == 'mean_adj_prob_votedclass'] <- "p_hat"
+      colnames(df)[colnames(df) == 'True_y'] <- "y_true"
+      
+      # Put predictions into 10 bins (deciles)
+      df$bin <- cut(df$p_hat,
+                    breaks = quantile(df$p_hat, probs = seq(0, 1, 0.1), na.rm = TRUE),
+                    include.lowest = TRUE)
+      
+      # For each bin, compute mean predicted and observed risk
+      calib <- aggregate(cbind(p_hat, y_true) ~ bin, data = df, FUN = mean)
+      
+      ggplot(calib, aes(x = p_hat, y = y_true)) +
+        geom_point() +
+        geom_line() +
+        geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+        labs(x = "Predicted probability",
+             y = "Observed event rate",
+             title = "Calibration plot") +
+        theme_minimal() +
+        ylim(0,0.3)
+      
+      
+      # Make sure probabilities are strictly between 0 and 1
+      eps   <- 1e-6
+      p_adj <- pmin(pmax(df$p_hat, eps), 1 - eps)
+      
+      # Log-odds of original predictions
+      lp <- qlogis(p_adj)  # log(p/(1-p))
+      y_true <- df$y_true
+      
+      # Fit logistic recalibration model: logit(y) = alpha + beta * logit(p_hat)
+      fit_cal <- glm(y_true ~ lp, family = binomial)
+      
+      summary(fit_cal)  # look at intercept (alpha) and slope (beta)
+      
+      alpha <- coef(fit_cal)[1]
+      beta  <- coef(fit_cal)[2]
+      
+      # Calibrated probabilities
+      p_cal <- plogis(alpha + beta * lp)
+      df$p_cal <- p_cal
+
+      # Put predictions into 10 bins (deciles)
+      df$bin <- cut(df$p_cal,
+                    breaks = quantile(df$p_cal, probs = seq(0, 1, 0.1), na.rm = TRUE),
+                    include.lowest = TRUE)
+      
+      # For each bin, compute mean predicted and observed risk
+      calib <- aggregate(cbind(p_cal, y_true) ~ bin, data = df, FUN = mean)
+      
+      ggplot(calib, aes(x = p_cal, y = y_true)) +
+        geom_point() +
+        geom_line() +
+        geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+        labs(x = "Predicted probability",
+             y = "Observed event rate",
+             title = "Calibration plot") +
+        theme_minimal() +
+        ylim(0,0.3)
+      
+      # library(rms)
+      # 
+      # df <- data.frame(y_true, p_hat)
+      # dd <- datadist(df); options(datadist = "dd")
+      # 
+      # fit <- lrm(y_true ~ p_hat, data = df, x = TRUE, y = TRUE)
+      # cal <- calibrate(fit, method = "boot", B = 200)  # bootstrap-corrected
+      # plot(cal, xlab = "Predicted probability", ylab = "Observed probability")
       
       ################################################################################
       #If ensemble using majority class performance
@@ -416,6 +408,10 @@ for (model_folder in model_list){
     write.csv(combined_data, paste0(cv_folder, "/ALL_TF_ensemble_performance.csv"))
 
 }
+
+
+
+
 # ################################################################################
 # # Use avg predicted prob to find best threshold
 # # redo logit adj for nep

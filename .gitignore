@@ -29,3 +29,6 @@
 # Don't ignore this one
 !requirements_predict.txt
 
+**/*.csv
+
+wandb/

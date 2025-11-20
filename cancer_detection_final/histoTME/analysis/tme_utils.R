@@ -101,7 +101,11 @@ plot_feature_comparison <- function(tme_data, cohort, target_group, x_label){
 plot_heatmap_TME <- function(tme_data, cohort, out_dir){
   
   #Plot data
-  plot_df <- tme_data[which(tme_data[,"COHORT"] == cohort),]
+  if (is.na(cohort)){
+    plot_df <- tme_data
+  }else{
+   plot_df <- tme_data[which(tme_data[,"COHORT"] == cohort),]
+  }
   rownames(plot_df) <- plot_df[,"SAMPLE_ID"]
   
   #Get FP and FN

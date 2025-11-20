@@ -25,18 +25,8 @@ from Eval import bootstrap_ci_from_df_stratified, generate_attention_csv
 from data_loader import H5Cases
 from data_loader import get_train_test_valid_h5
 from Eval import compute_performance
+from Eval import get_final_perf
 
-
-def get_final_perf(pred_data, cohort, logit_adj_infer = True):
-                   
-    if logit_adj_infer:
-        y_true, prob, pred = pred_data['True_y'], pred_data['adj_prob_1'], pred_data['Pred_Class_adj']
-    else:
-        y_true, prob, pred = pred_data['True_y'], pred_data['prob_1'], pred_data['Pred_Class']
-    perf_tb = compute_performance(y_true, prob, pred, cohort)
-    perf_tb['best_thresh'] = pd.NA
-    
-    return perf_tb
         
 # source ~/.bashrc
 # conda activate mil
@@ -51,7 +41,8 @@ parser = argparse.ArgumentParser("Test")
 parser.add_argument('--cuda_device', default='cuda:1', type=str, help='cuda device name: cuda:0,1,2,3')
 parser.add_argument('--logit_adj_infer', default=True, type=str2bool, help='Train with logit adjustment')
 parser.add_argument('--model_name', default= 'MSI_traintf0.0_Transfer_MIL_uni2', type=str, help='model name')
-parser.add_argument('--out_folder', default= 'pred_out_100125_union2', type=str, help='out folder name')
+#parser.add_argument('--out_folder', default= 'pred_out_100125_union2', type=str, help='out folder name')
+parser.add_argument('--out_folder', default= 'pred_out_111625_union2', type=str, help='out folder name')
 
 
             
@@ -74,6 +65,7 @@ if __name__ == '__main__':
                   'MSI_traintf0.2_Transfer_MIL_uni2',
                   'MSI_traintf0.1_Transfer_MIL_uni2',
                   'MSI_traintf0.0_Transfer_MIL_uni2']
+    model_list = ['MSI_traintf0.0_Transfer_MIL_uni2']
     for model_name in model_list:
         
         args.model_name = model_name
@@ -109,12 +101,12 @@ if __name__ == '__main__':
             pred_df_nep = pred_df[cond3].copy()
             
             #ALL TEST without NEP
-            pred_df_opx_uw = pred_df[cond | cond2].copy()
+            pred_df_opx_tcga = pred_df[cond | cond2].copy()
             
             
             #Compute all cohort performance
             all_perf_tb = get_final_perf(pred_df, "OPX_TCGA_TEST_and_NEP_ALL", logit_adj_infer = args.logit_adj_infer)
-            perf_tb_tcga_opx = get_final_perf(pred_df_opx_uw, "OPX_TCGA_TEST", logit_adj_infer = args.logit_adj_infer)
+            perf_tb_tcga_opx = get_final_perf(pred_df_opx_tcga, "OPX_TCGA_TEST", logit_adj_infer = args.logit_adj_infer)
             perf_tb_opx = get_final_perf(pred_df_opx, "OPX_test", logit_adj_infer = args.logit_adj_infer)
             perf_tb_tcga = get_final_perf(pred_df_tcga, "TCGA_test", logit_adj_infer = args.logit_adj_infer)
             perf_tb_nep = get_final_perf(pred_df_nep, "NEP_ALL", logit_adj_infer = args.logit_adj_infer)
